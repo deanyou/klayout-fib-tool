@@ -5,6 +5,14 @@ A simple, practical tool for marking FIB operations on IC layouts.
 No over-engineering, no fancy abstractions - just what works.
 """
 
+import sys
+import os
+
+# Add the current directory to Python path
+script_dir = os.path.dirname(os.path.abspath(__file__))
+if script_dir not in sys.path:
+    sys.path.insert(0, script_dir)
+
 import pya
 from plugin import FIBPlugin
 

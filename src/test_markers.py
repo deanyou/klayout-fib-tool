@@ -4,6 +4,14 @@ Simple test script for markers
 Run this in KLayout's Macro Development window to test marker creation.
 """
 
+import sys
+import os
+
+# Add the current directory to Python path
+script_dir = os.path.dirname(os.path.abspath(__file__))
+if script_dir not in sys.path:
+    sys.path.insert(0, script_dir)
+
 import pya
 from markers import CutMarker, ConnectMarker, ProbeMarker
 from storage import save_markers, load_markers

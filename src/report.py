@@ -5,6 +5,14 @@ Simple HTML report. No Jinja2 for MVP - just string formatting.
 Keep it simple, stupid.
 """
 
+import sys
+import os
+
+# Add the current directory to Python path
+script_dir = os.path.dirname(os.path.abspath(__file__))
+if script_dir not in sys.path:
+    sys.path.insert(0, script_dir)
+
 from datetime import datetime
 from typing import List, Union
 from pathlib import Path

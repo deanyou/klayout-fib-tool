@@ -5,6 +5,14 @@ Core plugin logic. Handles mouse events and coordinates between UI and data.
 Keep it simple - no state machines, just direct mode handling.
 """
 
+import sys
+import os
+
+# Add the current directory to Python path
+script_dir = os.path.dirname(os.path.abspath(__file__))
+if script_dir not in sys.path:
+    sys.path.insert(0, script_dir)
+
 import pya
 from markers import CutMarker, ConnectMarker, ProbeMarker
 from storage import save_markers, load_markers, draw_markers_to_gds
@@ -13,15 +21,15 @@ from config import LAYERS
 from ui import FIBToolDialog
 
 
-class FIBPlugin(pya.Plugin):
+class FIBPlugin:
     """
     FIB Tool Plugin
     
-    Handles mouse events to create markers on the layout.
+    Manages markers and coordinates between UI and data.
+    Note: Not using pya.Plugin to avoid PluginFactory requirements.
     """
     
     def __init__(self, view):
-        super().__init__()
         self.view = view
         self.markers = []
         self.mode = None  # 'cut', 'connect', 'probe', or None
@@ -34,24 +42,92 @@ class FIBPlugin(pya.Plugin):
         # Current cell and layout
         self.cell = None
         self.layout = None
+        
+        # Mouse click handler
+        self.mouse_handler = None
     
     def show_dialog(self):
         """Show the FIB tool dialog"""
         if self.dialog is None:
-            self.dialog = FIBToolDialog(self.view, self)
+            # Get main window as parent
+            main_window = pya.Application.instance().main_window()
+            self.dialog = FIBToolDialog(main_window, self)
         self.dialog.show()
     
     def activate_mode(self, mode):
         """Activate a marker creation mode"""
         self.mode = mode
         self.temp_point = None
-        self.grab_mouse()  # Start capturing mouse events
+        # Note: Mouse events will be handled through view's mouse click events
+        # We'll use a simpler approach without grab_mouse()
     
     def deactivate_mode(self):
         """Deactivate current mode"""
         self.mode = None
         self.temp_point = None
-        self.ungrab_mouse()
+    
+    def create_cut_marker(self, x, y, direction):
+        """Create a CUT marker at specified coordinates"""
+        if not self._update_current_cell():
+            raise RuntimeError("No active cell")
+        
+        # Get target layer
+        layer = self._get_layer_at_position(x, y)
+        
+        # Create marker
+        marker_id = f"CUT_{self.marker_counter['cut']}"
+        self.marker_counter['cut'] += 1
+        
+        marker = CutMarker(marker_id, x, y, direction, layer)
+        self.markers.append(marker)
+        
+        # Draw to GDS
+        fib_layer = self.layout.layer(LAYERS['cut'], 0)
+        marker.to_gds(self.cell, fib_layer)
+        
+        return marker
+    
+    def create_connect_marker(self, x1, y1, x2, y2):
+        """Create a CONNECT marker"""
+        if not self._update_current_cell():
+            raise RuntimeError("No active cell")
+        
+        # Get target layer
+        layer = self._get_layer_at_position(x1, y1)
+        
+        # Create marker
+        marker_id = f"CONNECT_{self.marker_counter['connect']}"
+        self.marker_counter['connect'] += 1
+        
+        marker = ConnectMarker(marker_id, x1, y1, x2, y2, layer)
+        self.markers.append(marker)
+        
+        # Draw to GDS
+        fib_layer = self.layout.layer(LAYERS['connect'], 0)
+        marker.to_gds(self.cell, fib_layer)
+        
+        return marker
+    
+    def create_probe_marker(self, x, y):
+        """Create a PROBE marker"""
+        if not self._update_current_cell():
+            raise RuntimeError("No active cell")
+        
+        # Get target layer
+        layer = self._get_layer_at_position(x, y)
+        
+        # Create marker
+        marker_id = f"PROBE_{self.marker_counter['probe']}"
+        self.marker_counter['probe'] += 1
+        
+        marker = ProbeMarker(marker_id, x, y, layer)
+        self.markers.append(marker)
+        
+        # Draw to GDS
+        fib_layer = self.layout.layer(LAYERS['probe'], 0)
+        marker.to_gds(self.cell, fib_layer)
+        
+        return marker
     
     def mouse_click_event(self, p, buttons, prio):
         """Handle mouse click events"""

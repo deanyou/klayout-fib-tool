@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="utf-8"?>
+<klayout-macro>
+ <description>FIB Tool - Mark FIB operations on IC layouts</description>
+ <version>1.0</version>
+ <category>pymacros</category>
+ <prolog/>
+ <interpreter>python</interpreter>
+ <dsl-interpreter-name/>
+ <text>import sys
+import os
+
+# Add the current directory to Python path
+script_dir = os.path.dirname(os.path.abspath(__file__))
+if script_dir not in sys.path:
+    sys.path.insert(0, script_dir)
+
+import pya
+from markers import CutMarker, ConnectMarker, ProbeMarker
+from storage import save_markers, load_markers, draw_markers_to_gds
+from config import LAYERS
+
+
+class FIBToolPlugin(pya.Plugin):
+    """
+    FIB Tool Plugin - Handles mouse events for marker creation
+    """
+    
+    def __init__(self, manager):
+        super(FIBToolPlugin, self).__init__()
+        self.manager = manager
+        self.mode = None  # 'cut', 'connect', 'probe'
+        self.temp_points = []  # Store clicked points
+        self.markers = []
+        self.marker_counter = {'cut': 0, 'connect': 0, 'probe': 0}
+    
+    def activated(self):
+        """Called when plugin is activated"""
+        self.grab_mouse()
+        pya.MainWindow.instance().message("FIB Tool: Select mode (Cut/Connect/Probe)", 5000)
+    
+    def deactivated(self):
+        """Called when plugin is deactivated"""
+        pya.MainWindow.instance().message("", 0)
+        self.mode = None
+        self.temp_points = []
+    
+    def set_mode(self, mode):
+        """Set the current operation mode"""
+        self.mode = mode
+        self.temp_points = []
+        
+        if mode == 'cut':
+            pya.MainWindow.instance().message("CUT mode: Click twice (position + direction)", 10000)
+        elif mode == 'connect':
+            pya.MainWindow.instance().message("CONNECT mode: Click twice (start + end)", 10000)
+        elif mode == 'probe':
+            pya.MainWindow.instance().message("PROBE mode: Click once", 10000)
+    
+    def mouse_click_event(self, p, buttons, prio):
+        """Handle mouse click events"""
+        if not prio or self.mode is None:
+            return False
+        
+        # Get current view and cell
+        view = pya.Application.instance().main_window().current_view()
+        if not view or not view.active_cellview().is_valid():
+            return False
+        
+        cellview = view.active_cellview()
+        cell = cellview.cell
+        layout = cellview.layout()
+        
+        # Convert to microns
+        x = p.x * layout.dbu
+        y = p.y * layout.dbu
+        
+        # Store the point
+        self.temp_points.append((x, y))
+        
+        # Handle different modes
+        if self.mode == 'cut':
+            if len(self.temp_points) == 2:
+                self._create_cut_marker(cell, layout)
+                self.temp_points = []
+        elif self.mode == 'connect':
+            if len(self.temp_points) == 2:
+                self._create_connect_marker(cell, layout)
+                self.temp_points = []
+        elif self.mode == 'probe':
+            if len(self.temp_points) == 1:
+                self._create_probe_marker(cell, layout)
+                self.temp_points = []
+        
+        return True
+    
+    def _create_cut_marker(self, cell, layout):
+        """Create CUT marker from two points"""
+        x1, y1 = self.temp_points[0]
+        x2, y2 = self.temp_points[1]
+        
+        # Calculate direction
+        dx = x2 - x1
+        dy = y2 - y1
+        if abs(dx) > abs(dy):
+            direction = 'right' if dx > 0 else 'left'
+        else:
+            direction = 'up' if dy > 0 else 'down'
+        
+        # Create marker
+        marker_id = f"CUT_{self.marker_counter['cut']}"
+        self.marker_counter['cut'] += 1
+        
+        marker = CutMarker(marker_id, x1, y1, direction, 6)
+        self.markers.append(marker)
+        
+        # Draw to GDS
+        fib_layer = layout.layer(LAYERS['cut'], 0)
+        marker.to_gds(cell, fib_layer)
+        
+        pya.MainWindow.instance().message(f"Created {marker_id}", 2000)
+    
+    def _create_connect_marker(self, cell, layout):
+        """Create CONNECT marker from two points"""
+        x1, y1 = self.temp_points[0]
+        x2, y2 = self.temp_points[1]
+        
+        # Create marker
+        marker_id = f"CONNECT_{self.marker_counter['connect']}"
+        self.marker_counter['connect'] += 1
+        
+        marker = ConnectMarker(marker_id, x1, y1, x2, y2, 6)
+        self.markers.append(marker)
+        
+        # Draw to GDS
+        fib_layer = layout.layer(LAYERS['connect'], 0)
+        marker.to_gds(cell, fib_layer)
+        
+        pya.MainWindow.instance().message(f"Created {marker_id}", 2000)
+    
+    def _create_probe_marker(self, cell, layout):
+        """Create PROBE marker from one point"""
+        x, y = self.temp_points[0]
+        
+        # Create marker
+        marker_id = f"PROBE_{self.marker_counter['probe']}"
+        self.marker_counter['probe'] += 1
+        
+        marker = ProbeMarker(marker_id, x, y, 6)
+        self.markers.append(marker)
+        
+        # Draw to GDS
+        fib_layer = layout.layer(LAYERS['probe'], 0)
+        marker.to_gds(cell, fib_layer)
+        
+        pya.MainWindow.instance().message(f"Created {marker_id}", 2000)
+
+
+# Shared plugin instance
+_shared_plugin = None
+
+def get_shared_plugin(manager):
+    """Get or create shared plugin instance"""
+    global _shared_plugin
+    if _shared_plugin is None:
+        _shared_plugin = FIBToolPlugin(manager)
+    return _shared_plugin
+
+
+# Plugin factories for each mode
+class FIBCutPluginFactory(pya.PluginFactory):
+    def __init__(self):
+        super(FIBCutPluginFactory, self).__init__()
+        self.register(-1000, "fib_cut", "FIB Cut")
+    
+    def create_plugin(self, manager, root, view):
+        plugin = get_shared_plugin(manager)
+        plugin.set_mode('cut')
+        return plugin
+
+
+class FIBConnectPluginFactory(pya.PluginFactory):
+    def __init__(self):
+        super(FIBConnectPluginFactory, self).__init__()
+        self.register(-1001, "fib_connect", "FIB Connect")
+    
+    def create_plugin(self, manager, root, view):
+        plugin = get_shared_plugin(manager)
+        plugin.set_mode('connect')
+        return plugin
+
+
+class FIBProbePluginFactory(pya.PluginFactory):
+    def __init__(self):
+        super(FIBProbePluginFactory, self).__init__()
+        self.register(-1002, "fib_probe", "FIB Probe")
+    
+    def create_plugin(self, manager, root, view):
+        plugin = get_shared_plugin(manager)
+        plugin.set_mode('probe')
+        return plugin
+
+
+# Create and register all three factories
+FIBCutPluginFactory.instance = FIBCutPluginFactory()
+FIBConnectPluginFactory.instance = FIBConnectPluginFactory()
+FIBProbePluginFactory.instance = FIBProbePluginFactory()
+
+print("FIB Tool loaded. Three buttons added to toolbar: FIB Cut, FIB Connect, FIB Probe")
+</text>
+</klayout-macro>

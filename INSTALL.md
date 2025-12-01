@@ -31,20 +31,26 @@
 
    ```bash
    # macOS/Linux
-   cd /Users/dean/Documents/git/klayout-fib-tool/klayout-fib-tool
-   cp -r src ~/.klayout/pymacros/fib_tool
+   cd /Users/dean/Documents/git/klayout-fib-tool
+   cp -r src/* ~/.klayout/pymacros/
    
    # Windows (PowerShell)
-   cd C:\path\to\klayout-fib-tool\klayout-fib-tool
-   Copy-Item -Recurse src $env:APPDATA\KLayout\pymacros\fib_tool
+   cd C:\path\to\klayout-fib-tool
+   Copy-Item -Recurse src\* $env:APPDATA\KLayout\pymacros\
    ```
+   
+   **重要**：
+   - 将 `src` 目录下的**所有文件**直接复制到 `pymacros` 目录
+   - 不要创建 `fib_tool` 子目录
+   - 确保 `fib_tool.lym` 文件在 `pymacros` 目录下
 
 3. **重启 KLayout**
 
 4. **验证安装**
    - 打开 KLayout
-   - 加载任意 GDS 文件
-   - 按 `Ctrl+Shift+F` 或查看工具栏是否有 "FIB Tool" 按钮
+   - 查看 **Tools → Macros** 菜单，应该能看到 "FIB Tool"
+   - 或者按 `Ctrl+Shift+F`
+   - 或者查看工具栏是否有 "FIB Tool" 按钮
 
 ### 方法 2：开发模式（用于调试）
 
@@ -52,10 +58,10 @@
 
 ```bash
 # macOS/Linux
-ln -s /Users/dean/Documents/git/klayout-fib-tool/klayout-fib-tool/src ~/.klayout/pymacros/fib_tool
+ln -s /Users/dean/Documents/git/klayout-fib-tool/src ~/.klayout/pymacros/fib_tool
 
 # Windows (需要管理员权限)
-mklink /D %APPDATA%\KLayout\pymacros\fib_tool C:\path\to\src
+mklink /D %APPDATA%\KLayout\pymacros\fib_tool C:\path\to\klayout-fib-tool\src
 ```
 
 这样修改代码后只需重启 KLayout 即可生效。

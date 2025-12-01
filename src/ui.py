@@ -11,7 +11,8 @@ class FIBToolDialog(pya.QDialog):
     """Main FIB Tool dialog window"""
     
     def __init__(self, parent, plugin):
-        super().__init__(parent)
+        # Don't pass parent to avoid type issues
+        super().__init__()
         self.plugin = plugin
         self.setWindowTitle("FIB Tool")
         self.resize(300, 500)
@@ -75,21 +76,93 @@ class FIBToolDialog(pya.QDialog):
     
     def _on_cut_clicked(self):
         """Activate cut mode"""
-        self.plugin.activate_mode('cut')
-        self.status_label.setText("Cut mode: Click twice to mark cut position and direction")
-        self._update_button_states('cut')
+        self.status_label.setText("Creating CUT marker - please enter coordinates...")
+        
+        # For MVP, use simple input dialogs instead of mouse events
+        # This avoids the PluginFactory complexity
+        try:
+            x = pya.QInputDialog.getDouble(self, "CUT Marker", "Enter X coordinate (um):", 0, -10000, 10000, 3)
+            if not x[1]:  # User cancelled
+                self.status_label.setText("Cancelled")
+                return
+            
+            y = pya.QInputDialog.getDouble(self, "CUT Marker", "Enter Y coordinate (um):", 0, -10000, 10000, 3)
+            if not y[1]:
+                self.status_label.setText("Cancelled")
+                return
+            
+            directions = ["up", "down", "left", "right"]
+            direction = pya.QInputDialog.getItem(self, "CUT Marker", "Select direction:", directions, 0, False)
+            if not direction[1]:
+                self.status_label.setText("Cancelled")
+                return
+            
+            # Create marker
+            self.plugin.create_cut_marker(x[0], y[0], direction[0])
+            self.refresh_marker_list()
+            
+        except Exception as e:
+            self.status_label.setText(f"Error: {str(e)}")
+        
+        self._update_button_states(None)
     
     def _on_connect_clicked(self):
         """Activate connect mode"""
-        self.plugin.activate_mode('connect')
-        self.status_label.setText("Connect mode: Click twice to mark start and end points")
-        self._update_button_states('connect')
+        self.status_label.setText("Creating CONNECT marker - please enter coordinates...")
+        
+        try:
+            x1 = pya.QInputDialog.getDouble(self, "CONNECT Marker", "Enter start X coordinate (um):", 0, -10000, 10000, 3)
+            if not x1[1]:
+                self.status_label.setText("Cancelled")
+                return
+            
+            y1 = pya.QInputDialog.getDouble(self, "CONNECT Marker", "Enter start Y coordinate (um):", 0, -10000, 10000, 3)
+            if not y1[1]:
+                self.status_label.setText("Cancelled")
+                return
+            
+            x2 = pya.QInputDialog.getDouble(self, "CONNECT Marker", "Enter end X coordinate (um):", 0, -10000, 10000, 3)
+            if not x2[1]:
+                self.status_label.setText("Cancelled")
+                return
+            
+            y2 = pya.QInputDialog.getDouble(self, "CONNECT Marker", "Enter end Y coordinate (um):", 0, -10000, 10000, 3)
+            if not y2[1]:
+                self.status_label.setText("Cancelled")
+                return
+            
+            # Create marker
+            self.plugin.create_connect_marker(x1[0], y1[0], x2[0], y2[0])
+            self.refresh_marker_list()
+            
+        except Exception as e:
+            self.status_label.setText(f"Error: {str(e)}")
+        
+        self._update_button_states(None)
     
     def _on_probe_clicked(self):
         """Activate probe mode"""
-        self.plugin.activate_mode('probe')
-        self.status_label.setText("Probe mode: Click once to mark probe position")
-        self._update_button_states('probe')
+        self.status_label.setText("Creating PROBE marker - please enter coordinates...")
+        
+        try:
+            x = pya.QInputDialog.getDouble(self, "PROBE Marker", "Enter X coordinate (um):", 0, -10000, 10000, 3)
+            if not x[1]:
+                self.status_label.setText("Cancelled")
+                return
+            
+            y = pya.QInputDialog.getDouble(self, "PROBE Marker", "Enter Y coordinate (um):", 0, -10000, 10000, 3)
+            if not y[1]:
+                self.status_label.setText("Cancelled")
+                return
+            
+            # Create marker
+            self.plugin.create_probe_marker(x[0], y[0])
+            self.refresh_marker_list()
+            
+        except Exception as e:
+            self.status_label.setText(f"Error: {str(e)}")
+        
+        self._update_button_states(None)
     
     def _update_button_states(self, active_mode):
         """Highlight active button"""
