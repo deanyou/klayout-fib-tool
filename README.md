@@ -1,7 +1,3 @@
-<<<<<<< HEAD
-# klayout-fib-tool
-fib tool for klayout
-=======
 # KLayout FIB Tool
 
 **简单、实用的 FIB 标注工具。遵循 Linus Torvalds 编程哲学：零废话，直接能用。**
@@ -143,4 +139,3 @@ MIT License
 ---
 
 **简单、实用、零废话。代码说话。** for klayout
->>>>>>> d8690d6 (feat: implement KLayout FIB Tool MVP)
