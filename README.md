@@ -1,4 +1,4 @@
-# KLayout FIB Tool
+# KLayout FIB Tool --> development stage (Not ready for production)
 
 **简单、实用的 FIB 标注工具。遵循 Linus Torvalds 编程哲学：零废话，直接能用。**
 
