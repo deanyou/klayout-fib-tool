@@ -13,75 +13,50 @@ from config import LAYERS, SYMBOL_SIZES
 
 @dataclass
 class CutMarker:
-    """Cut operation marker - X symbol with direction arrow"""
+    """Cut operation marker - Line connecting two mouse click points"""
     id: str
-    x: float
-    y: float
-    direction: str  # "up", "down", "left", "right"
+    x1: float  # First click point
+    y1: float
+    x2: float  # Second click point
+    y2: float
     layer: int
     
     def to_gds(self, cell, fib_layer):
-        """Draw X symbol + arrow + label on GDS using fixed width path"""
+        """Draw line connecting the two click points with fixed width"""
         dbu = cell.layout().dbu
-        size = SYMBOL_SIZES['cut']['size']
-        arrow_len = SYMBOL_SIZES['cut']['arrow_length']
         fixed_width = 0.2  # Fixed line width in microns
         width = int(fixed_width / dbu)  # Convert to database units
         
-        # Convert to database units
-        cx = int(self.x / dbu)
-        cy = int(self.y / dbu)
-        half = int(size / 2 / dbu)
+        # Convert coordinates to database units
+        p1_x = int(self.x1 / dbu)
+        p1_y = int(self.y1 / dbu)
+        p2_x = int(self.x2 / dbu)
+        p2_y = int(self.y2 / dbu)
         
-        # Draw X symbol (two diagonal lines) with fixed width
-        pts1 = [pya.Point(cx - half, cy + half), pya.Point(cx + half, cy - half)]
-        pts2 = [pya.Point(cx - half, cy - half), pya.Point(cx + half, cy + half)]
-        cell.shapes(fib_layer).insert(pya.Path(pts1, width))
-        cell.shapes(fib_layer).insert(pya.Path(pts2, width))
+        # Draw line connecting the two points
+        pts = [pya.Point(p1_x, p1_y), pya.Point(p2_x, p2_y)]
+        cell.shapes(fib_layer).insert(pya.Path(pts, width))
         
-        # Draw direction arrow with fixed width
-        arrow_end = self._get_arrow_end(cx, cy, arrow_len, dbu)
-        arrow_pts = [pya.Point(cx, cy), arrow_end]
-        cell.shapes(fib_layer).insert(pya.Path(arrow_pts, width))
-        
-        # Record start and end coordinates (for reference)
-        self.start_x = self.x
-        self.start_y = self.y
-        self.end_x = arrow_end.x * dbu
-        self.end_y = arrow_end.y * dbu
-        
-        # Draw label
-        text = pya.Text(self.id, pya.Trans(arrow_end))
+        # Draw label at the midpoint
+        mid_x = int((p1_x + p2_x) / 2)
+        mid_y = int((p1_y + p2_y) / 2)
+        text = pya.Text(self.id, pya.Trans(pya.Point(mid_x, mid_y)))
         cell.shapes(fib_layer).insert(text)
-    
-    def _get_arrow_end(self, cx, cy, arrow_len, dbu):
-        """Calculate arrow endpoint based on direction"""
-        offset = int(arrow_len / dbu)
-        directions = {
-            'up': pya.Point(cx, cy + offset),
-            'down': pya.Point(cx, cy - offset),
-            'left': pya.Point(cx - offset, cy),
-            'right': pya.Point(cx + offset, cy),
-        }
-        return directions.get(self.direction, pya.Point(cx, cy - offset))
     
     def to_xml(self) -> str:
         """Serialize to XML element"""
-        return (f'<cut id="{self.id}" x="{self.x}" y="{self.y}" ' 
-                f'direction="{self.direction}" layer="{self.layer}" ' 
-                f'start_x="{getattr(self, "start_x", self.x)}" ' 
-                f'start_y="{getattr(self, "start_y", self.y)}" ' 
-                f'end_x="{getattr(self, "end_x", self.x)}" ' 
-                f'end_y="{getattr(self, "end_y", self.y)}"/>')
+        return (f'<cut id="{self.id}" x1="{self.x1}" y1="{self.y1}" ' 
+                f'x2="{self.x2}" y2="{self.y2}" layer="{self.layer}"/>')
     
     @staticmethod
     def from_xml(elem) -> 'CutMarker':
         """Deserialize from XML element"""
         return CutMarker(
             id=elem.get('id'),
-            x=float(elem.get('x')),
-            y=float(elem.get('y')),
-            direction=elem.get('direction'),
+            x1=float(elem.get('x1')),
+            y1=float(elem.get('y1')),
+            x2=float(elem.get('x2')),
+            y2=float(elem.get('y2')),
             layer=int(elem.get('layer'))
         )
 

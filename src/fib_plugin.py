@@ -32,27 +32,17 @@ marker_counter = {
 
 # Marker creation functions
 def create_cut_marker(x1, y1, x2, y2):
-    """Create a CUT marker"""
+    """Create a CUT marker connecting two points"""
     global marker_counter
     
     print(f"[DEBUG] create_cut_marker called with: x1={x1}, y1={y1}, x2={x2}, y2={y2}")
     
-    # Calculate direction
-    dx = x2 - x1
-    dy = y2 - y1
-    if abs(dx) > abs(dy):
-        direction = 'right' if dx > 0 else 'left'
-    else:
-        direction = 'up' if dy > 0 else 'down'
-    
-    print(f"[DEBUG] Direction calculated: {direction} (dx={dx}, dy={dy})")
-    
-    # Create marker
+    # Create marker with both points
     marker_id = f"CUT_{marker_counter['cut']}"
     marker_counter['cut'] += 1
     
-    marker = CutMarker(marker_id, x1, y1, direction, 6)
-    print(f"[DEBUG] Created marker: {marker_id} at ({x1}, {y1}) direction: {direction}")
+    marker = CutMarker(marker_id, x1, y1, x2, y2, 6)
+    print(f"[DEBUG] Created marker: {marker_id} from ({x1}, {y1}) to ({x2}, {y2})")
     return marker
 
 def create_connect_marker(x1, y1, x2, y2):
