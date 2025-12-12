@@ -22,8 +22,8 @@ class FIBToolMenu(pya.Action):
     
     def __init__(self):
         super().__init__()
-        self.setText("FIB Tool")
-        self.setShortcut("Ctrl+Shift+F")
+        self.set_text("FIB Tool")
+        self.set_shortcut("Ctrl+Shift+F")
         self.triggered(self.on_triggered)
         self.plugin = None
     
@@ -43,8 +43,17 @@ class FIBToolMenu(pya.Action):
         self.plugin.show_dialog()
 
 
-# Register the menu action
+# Register the menu action in the Tools menu
 menu = FIBToolMenu()
-pya.Application.instance().main_window().menu().insert_item("@toolbar.end", "fib_tool", menu)
+main_menu = pya.Application.instance().main_window().menu()
 
-print("FIB Tool loaded. Access via Tools menu or Ctrl+Shift+F")
+# First try to insert into Tools menu
+result = main_menu.insert_item("@tools.end", "fib_tool", menu)
+if not result:
+    # Fallback to main menu if Tools menu not found
+    result = main_menu.insert_item("@main/end", "fib_tool", menu)
+
+# Also add to toolbar
+main_menu.insert_item("@toolbar.end", "fib_tool", menu)
+
+print(f"FIB Tool loaded. Access via {result and 'Tools menu' or 'Main menu'} or Ctrl+Shift+F")

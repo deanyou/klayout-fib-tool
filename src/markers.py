@@ -21,27 +21,34 @@ class CutMarker:
     layer: int
     
     def to_gds(self, cell, fib_layer):
-        """Draw X symbol + arrow + label on GDS"""
+        """Draw X symbol + arrow + label on GDS using fixed width path"""
         dbu = cell.layout().dbu
         size = SYMBOL_SIZES['cut']['size']
         arrow_len = SYMBOL_SIZES['cut']['arrow_length']
-        width = int(SYMBOL_SIZES['cut']['line_width'] / dbu)
+        fixed_width = 0.2  # Fixed line width in microns
+        width = int(fixed_width / dbu)  # Convert to database units
         
         # Convert to database units
         cx = int(self.x / dbu)
         cy = int(self.y / dbu)
         half = int(size / 2 / dbu)
         
-        # Draw X symbol (two diagonal lines)
+        # Draw X symbol (two diagonal lines) with fixed width
         pts1 = [pya.Point(cx - half, cy + half), pya.Point(cx + half, cy - half)]
         pts2 = [pya.Point(cx - half, cy - half), pya.Point(cx + half, cy + half)]
         cell.shapes(fib_layer).insert(pya.Path(pts1, width))
         cell.shapes(fib_layer).insert(pya.Path(pts2, width))
         
-        # Draw direction arrow
+        # Draw direction arrow with fixed width
         arrow_end = self._get_arrow_end(cx, cy, arrow_len, dbu)
         arrow_pts = [pya.Point(cx, cy), arrow_end]
         cell.shapes(fib_layer).insert(pya.Path(arrow_pts, width))
+        
+        # Record start and end coordinates (for reference)
+        self.start_x = self.x
+        self.start_y = self.y
+        self.end_x = arrow_end.x * dbu
+        self.end_y = arrow_end.y * dbu
         
         # Draw label
         text = pya.Text(self.id, pya.Trans(arrow_end))
@@ -60,8 +67,12 @@ class CutMarker:
     
     def to_xml(self) -> str:
         """Serialize to XML element"""
-        return (f'<cut id="{self.id}" x="{self.x}" y="{self.y}" '
-                f'direction="{self.direction}" layer="{self.layer}"/>')
+        return (f'<cut id="{self.id}" x="{self.x}" y="{self.y}" ' 
+                f'direction="{self.direction}" layer="{self.layer}" ' 
+                f'start_x="{getattr(self, "start_x", self.x)}" ' 
+                f'start_y="{getattr(self, "start_y", self.y)}" ' 
+                f'end_x="{getattr(self, "end_x", self.x)}" ' 
+                f'end_y="{getattr(self, "end_y", self.y)}"/>')
     
     @staticmethod
     def from_xml(elem) -> 'CutMarker':
@@ -86,16 +97,17 @@ class ConnectMarker:
     layer: int
     
     def to_gds(self, cell, fib_layer):
-        """Draw connection line + endpoints + label on GDS"""
+        """Draw connection line + endpoints + label on GDS using fixed width path"""
         dbu = cell.layout().dbu
         radius = SYMBOL_SIZES['connect']['endpoint_radius']
-        width = int(SYMBOL_SIZES['connect']['line_width'] / dbu)
+        fixed_width = 0.2  # Fixed line width in microns
+        width = int(fixed_width / dbu)  # Convert to database units
         
         # Convert to database units
         p1 = pya.Point(int(self.x1 / dbu), int(self.y1 / dbu))
         p2 = pya.Point(int(self.x2 / dbu), int(self.y2 / dbu))
         
-        # Draw connection line
+        # Draw connection line with fixed width
         line = pya.Path([p1, p2], width)
         cell.shapes(fib_layer).insert(line)
         
@@ -106,6 +118,12 @@ class ConnectMarker:
         cell.shapes(fib_layer).insert(circle1)
         cell.shapes(fib_layer).insert(circle2)
         
+        # Record start and end coordinates (already stored in dataclass)
+        self.start_x = self.x1
+        self.start_y = self.y1
+        self.end_x = self.x2
+        self.end_y = self.y2
+        
         # Draw label at midpoint
         mid_x = (p1.x + p2.x) // 2
         mid_y = (p1.y + p2.y) // 2
@@ -114,8 +132,10 @@ class ConnectMarker:
     
     def to_xml(self) -> str:
         """Serialize to XML element"""
-        return (f'<connect id="{self.id}" x1="{self.x1}" y1="{self.y1}" '
-                f'x2="{self.x2}" y2="{self.y2}" layer="{self.layer}"/>')
+        return (f'<connect id="{self.id}" x1="{self.x1}" y1="{self.y1}" ' 
+                f'x2="{self.x2}" y2="{self.y2}" layer="{self.layer}" ' 
+                f'start_x="{self.x1}" start_y="{self.y1}" ' 
+                f'end_x="{self.x2}" end_y="{self.y2}"/>')
     
     @staticmethod
     def from_xml(elem) -> 'ConnectMarker':
@@ -132,41 +152,41 @@ class ConnectMarker:
 
 @dataclass
 class ProbeMarker:
-    """Probe operation marker - downward arrow"""
+    """Probe operation marker - circle"""
     id: str
     x: float
     y: float
     layer: int
     
     def to_gds(self, cell, fib_layer):
-        """Draw arrow symbol + label on GDS"""
+        """Draw circle + label on GDS using KLayout's circle tool"""
         dbu = cell.layout().dbu
-        height = SYMBOL_SIZES['probe']['height']
-        width_size = SYMBOL_SIZES['probe']['width']
-        line_width = int(SYMBOL_SIZES['probe']['line_width'] / dbu)
         
         # Convert to database units
         cx = int(self.x / dbu)
         cy = int(self.y / dbu)
-        h = int(height / dbu)
-        w = int(width_size / 2 / dbu)
         
-        # Draw arrow pointing down (triangle)
-        arrow_pts = [
-            pya.Point(cx, cy - h),      # Top point
-            pya.Point(cx - w, cy),      # Left point
-            pya.Point(cx + w, cy),      # Right point
-        ]
-        arrow = pya.Polygon(arrow_pts)
-        cell.shapes(fib_layer).insert(arrow)
+        # Draw circle instead of arrow
+        circle_radius = 0.5  # Circle radius in microns
+        r = int(circle_radius / dbu)  # Convert to database units
+        circle = pya.Polygon.ellipse(pya.Box(cx - r, cy - r, cx + r, cy + r), 32)
+        cell.shapes(fib_layer).insert(circle)
         
-        # Draw label above arrow
-        text = pya.Text(self.id, pya.Trans(pya.Point(cx, cy + h // 2)))
+        # Record start and end coordinates (same as center for circle)
+        self.start_x = self.x
+        self.start_y = self.y
+        self.end_x = self.x
+        self.end_y = self.y
+        
+        # Draw label
+        text = pya.Text(self.id, pya.Trans(pya.Point(cx, cy + r)))
         cell.shapes(fib_layer).insert(text)
     
     def to_xml(self) -> str:
         """Serialize to XML element"""
-        return f'<probe id="{self.id}" x="{self.x}" y="{self.y}" layer="{self.layer}"/>'
+        return (f'<probe id="{self.id}" x="{self.x}" y="{self.y}" layer="{self.layer}" ' 
+                f'start_x="{self.x}" start_y="{self.y}" ' 
+                f'end_x="{self.x}" end_y="{self.y}"/>')
     
     @staticmethod
     def from_xml(elem) -> 'ProbeMarker':

@@ -1,12 +1,14 @@
-<?xml version="1.0" encoding="utf-8"?>
-<klayout-macro>
- <description>FIB Tool - FIB marker creation using Plugin system</description>
- <version>3.0</version>
- <category>fib_tool</category>
- <prolog/>
- <interpreter>python</interpreter>
- <dsl-interpreter-name/>
- <text>import sys
+#!/usr/bin/env python3
+"""
+FIB Tool Plugin - Mouse-based marker creation
+This is the pure Python version extracted from fib_tool.lym
+
+Run in KLayout Macro Development console:
+    import sys; sys.path.insert(0, '/Users/dean/Documents/git/klayout-fib-tool/src')
+    exec(open('/Users/dean/Documents/git/klayout-fib-tool/src/fib_plugin.py', encoding='utf-8').read())
+"""
+
+import sys
 import os
 
 # Add the current directory to Python path
@@ -33,6 +35,8 @@ def create_cut_marker(x1, y1, x2, y2):
     """Create a CUT marker"""
     global marker_counter
     
+    print(f"[DEBUG] create_cut_marker called with: x1={x1}, y1={y1}, x2={x2}, y2={y2}")
+    
     # Calculate direction
     dx = x2 - x1
     dy = y2 - y1
@@ -41,11 +45,14 @@ def create_cut_marker(x1, y1, x2, y2):
     else:
         direction = 'up' if dy > 0 else 'down'
     
+    print(f"[DEBUG] Direction calculated: {direction} (dx={dx}, dy={dy})")
+    
     # Create marker
     marker_id = f"CUT_{marker_counter['cut']}"
     marker_counter['cut'] += 1
     
     marker = CutMarker(marker_id, x1, y1, direction, 6)
+    print(f"[DEBUG] Created marker: {marker_id} at ({x1}, {y1}) direction: {direction}")
     return marker
 
 def create_connect_marker(x1, y1, x2, y2):
@@ -127,16 +134,32 @@ class FIBToolPlugin(pya.Plugin):
         cell = cellview.cell
         layout = cellview.layout()
         
-        # Convert to microns
-        x = p.x * layout.dbu
-        y = p.y * layout.dbu
+        # Test both interpretations
+        print(f"[DEBUG] Raw point: p.x={p.x}, p.y={p.y}")
+        print(f"[DEBUG] DBU: {layout.dbu}")
         
-        # Store the point
+        # Method 1: Assume p.x/p.y are in database units
+        x_method1 = p.x * layout.dbu
+        y_method1 = p.y * layout.dbu
+        print(f"[DEBUG] Method 1 (DB->microns): x={x_method1}, y={y_method1}")
+        
+        # Method 2: Assume p.x/p.y are already in microns
+        x_method2 = p.x
+        y_method2 = p.y
+        print(f"[DEBUG] Method 2 (direct): x={x_method2}, y={y_method2}")
+        
+        # Use method 2 for now (assume p.x/p.y are already in correct units)
+        x = x_method2
+        y = y_method2
+        
+        # Store the point in microns
         self.temp_points.append((x, y))
+        print(f"[DEBUG] Stored points (microns): {self.temp_points}")
         
         # Handle different modes
         if self.mode == 'cut':
             if len(self.temp_points) == 2:
+                print(f"[DEBUG] Creating CUT marker with points: {self.temp_points}")
                 marker = create_cut_marker(self.temp_points[0][0], self.temp_points[0][1], 
                                          self.temp_points[1][0], self.temp_points[1][1])
                 draw_marker(marker, cell, layout)

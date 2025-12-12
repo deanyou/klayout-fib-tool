@@ -6,9 +6,9 @@ Simple dictionary-based config. No classes, no over-engineering.
 
 # Layer mapping - dead simple
 LAYERS = {
-    'cut': 200,
-    'connect': 201,
-    'probe': 202,
+    'cut': 317,
+    'connect': 318,
+    'probe': 319,
 }
 
 # Symbol sizes in micrometers
