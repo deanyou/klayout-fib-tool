@@ -9,6 +9,7 @@ LAYERS = {
     'cut': 317,
     'connect': 318,
     'probe': 319,
+    'coordinates': 319,  # Layer for coordinate text labels (same as probe)
 }
 
 # Symbol sizes in micrometers
