@@ -56,6 +56,19 @@ def create_cut_marker(x1, y1, x2, y2, target_layers=None):
     
     print(f"[DEBUG] create_cut_marker called with: x1={x1}, y1={y1}, x2={x2}, y2={y2}, layers={target_layers}")
     
+    # Use smart counter to get next available number
+    try:
+        if PANEL_AVAILABLE:
+            panel = get_fib_panel()
+            if panel and hasattr(panel, 'smart_counter'):
+                next_number = panel.smart_counter.get_next_number('cut')
+            else:
+                next_number = marker_counter['cut']
+        else:
+            next_number = marker_counter['cut']
+    except:
+        next_number = marker_counter['cut']
+    
     # Create marker ID with layer information (if available)
     layer_suffix = ""
     if target_layers and len(target_layers) > 0:
@@ -65,8 +78,10 @@ def create_cut_marker(x1, y1, x2, y2, target_layers=None):
             layers_str = "_".join(target_layers[:2])
             layer_suffix = f"_L{layers_str}"
     
-    marker_id = f"CUT_{marker_counter['cut']}{layer_suffix}"
-    marker_counter['cut'] += 1
+    marker_id = f"CUT_{next_number}{layer_suffix}"
+    
+    # Update global counter
+    marker_counter['cut'] = max(marker_counter['cut'], next_number + 1)
     
     marker = CutMarker(marker_id, x1, y1, x2, y2, 6)
     marker.target_layers = target_layers or []  # Store layer info in marker
@@ -89,6 +104,19 @@ def create_connect_marker(x1, y1, x2, y2, target_layers=None):
     """Create a CONNECT marker"""
     global marker_counter
     
+    # Use smart counter to get next available number
+    try:
+        if PANEL_AVAILABLE:
+            panel = get_fib_panel()
+            if panel and hasattr(panel, 'smart_counter'):
+                next_number = panel.smart_counter.get_next_number('connect')
+            else:
+                next_number = marker_counter['connect']
+        else:
+            next_number = marker_counter['connect']
+    except:
+        next_number = marker_counter['connect']
+    
     # Create marker ID with layer information
     layer_suffix = ""
     if target_layers and len(target_layers) > 0:
@@ -98,8 +126,10 @@ def create_connect_marker(x1, y1, x2, y2, target_layers=None):
             layers_str = "_".join(target_layers[:2])
             layer_suffix = f"_L{layers_str}"
     
-    marker_id = f"CONNECT_{marker_counter['connect']}{layer_suffix}"
-    marker_counter['connect'] += 1
+    marker_id = f"CONNECT_{next_number}{layer_suffix}"
+    
+    # Update global counter
+    marker_counter['connect'] = max(marker_counter['connect'], next_number + 1)
     
     marker = ConnectMarker(marker_id, x1, y1, x2, y2, 6)
     marker.target_layers = target_layers or []
@@ -121,6 +151,19 @@ def create_probe_marker(x, y, target_layers=None):
     """Create a PROBE marker"""
     global marker_counter
     
+    # Use smart counter to get next available number
+    try:
+        if PANEL_AVAILABLE:
+            panel = get_fib_panel()
+            if panel and hasattr(panel, 'smart_counter'):
+                next_number = panel.smart_counter.get_next_number('probe')
+            else:
+                next_number = marker_counter['probe']
+        else:
+            next_number = marker_counter['probe']
+    except:
+        next_number = marker_counter['probe']
+    
     # Create marker ID with layer information
     layer_suffix = ""
     if target_layers and len(target_layers) > 0:
@@ -130,8 +173,10 @@ def create_probe_marker(x, y, target_layers=None):
             layers_str = "_".join(target_layers[:2])
             layer_suffix = f"_L{layers_str}"
     
-    marker_id = f"PROBE_{marker_counter['probe']}{layer_suffix}"
-    marker_counter['probe'] += 1
+    marker_id = f"PROBE_{next_number}{layer_suffix}"
+    
+    # Update global counter
+    marker_counter['probe'] = max(marker_counter['probe'], next_number + 1)
     
     marker = ProbeMarker(marker_id, x, y, 6)
     marker.target_layers = target_layers or []
@@ -216,24 +261,22 @@ class FIBToolPlugin(pya.Plugin):
         """Handle mouse click events"""
         global current_mode, active_plugin
         
-        # Use global mode if plugin mode is not set
-        effective_mode = self.mode or current_mode
-        
-        print(f"[FIB Plugin] Mouse click: p={p}, buttons={buttons}, prio={prio}, plugin_mode={self.mode}, global_mode={current_mode}, effective_mode={effective_mode}, active_plugin_mode={getattr(active_plugin, 'mode', None) if active_plugin else None}")
-        
-        # Only handle the event if this is the active plugin or if we're using global mode
+        # Determine which mode to use
         if current_mode:
-            # When using global mode (panel activation), only handle if this matches the current mode
-            if effective_mode != current_mode:
+            # Panel activation - use global mode, but only if this plugin matches
+            if self.mode != current_mode:
                 return False
+            effective_mode = current_mode
         else:
-            # When using toolbar activation, only handle if this plugin has priority
-            if not prio or effective_mode is None:
+            # Toolbar activation - use plugin's own mode
+            if not prio or not self.mode:
                 return False
+            effective_mode = self.mode
         
-        # Update self.mode to effective mode for this event
-        original_mode = self.mode
-        self.mode = effective_mode
+        print(f"[FIB Plugin] Mouse click: plugin_mode={self.mode}, global_mode={current_mode}, effective_mode={effective_mode}, prio={prio}")
+        
+        # Use effective mode for this event
+        working_mode = effective_mode
         
         # Get current view and cell
         view = pya.Application.instance().main_window().current_view()
@@ -267,7 +310,7 @@ class FIBToolPlugin(pya.Plugin):
         self._add_coordinate_text(view, x, y)
         
         # Handle different modes
-        if self.mode == 'cut':
+        if working_mode == 'cut':
             if len(self.temp_points) == 2:
                 print(f"[DEBUG] Creating CUT marker with points: {self.temp_points}")
                 # Use layers from first click point
@@ -279,7 +322,7 @@ class FIBToolPlugin(pya.Plugin):
                 )
                 draw_marker(marker, cell, layout)
                 self.temp_points = []
-        elif self.mode == 'connect':
+        elif working_mode == 'connect':
             if len(self.temp_points) == 2:
                 target_layer_info = self.temp_points[0]['layers']
                 marker = create_connect_marker(
@@ -289,7 +332,7 @@ class FIBToolPlugin(pya.Plugin):
                 )
                 draw_marker(marker, cell, layout)
                 self.temp_points = []
-        elif self.mode == 'probe':
+        elif working_mode == 'probe':
             if len(self.temp_points) == 1:
                 target_layer_info = self.temp_points[0]['layers']
                 marker = create_probe_marker(
@@ -298,9 +341,6 @@ class FIBToolPlugin(pya.Plugin):
                 )
                 draw_marker(marker, cell, layout)
                 self.temp_points = []
-        
-        # Restore original mode
-        self.mode = original_mode
         return True
     
     def _get_layers_at_position(self, view, point):
@@ -579,7 +619,7 @@ sys.modules['__main__'].current_plugins = current_plugins
 # Global function for panel to activate plugin modes
 def activate_fib_mode(mode):
     """Activate FIB plugin mode from panel"""
-    global active_plugin
+    global active_plugin, current_mode
     
     try:
         print(f"[FIB Plugin] Panel requesting {mode} mode activation")
@@ -592,12 +632,13 @@ def activate_fib_mode(mode):
             pya.MessageBox.warning("FIB Tool", "No active layout view found", pya.MessageBox.Ok)
             return False
         
-        # Deactivate current plugin if any
-        if active_plugin:
-            try:
-                active_plugin.deactivated()
-            except:
-                pass
+        # Clear temp_points from all plugins when switching modes
+        for plugin_mode, plugin in current_plugins.items():
+            if plugin and hasattr(plugin, 'temp_points'):
+                plugin.temp_points = []
+        
+        # Set global mode
+        current_mode = mode
         
         # Get or create the plugin for this mode
         if mode in current_plugins and current_plugins[mode]:
@@ -608,10 +649,21 @@ def activate_fib_mode(mode):
             plugin.mode = mode
             current_plugins[mode] = plugin
         
-        # Activate the plugin (this will set global state)
-        plugin.activated()
+        # Set as active plugin
+        active_plugin = plugin
         
-        print(f"[FIB Plugin] Successfully activated {mode} mode from panel (global mode set)")
+        # Show activation message
+        try:
+            if mode == 'cut':
+                pya.MainWindow.instance().message("CUT mode: Click twice (position + direction)", 10000)
+            elif mode == 'connect':
+                pya.MainWindow.instance().message("CONNECT mode: Click twice (start + end)", 10000)
+            elif mode == 'probe':
+                pya.MainWindow.instance().message("PROBE mode: Click once", 10000)
+        except Exception as msg_error:
+            print(f"[FIB Plugin] Message error: {msg_error}")
+        
+        print(f"[FIB Plugin] Successfully activated {mode} mode from panel")
         return True
         
     except Exception as e:

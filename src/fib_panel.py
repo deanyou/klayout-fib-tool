@@ -15,6 +15,8 @@ if script_dir not in sys.path:
 import pya
 from markers import CutMarker, ConnectMarker, ProbeMarker
 from config import LAYERS
+from marker_menu import MarkerContextMenu
+from smart_counter import SmartCounter
 
 class FIBPanel(pya.QDockWidget):
     """Main FIB Panel - Dockable widget for KLayout"""
@@ -23,6 +25,10 @@ class FIBPanel(pya.QDockWidget):
         super().__init__("FIB Panel", parent)
         self.markers_list = []  # Global marker list
         self.active_mode = None
+        
+        # Initialize context menu handler and smart counter
+        self.context_menu = MarkerContextMenu(self)
+        self.smart_counter = SmartCounter(self)
         
         # Setup UI
         try:
@@ -78,16 +84,16 @@ class FIBPanel(pya.QDockWidget):
             btn_layout = pya.QHBoxLayout()
             
             btn_new = pya.QPushButton("New")
-            btn_close = pya.QPushButton("Close")
             btn_save = pya.QPushButton("Save")
+            btn_load = pya.QPushButton("Load")
             
             btn_new.clicked.connect(self.on_new_project)
-            btn_close.clicked.connect(self.on_close_project)
             btn_save.clicked.connect(self.on_save_project)
+            btn_load.clicked.connect(self.on_load_project)
             
             btn_layout.addWidget(btn_new)
-            btn_layout.addWidget(btn_close)
             btn_layout.addWidget(btn_save)
+            btn_layout.addWidget(btn_load)
             
             group_layout.addLayout(btn_layout)
             self.main_layout.addWidget(group)
@@ -178,7 +184,46 @@ class FIBPanel(pya.QDockWidget):
     
     def on_save_project(self):
         """Handle Save project"""
-        pya.MessageBox.info("FIB Panel", f"Project saved with {len(self.markers_list)} markers", pya.MessageBox.Ok)
+        try:
+            # Get save filename
+            filename, ok = pya.QInputDialog.getText(
+                self, "Save Project",
+                "Enter project name:",
+                pya.QLineEdit.Normal,
+                "project1"
+            )
+            if ok and filename:
+                if not filename.endswith('_markers.json'):
+                    filename = f"{filename}_markers.json"
+                
+                success = self.save_markers_to_json(filename)
+                if success:
+                    pya.MessageBox.info("FIB Panel", f"Project saved as {filename} with {len(self.markers_list)} markers", pya.MessageBox.Ok)
+                else:
+                    pya.MessageBox.warning("FIB Panel", "Failed to save project", pya.MessageBox.Ok)
+        except Exception as e:
+            print(f"[FIB Panel] Error in save project: {e}")
+            pya.MessageBox.warning("FIB Panel", f"Error saving project: {e}", pya.MessageBox.Ok)
+    
+    def on_load_project(self):
+        """Handle Load project"""
+        try:
+            # Get load filename
+            filename, ok = pya.QInputDialog.getText(
+                self, "Load Project",
+                "Enter project filename (with .json extension):",
+                pya.QLineEdit.Normal,
+                "project1_markers.json"
+            )
+            if ok and filename:
+                success = self.load_markers_from_json(filename)
+                if success:
+                    pya.MessageBox.info("FIB Panel", f"Project loaded successfully", pya.MessageBox.Ok)
+                else:
+                    pya.MessageBox.warning("FIB Panel", "Failed to load project", pya.MessageBox.Ok)
+        except Exception as e:
+            print(f"[FIB Panel] Error in load project: {e}")
+            pya.MessageBox.warning("FIB Panel", f"Error loading project: {e}", pya.MessageBox.Ok)
     
     def on_cut_clicked(self):
         """Handle Cut button - activate toolbar plugin"""
@@ -283,72 +328,13 @@ class FIBPanel(pya.QDockWidget):
     
     def on_marker_context_menu(self, position):
         """Handle right-click on marker list"""
-        item = self.marker_list.itemAt(position)
-        if not item:
-            return
-        
-        menu = pya.QMenu()
-        
-        action_fit = menu.addAction("Fit to Marker")
-        action_delete = menu.addAction("Delete Marker")
-        action_rename = menu.addAction("Rename Marker")
-        
-        action_fit.triggered.connect(lambda: self.fit_to_marker(item))
-        action_delete.triggered.connect(lambda: self.delete_marker(item))
-        action_rename.triggered.connect(lambda: self.rename_marker(item))
-        
-        menu.exec_(self.marker_list.viewport().mapToGlobal(position))
+        self.context_menu.show_context_menu(position)
     
     def on_marker_double_clicked(self, item):
         """Handle double-click on marker"""
-        self.fit_to_marker(item)
+        self.context_menu.handle_double_click(item)
     
-    def fit_to_marker(self, item):
-        """Fit view to marker"""
-        marker_id = item.text().split(' - ')[0]
-        pya.MessageBox.info("FIB Panel", f"Fit to {marker_id} (not implemented yet)", pya.MessageBox.Ok)
-    
-    def delete_marker(self, item):
-        """Delete marker"""
-        marker_id = item.text().split(' - ')[0]
-        result = pya.MessageBox.question(
-            "Delete Marker",
-            f"Are you sure you want to delete {marker_id}?",
-            pya.MessageBox.Yes | pya.MessageBox.No
-        )
-        if result == pya.MessageBox.Yes:
-            # Remove from list widget
-            row = self.marker_list.row(item)
-            self.marker_list.takeItem(row)
-            
-            # Remove from markers list
-            self.markers_list = [m for m in self.markers_list if m.id != marker_id]
-            
-            print(f"[FIB Panel] Deleted marker: {marker_id}")
-    
-    def rename_marker(self, item):
-        """Rename marker"""
-        old_name = item.text().split(' - ')[0]
-        new_name, ok = pya.QInputDialog.getText(
-            self, "Rename Marker",
-            "Enter new name:",
-            pya.QLineEdit.Normal,
-            old_name
-        )
-        if ok and new_name and new_name != old_name:
-            # Update display
-            old_text = item.text()
-            new_text = old_text.replace(old_name, new_name, 1)
-            item.setText(new_text)
-            
-            # Update marker object
-            for marker in self.markers_list:
-                if marker.id == old_name:
-                    marker.id = new_name
-                    break
-            
-            print(f"[FIB Panel] Renamed: {old_name} -> {new_name}")
-    
+
     def on_clear_all(self):
         """Clear all markers"""
         if self.markers_list:
@@ -370,6 +356,10 @@ class FIBPanel(pya.QDockWidget):
                 # Clear panel data
                 self.markers_list.clear()
                 self.marker_list.clear()
+                
+                # Reset smart counters
+                if hasattr(self, 'smart_counter'):
+                    self.smart_counter.reset_counters()
                 
                 print("[FIB Panel] Cleared all markers from layout and reset counters")
     
@@ -456,6 +446,134 @@ class FIBPanel(pya.QDockWidget):
         except Exception as e:
             print(f"[FIB Panel] Error resetting marker counters: {e}")
     
+    def save_markers_to_json(self, filename):
+        """Save markers to JSON file"""
+        try:
+            import json
+            
+            # Prepare marker data
+            markers_data = []
+            for marker in self.markers_list:
+                marker_dict = {
+                    'id': marker.id,
+                    'type': marker.__class__.__name__.replace('Marker', '').lower(),
+                    'notes': getattr(marker, 'notes', ''),
+                    'screenshots': getattr(marker, 'screenshots', []),
+                    'target_layers': getattr(marker, 'target_layers', [])
+                }
+                
+                # Add coordinates based on marker type
+                if hasattr(marker, 'x1'):  # CUT or CONNECT
+                    marker_dict['x1'] = marker.x1
+                    marker_dict['y1'] = marker.y1
+                    marker_dict['x2'] = marker.x2
+                    marker_dict['y2'] = marker.y2
+                else:  # PROBE
+                    marker_dict['x'] = marker.x
+                    marker_dict['y'] = marker.y
+                
+                markers_data.append(marker_dict)
+            
+            # Save to file
+            with open(filename, 'w') as f:
+                json.dump({
+                    'version': '1.0',
+                    'markers': markers_data,
+                    'marker_counters': {
+                        'cut': sys.modules['__main__'].__dict__.get('marker_counter', {}).get('cut', 0),
+                        'connect': sys.modules['__main__'].__dict__.get('marker_counter', {}).get('connect', 0),
+                        'probe': sys.modules['__main__'].__dict__.get('marker_counter', {}).get('probe', 0)
+                    }
+                }, f, indent=2)
+            
+            print(f"[FIB Panel] Saved {len(markers_data)} markers to {filename}")
+            return True
+            
+        except Exception as e:
+            print(f"[FIB Panel] Error saving to JSON: {e}")
+            return False
+    
+    def load_markers_from_json(self, filename):
+        """Load markers from JSON file"""
+        try:
+            import json
+            
+            # Load from file
+            with open(filename, 'r') as f:
+                data = json.load(f)
+            
+            # Clear current markers
+            self.on_new_project()
+            
+            # Load marker counters
+            if 'marker_counters' in data:
+                counters = data['marker_counters']
+                if 'marker_counter' in sys.modules['__main__'].__dict__:
+                    global_counter = sys.modules['__main__'].__dict__['marker_counter']
+                    global_counter['cut'] = counters.get('cut', 0)
+                    global_counter['connect'] = counters.get('connect', 0)
+                    global_counter['probe'] = counters.get('probe', 0)
+            
+            # Get current view and cell for drawing
+            main_window = pya.Application.instance().main_window()
+            current_view = main_window.current_view()
+            
+            if not current_view or not current_view.active_cellview().is_valid():
+                print("[FIB Panel] No active layout found for loading markers")
+                return False
+            
+            cellview = current_view.active_cellview()
+            cell = cellview.cell
+            layout = cellview.layout()
+            
+            # Import marker classes and drawing function
+            from markers import CutMarker, ConnectMarker, ProbeMarker
+            
+            # Load markers
+            loaded_count = 0
+            for marker_data in data.get('markers', []):
+                try:
+                    marker_type = marker_data['type']
+                    marker_id = marker_data['id']
+                    
+                    # Create marker object
+                    if marker_type == 'cut':
+                        marker = CutMarker(marker_id, marker_data['x1'], marker_data['y1'], 
+                                         marker_data['x2'], marker_data['y2'], 6)
+                    elif marker_type == 'connect':
+                        marker = ConnectMarker(marker_id, marker_data['x1'], marker_data['y1'], 
+                                             marker_data['x2'], marker_data['y2'], 6)
+                    elif marker_type == 'probe':
+                        marker = ProbeMarker(marker_id, marker_data['x'], marker_data['y'], 6)
+                    else:
+                        print(f"[FIB Panel] Unknown marker type: {marker_type}")
+                        continue
+                    
+                    # Set additional properties
+                    marker.notes = marker_data.get('notes', '')
+                    marker.screenshots = marker_data.get('screenshots', [])
+                    marker.target_layers = marker_data.get('target_layers', [])
+                    
+                    # Draw marker to GDS
+                    from config import LAYERS
+                    fib_layer = layout.layer(LAYERS[marker_type], 0)
+                    marker.to_gds(cell, fib_layer)
+                    
+                    # Add to panel
+                    self.add_marker(marker)
+                    loaded_count += 1
+                    
+                except Exception as marker_error:
+                    print(f"[FIB Panel] Error loading marker {marker_data.get('id', 'unknown')}: {marker_error}")
+                    continue
+            
+            print(f"[FIB Panel] Loaded {loaded_count} markers from {filename}")
+            return True
+            
+        except Exception as e:
+            print(f"[FIB Panel] Error loading from JSON: {e}")
+            return False
+
     # Public methods for plugin integration
     def add_marker(self, marker):
         """Add a marker to the panel (called by plugin)"""
