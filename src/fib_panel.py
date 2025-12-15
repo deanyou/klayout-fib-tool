@@ -256,13 +256,30 @@ class FIBPanel(pya.QDockWidget):
             # Deactivate current mode
             self.active_mode = None
             self.status_label.setText("Ready")
+            # Clear any pending points when deactivating
+            self.clear_pending_points()
         else:
             # Activate new mode
             self.active_mode = mode
             self.mode_buttons[mode].setStyleSheet("background-color: lightgreen;")
             self.status_label.setText(f"{mode.upper()} mode active - Click on layout")
+            # Clear any pending points when switching modes
+            self.clear_pending_points()
         
         print(f"[FIB Panel] Mode: {self.active_mode}")
+    
+    def clear_pending_points(self):
+        """Clear pending points from all plugin instances"""
+        try:
+            # Access global plugin instances and clear their temp_points
+            if 'current_plugins' in sys.modules['__main__'].__dict__:
+                current_plugins = sys.modules['__main__'].__dict__['current_plugins']
+                for plugin_mode, plugin in current_plugins.items():
+                    if plugin and hasattr(plugin, 'temp_points'):
+                        plugin.temp_points = []
+                        print(f"[FIB Panel] Cleared temp_points for {plugin_mode} plugin")
+        except Exception as e:
+            print(f"[FIB Panel] Error clearing pending points: {e}")
     
     def on_marker_context_menu(self, position):
         """Handle right-click on marker list"""
@@ -337,13 +354,107 @@ class FIBPanel(pya.QDockWidget):
         if self.markers_list:
             result = pya.MessageBox.question(
                 "Clear All",
-                f"Delete all {len(self.markers_list)} markers?",
+                f"Delete all {len(self.markers_list)} markers from layout and reset counters?",
                 pya.MessageBox.Yes | pya.MessageBox.No
             )
             if result == pya.MessageBox.Yes:
+                # Clear markers from GDS layout
+                self.clear_markers_from_gds()
+                
+                # Clear coordinate texts
+                self.clear_coordinate_texts()
+                
+                # Reset marker counters
+                self.reset_marker_counters()
+                
+                # Clear panel data
                 self.markers_list.clear()
                 self.marker_list.clear()
-                print("[FIB Panel] Cleared all markers")
+                
+                print("[FIB Panel] Cleared all markers from layout and reset counters")
+    
+    def clear_markers_from_gds(self):
+        """Clear all FIB markers from the GDS layout"""
+        try:
+            # Get current view and cell
+            main_window = pya.Application.instance().main_window()
+            current_view = main_window.current_view()
+            
+            if not current_view or not current_view.active_cellview().is_valid():
+                print("[FIB Panel] No active layout found")
+                return
+            
+            cellview = current_view.active_cellview()
+            cell = cellview.cell
+            layout = cellview.layout()
+            
+            # Import config to get layer numbers
+            from config import LAYERS
+            
+            # Clear all FIB layers
+            for layer_name, layer_num in LAYERS.items():
+                try:
+                    fib_layer = layout.layer(layer_num, 0)
+                    cell.shapes(fib_layer).clear()
+                    print(f"[FIB Panel] Cleared layer {layer_num} ({layer_name})")
+                except Exception as layer_error:
+                    print(f"[FIB Panel] Error clearing layer {layer_num}: {layer_error}")
+            
+            print("[FIB Panel] All FIB markers cleared from GDS")
+            
+        except Exception as e:
+            print(f"[FIB Panel] Error clearing markers from GDS: {e}")
+    
+    def clear_coordinate_texts(self):
+        """Clear all coordinate text labels"""
+        try:
+            # Use the global function if available
+            if 'clear_coordinate_texts' in sys.modules['__main__'].__dict__:
+                clear_func = sys.modules['__main__'].__dict__['clear_coordinate_texts']
+                clear_func()
+                print("[FIB Panel] Coordinate texts cleared via global function")
+            else:
+                # Fallback: clear coordinate layer directly
+                main_window = pya.Application.instance().main_window()
+                current_view = main_window.current_view()
+                
+                if current_view and current_view.active_cellview().is_valid():
+                    cellview = current_view.active_cellview()
+                    cell = cellview.cell
+                    layout = cellview.layout()
+                    
+                    from config import LAYERS
+                    coord_layer = layout.layer(LAYERS['coordinates'], 0)
+                    cell.shapes(coord_layer).clear()
+                    print("[FIB Panel] Coordinate texts cleared directly")
+                    
+        except Exception as e:
+            print(f"[FIB Panel] Error clearing coordinate texts: {e}")
+    
+    def reset_marker_counters(self):
+        """Reset marker counters to start from 0"""
+        try:
+            # Access the global marker counter from fib_plugin
+            if 'marker_counter' in sys.modules['__main__'].__dict__:
+                marker_counter = sys.modules['__main__'].__dict__['marker_counter']
+                marker_counter['cut'] = 0
+                marker_counter['connect'] = 0
+                marker_counter['probe'] = 0
+                print("[FIB Panel] Marker counters reset via global variable")
+            else:
+                # Try to import and reset directly
+                try:
+                    import fib_plugin
+                    if hasattr(fib_plugin, 'marker_counter'):
+                        fib_plugin.marker_counter['cut'] = 0
+                        fib_plugin.marker_counter['connect'] = 0
+                        fib_plugin.marker_counter['probe'] = 0
+                        print("[FIB Panel] Marker counters reset via module import")
+                except Exception as import_error:
+                    print(f"[FIB Panel] Could not reset counters via import: {import_error}")
+                    
+        except Exception as e:
+            print(f"[FIB Panel] Error resetting marker counters: {e}")
     
     # Public methods for plugin integration
     def add_marker(self, marker):

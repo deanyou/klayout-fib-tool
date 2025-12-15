@@ -214,20 +214,22 @@ class FIBToolPlugin(pya.Plugin):
     
     def mouse_click_event(self, p, buttons, prio):
         """Handle mouse click events"""
-        global current_mode
+        global current_mode, active_plugin
         
         # Use global mode if plugin mode is not set
         effective_mode = self.mode or current_mode
         
-        print(f"[FIB Plugin] Mouse click: p={p}, buttons={buttons}, prio={prio}, plugin_mode={self.mode}, global_mode={current_mode}, effective_mode={effective_mode}, points={self.temp_points}")
+        print(f"[FIB Plugin] Mouse click: p={p}, buttons={buttons}, prio={prio}, plugin_mode={self.mode}, global_mode={current_mode}, effective_mode={effective_mode}, active_plugin_mode={getattr(active_plugin, 'mode', None) if active_plugin else None}")
         
-        # If we have an effective mode, we should handle the click even if prio is False
-        if effective_mode is None:
-            return False
-        
-        # For panel-activated modes, we need to handle clicks even without prio
-        if not prio and current_mode is None:
-            return False
+        # Only handle the event if this is the active plugin or if we're using global mode
+        if current_mode:
+            # When using global mode (panel activation), only handle if this matches the current mode
+            if effective_mode != current_mode:
+                return False
+        else:
+            # When using toolbar activation, only handle if this plugin has priority
+            if not prio or effective_mode is None:
+                return False
         
         # Update self.mode to effective mode for this event
         original_mode = self.mode
@@ -569,8 +571,10 @@ def clear_coordinate_texts():
     except Exception as e:
         print(f"[DEBUG] Error clearing coordinate texts: {e}")
 
-# Add functions to global namespace
+# Add functions and variables to global namespace
 sys.modules['__main__'].clear_coordinate_texts = clear_coordinate_texts
+sys.modules['__main__'].marker_counter = marker_counter
+sys.modules['__main__'].current_plugins = current_plugins
 
 # Global function for panel to activate plugin modes
 def activate_fib_mode(mode):
