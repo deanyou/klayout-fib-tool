@@ -17,6 +17,7 @@ from markers import CutMarker, ConnectMarker, ProbeMarker
 from config import LAYERS
 from marker_menu import MarkerContextMenu
 from smart_counter import SmartCounter
+from file_dialog_helper import FileDialogHelper
 
 class FIBPanel(pya.QDockWidget):
     """Main FIB Panel - Dockable widget for KLayout"""
@@ -185,22 +186,28 @@ class FIBPanel(pya.QDockWidget):
     def on_save_project(self):
         """Handle Save project"""
         try:
-            # Get save filename
-            filename, ok = pya.QInputDialog.getText(
-                self, "Save Project",
-                "Enter project name:",
-                pya.QLineEdit.Normal,
-                "project1"
-            )
-            if ok and filename:
-                if not filename.endswith('_markers.json'):
-                    filename = f"{filename}_markers.json"
-                
+            # Use better file dialog
+            filename = FileDialogHelper.get_save_filename(self)
+            
+            if filename:
                 success = self.save_markers_to_json(filename)
                 if success:
-                    pya.MessageBox.info("FIB Panel", f"Project saved as {filename} with {len(self.markers_list)} markers", pya.MessageBox.Ok)
+                    basename = os.path.basename(filename)
+                    pya.MessageBox.info("FIB Panel", f"Project saved as {basename} with {len(self.markers_list)} markers", pya.MessageBox.Ok)
                 else:
                     pya.MessageBox.warning("FIB Panel", "Failed to save project", pya.MessageBox.Ok)
+            else:
+                # User cancelled or error, try auto-save as fallback
+                try:
+                    from simple_save_load import simple_save_project
+                    saved_filename = simple_save_project(self)
+                    if saved_filename:
+                        basename = os.path.basename(saved_filename)
+                        pya.MessageBox.info("FIB Panel", f"Project auto-saved as {basename} with {len(self.markers_list)} markers", pya.MessageBox.Ok)
+                except Exception as fallback_error:
+                    print(f"[FIB Panel] Fallback save error: {fallback_error}")
+                    pya.MessageBox.warning("FIB Panel", "Save failed. Check console for details.", pya.MessageBox.Ok)
+                    
         except Exception as e:
             print(f"[FIB Panel] Error in save project: {e}")
             pya.MessageBox.warning("FIB Panel", f"Error saving project: {e}", pya.MessageBox.Ok)
@@ -208,19 +215,19 @@ class FIBPanel(pya.QDockWidget):
     def on_load_project(self):
         """Handle Load project"""
         try:
-            # Get load filename
-            filename, ok = pya.QInputDialog.getText(
-                self, "Load Project",
-                "Enter project filename (with .json extension):",
-                pya.QLineEdit.Normal,
-                "project1_markers.json"
-            )
-            if ok and filename:
+            # Use better file dialog
+            filename = FileDialogHelper.get_load_filename(self)
+            
+            if filename:
                 success = self.load_markers_from_json(filename)
                 if success:
-                    pya.MessageBox.info("FIB Panel", f"Project loaded successfully", pya.MessageBox.Ok)
+                    basename = os.path.basename(filename)
+                    pya.MessageBox.info("FIB Panel", f"Project '{basename}' loaded successfully with {len(self.markers_list)} markers", pya.MessageBox.Ok)
                 else:
                     pya.MessageBox.warning("FIB Panel", "Failed to load project", pya.MessageBox.Ok)
+            else:
+                print("[FIB Panel] Load cancelled by user")
+                
         except Exception as e:
             print(f"[FIB Panel] Error in load project: {e}")
             pya.MessageBox.warning("FIB Panel", f"Error loading project: {e}", pya.MessageBox.Ok)
@@ -450,6 +457,14 @@ class FIBPanel(pya.QDockWidget):
         """Save markers to JSON file"""
         try:
             import json
+            import os
+            
+            # Ensure we save to a writable location
+            if not os.path.isabs(filename):
+                # If relative path, save to user's home directory
+                home_dir = os.path.expanduser("~")
+                filename = os.path.join(home_dir, filename)
+                print(f"[FIB Panel] Saving to home directory: {filename}")
             
             # Prepare marker data
             markers_data = []
@@ -497,6 +512,18 @@ class FIBPanel(pya.QDockWidget):
         """Load markers from JSON file"""
         try:
             import json
+            import os
+            
+            # Handle relative paths - look in home directory
+            if not os.path.isabs(filename):
+                home_dir = os.path.expanduser("~")
+                full_path = os.path.join(home_dir, filename)
+                if os.path.exists(full_path):
+                    filename = full_path
+                    print(f"[FIB Panel] Loading from home directory: {filename}")
+                elif not os.path.exists(filename):
+                    print(f"[FIB Panel] File not found in current dir, trying home: {full_path}")
+                    filename = full_path
             
             # Load from file
             with open(filename, 'r') as f:

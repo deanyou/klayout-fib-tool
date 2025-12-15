@@ -222,6 +222,9 @@ class MarkerContextMenu:
                     old_id = marker.id
                     marker.id = new_name
                     
+                    # Update coordinate text in GDS layout
+                    self.update_coordinate_text_in_gds(marker, old_id, new_name)
+                    
                     # Refresh the entire marker list to avoid Qt text setting issues
                     self.refresh_marker_list()
                     
@@ -241,45 +244,190 @@ class MarkerContextMenu:
             print(f"[Marker Menu] Error renaming marker: {e}")
     
     def delete_marker(self):
-        """Delete the selected marker"""
+        """Delete the selected marker from both panel and GDS layout"""
         if not self.current_item:
             return
         
         try:
             marker_id = self.get_marker_id_from_item(self.current_item)
             
+            # Find the marker object
+            marker_to_delete = self.find_marker_by_id(marker_id)
+            if not marker_to_delete:
+                print(f"[Marker Menu] Marker {marker_id} not found in markers list")
+                return
+            
             # Confirm deletion
             result = pya.MessageBox.question(
                 "Delete Marker",
-                f"Are you sure you want to delete {marker_id}?\n\nThis will remove it from the panel list.\n(Use 'Clear All' to remove from GDS layout)",
+                f"Are you sure you want to delete {marker_id}?\n\nThis will remove it from both the panel and the GDS layout.",
                 pya.MessageBox.Yes | pya.MessageBox.No
             )
             
             if result == pya.MessageBox.Yes:
-                # Remove from list widget
-                try:
-                    row = self.panel.marker_list.row(self.current_item)
-                    self.panel.marker_list.takeItem(row)
-                except Exception as remove_error:
-                    print(f"[Marker Menu] Error removing from list: {remove_error}")
+                # Delete from GDS layout first
+                success = self.delete_marker_from_gds(marker_to_delete)
                 
-                # Remove from markers list
-                self.panel.markers_list = [m for m in self.panel.markers_list if m.id != marker_id]
-                
-                # Reset smart counters after deletion
-                if hasattr(self.panel, 'smart_counter'):
-                    self.panel.smart_counter.reset_counters()
-                
-                print(f"[Marker Menu] Deleted marker: {marker_id}")
-                
-                # Show brief message
-                try:
-                    pya.MainWindow.instance().message(f"Deleted {marker_id}", 2000)
-                except:
-                    pass
+                if success:
+                    # Remove from list widget
+                    try:
+                        row = self.panel.marker_list.row(self.current_item)
+                        self.panel.marker_list.takeItem(row)
+                    except Exception as remove_error:
+                        print(f"[Marker Menu] Error removing from list: {remove_error}")
+                    
+                    # Remove from markers list
+                    self.panel.markers_list = [m for m in self.panel.markers_list if m.id != marker_id]
+                    
+                    # Reset smart counters after deletion
+                    if hasattr(self.panel, 'smart_counter'):
+                        self.panel.smart_counter.reset_counters()
+                    
+                    print(f"[Marker Menu] Successfully deleted marker: {marker_id}")
+                    
+                    # Show success message
+                    try:
+                        pya.MainWindow.instance().message(f"Deleted {marker_id} from layout", 2000)
+                    except:
+                        pass
+                else:
+                    pya.MessageBox.warning("Delete Marker", f"Failed to delete {marker_id} from GDS layout", pya.MessageBox.Ok)
                 
         except Exception as e:
             print(f"[Marker Menu] Error deleting marker: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    def delete_marker_from_gds(self, marker):
+        """Delete marker geometry and coordinate texts from GDS layout"""
+        try:
+            # Get current view and layout
+            main_window = pya.Application.instance().main_window()
+            current_view = main_window.current_view()
+            
+            if not current_view or not current_view.active_cellview().is_valid():
+                print("[Marker Menu] No active layout found for deletion")
+                return False
+            
+            cellview = current_view.active_cellview()
+            cell = cellview.cell
+            layout = cellview.layout()
+            
+            print(f"[Marker Menu] Deleting marker {marker.id} from GDS layout")
+            
+            # Step 1: Delete coordinate texts containing marker ID
+            deleted_texts = self.delete_coordinate_texts_for_marker(marker, cell, layout)
+            
+            # Step 2: Delete marker geometry
+            deleted_geometry = self.delete_marker_geometry(marker, cell, layout)
+            
+            total_deleted = deleted_texts + deleted_geometry
+            print(f"[Marker Menu] Deleted {deleted_texts} texts and {deleted_geometry} geometry objects for {marker.id}")
+            
+            return total_deleted > 0
+            
+        except Exception as e:
+            print(f"[Marker Menu] Error deleting marker from GDS: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+    
+    def delete_coordinate_texts_for_marker(self, marker, cell, layout):
+        """Delete coordinate texts associated with the marker"""
+        try:
+            deleted_count = 0
+            
+            # Search ALL layers for texts containing marker ID
+            for layer_info in layout.layer_infos():
+                layer_index = layout.layer(layer_info)
+                if layer_index < 0:
+                    continue
+                
+                shapes = cell.shapes(layer_index)
+                shapes_to_remove = []
+                
+                for shape in shapes.each():
+                    if shape.is_text():
+                        text_obj = shape.text
+                        text_string = text_obj.string
+                        
+                        # Delete any text containing the marker ID
+                        if marker.id in text_string:
+                            shapes_to_remove.append(shape)
+                            print(f"[Marker Menu] Marking text for deletion: '{text_string}' on layer {layer_info.layer}/{layer_info.datatype}")
+                
+                # Remove the texts
+                for shape in shapes_to_remove:
+                    shapes.erase(shape)
+                    deleted_count += 1
+            
+            return deleted_count
+            
+        except Exception as e:
+            print(f"[Marker Menu] Error deleting coordinate texts: {e}")
+            return 0
+    
+    def delete_marker_geometry(self, marker, cell, layout):
+        """Delete marker geometry from the appropriate FIB layer"""
+        try:
+            # Get the marker layer
+            marker_type = marker.__class__.__name__.lower().replace('marker', '')
+            
+            from config import LAYERS
+            if marker_type not in LAYERS:
+                print(f"[Marker Menu] Unknown marker type: {marker_type}")
+                return 0
+            
+            layer_num = LAYERS[marker_type]
+            fib_layer = layout.layer(layer_num, 0)
+            
+            print(f"[Marker Menu] Deleting {marker_type} geometry from layer {layer_num}")
+            
+            # Get marker coordinates for geometry matching
+            if hasattr(marker, 'x1'):  # CUT or CONNECT markers
+                marker_coords = [(marker.x1, marker.y1), (marker.x2, marker.y2)]
+            else:  # PROBE marker
+                marker_coords = [(marker.x, marker.y)]
+            
+            # Convert to database units
+            dbu = layout.dbu
+            db_coords = [(int(x / dbu), int(y / dbu)) for x, y in marker_coords]
+            
+            # Find and delete geometry near marker coordinates
+            deleted_count = 0
+            shapes = cell.shapes(fib_layer)
+            shapes_to_remove = []
+            
+            # Create search regions around marker coordinates
+            search_radius = int(5.0 / dbu)  # 5 micron search radius
+            
+            for db_x, db_y in db_coords:
+                search_box = pya.Box(
+                    db_x - search_radius, db_y - search_radius,
+                    db_x + search_radius, db_y + search_radius
+                )
+                
+                # Find overlapping shapes
+                for shape in shapes.each_overlapping(search_box):
+                    if not shape.is_text():  # Only delete geometry, not text
+                        shapes_to_remove.append(shape)
+                        print(f"[Marker Menu] Marking geometry for deletion near ({db_x * dbu:.2f}, {db_y * dbu:.2f})")
+            
+            # Remove duplicate shapes
+            shapes_to_remove = list(set(shapes_to_remove))
+            
+            # Delete the shapes
+            for shape in shapes_to_remove:
+                shapes.erase(shape)
+                deleted_count += 1
+            
+            return deleted_count
+            
+        except Exception as e:
+            print(f"[Marker Menu] Error deleting marker geometry: {e}")
+            import traceback
+            traceback.print_exc()
+            return 0
     
     def handle_double_click(self, item):
         """Handle double-click on marker (zoom to fit)"""
@@ -308,3 +456,80 @@ class MarkerContextMenu:
             
         except Exception as e:
             print(f"[Marker Menu] Error refreshing marker list: {e}")
+    
+    def update_coordinate_text_in_gds(self, marker, old_id, new_id):
+        """Update coordinate text in GDS layout using search and replace on ALL layers"""
+        try:
+            # Get current view and layout
+            main_window = pya.Application.instance().main_window()
+            current_view = main_window.current_view()
+            
+            if not current_view or not current_view.active_cellview().is_valid():
+                print("[Marker Menu] No active layout found for text update")
+                return False
+            
+            cellview = current_view.active_cellview()
+            cell = cellview.cell
+            layout = cellview.layout()
+            
+            print(f"[Marker Menu] Search and replace: '{old_id}' -> '{new_id}' on ALL layers")
+            
+            total_updated = 0
+            
+            # Search ALL layers for text objects (not just coordinate layer)
+            for layer_info in layout.layer_infos():
+                layer_index = layout.layer(layer_info)
+                if layer_index < 0:
+                    continue
+                
+                shapes = cell.shapes(layer_index)
+                shapes_to_remove = []
+                shapes_to_add = []
+                layer_updated = 0
+                
+                for shape in shapes.each():
+                    if shape.is_text():
+                        text_obj = shape.text
+                        text_string = text_obj.string
+                        
+                        # Simple string replacement: if text contains old_id, replace it
+                        if old_id in text_string:
+                            new_text_string = text_string.replace(old_id, new_id)
+                            
+                            if new_text_string != text_string:
+                                # Mark for replacement
+                                shapes_to_remove.append(shape)
+                                new_text_obj = pya.Text(new_text_string, text_obj.trans)
+                                shapes_to_add.append(new_text_obj)
+                                
+                                print(f"[Marker Menu] Layer {layer_info.layer}/{layer_info.datatype}: '{text_string}' -> '{new_text_string}'")
+                                layer_updated += 1
+                
+                # Apply changes for this layer
+                for shape in shapes_to_remove:
+                    shapes.erase(shape)
+                
+                for text_obj in shapes_to_add:
+                    shapes.insert(text_obj)
+                
+                if layer_updated > 0:
+                    total_updated += layer_updated
+            
+            print(f"[Marker Menu] Search and replace completed: {total_updated} texts updated across all layers")
+            
+            # Show success message if any updates were made
+            if total_updated > 0:
+                try:
+                    pya.MainWindow.instance().message(f"Updated {total_updated} texts", 2000)
+                except:
+                    pass
+            else:
+                print(f"[Marker Menu] No texts found containing '{old_id}' - this might be normal if texts don't include marker IDs")
+            
+            return total_updated > 0
+            
+        except Exception as e:
+            print(f"[Marker Menu] Error in search and replace: {e}")
+            import traceback
+            traceback.print_exc()
+            return False

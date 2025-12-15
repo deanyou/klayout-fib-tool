@@ -204,6 +204,9 @@ def draw_marker(marker, cell, layout):
     # Draw marker
     marker.to_gds(cell, fib_layer)
     
+    # Update coordinate texts to include marker ID
+    update_coordinate_texts_with_marker_id(marker, cell, layout)
+    
     # Show message
     try:
         pya.MainWindow.instance().message(f"Created {marker.id}", 2000)
@@ -212,6 +215,77 @@ def draw_marker(marker, cell, layout):
         print(f"[FIB] Created {marker.id}")
     print(f"[FIB] Created {marker.id}")
     return True
+
+def update_coordinate_texts_with_marker_id(marker, cell, layout):
+    """Update coordinate texts to include marker ID"""
+    try:
+        # Get coordinate layer
+        coord_layer_num = LAYERS['coordinates']
+        coord_layer = layout.layer(coord_layer_num, 0)
+        dbu = layout.dbu
+        
+        # Get marker coordinates
+        if hasattr(marker, 'x1'):  # CUT or CONNECT markers
+            coordinates = [(marker.x1, marker.y1), (marker.x2, marker.y2)]
+        else:  # PROBE marker
+            coordinates = [(marker.x, marker.y)]
+        
+        updated_count = 0
+        
+        # Update coordinate texts near these positions
+        for coord_x, coord_y in coordinates:
+            # Convert to database units for search
+            search_x = int(coord_x / dbu)
+            search_y = int(coord_y / dbu)
+            
+            # Create search region - larger radius to ensure we find the text
+            search_radius = int(2.0 / dbu)  # 2 micron search radius
+            search_box = pya.Box(
+                search_x - search_radius, search_y - search_radius,
+                search_x + search_radius, search_y + search_radius
+            )
+            
+            # Find and update coordinate texts
+            shapes_to_remove = []
+            shapes_to_add = []
+            
+            for shape in cell.shapes(coord_layer).each_overlapping(search_box):
+                if shape.is_text():
+                    text_obj = shape.text
+                    text_string = text_obj.string
+                    
+                    # Check if this is a coordinate text for this position
+                    expected_coord = f"({coord_x:.2f},{coord_y:.2f})"
+                    
+                    # Look for coordinate text that matches this position and doesn't already have marker ID
+                    if (expected_coord in text_string and 
+                        not text_string.startswith(marker.id) and 
+                        not ":" in text_string):  # Simple coordinate text without ID
+                        
+                        # Update the text to include marker ID
+                        new_text_string = f"{marker.id}:{expected_coord}"
+                        
+                        # Mark for replacement
+                        shapes_to_remove.append(shape)
+                        new_text_obj = pya.Text(new_text_string, text_obj.trans)
+                        shapes_to_add.append(new_text_obj)
+                        
+                        print(f"[FIB] Updated coordinate text: '{text_string}' -> '{new_text_string}'")
+                        updated_count += 1
+            
+            # Apply changes
+            for shape in shapes_to_remove:
+                cell.shapes(coord_layer).erase(shape)
+            
+            for text_obj in shapes_to_add:
+                cell.shapes(coord_layer).insert(text_obj)
+        
+        print(f"[FIB] Updated {updated_count} coordinate texts with marker ID {marker.id}")
+                
+    except Exception as e:
+        print(f"[FIB] Error updating coordinate texts: {e}")
+        import traceback
+        traceback.print_exc()
 
 # FIB Tool Plugin class
 class FIBToolPlugin(pya.Plugin):
@@ -306,7 +380,7 @@ class FIBToolPlugin(pya.Plugin):
         self.temp_points.append(point_info)
         print(f"[DEBUG] Stored points: {self.temp_points}")
         
-        # Add coordinate text at click position
+        # Add coordinate text at click position (will be updated with marker ID later)
         self._add_coordinate_text(view, x, y)
         
         # Handle different modes
@@ -443,7 +517,7 @@ class FIBToolPlugin(pya.Plugin):
             print(f"[DEBUG] Error in _shape_contains_point: {e}")
             return False
     
-    def _add_coordinate_text(self, view, x, y):
+    def _add_coordinate_text(self, view, x, y, marker_id=None):
         """Add coordinate text at the click position"""
         try:
             # Get current cellview
@@ -456,7 +530,10 @@ class FIBToolPlugin(pya.Plugin):
             dbu = layout.dbu
             
             # x, y are in the correct units (likely microns), create display text
-            coord_text = f"({x:.2f},{y:.2f})"
+            if marker_id:
+                coord_text = f"{marker_id}:({x:.2f},{y:.2f})"
+            else:
+                coord_text = f"({x:.2f},{y:.2f})"
             
             # For text placement, we need to convert to database units
             # If x, y are already in microns, divide by dbu
