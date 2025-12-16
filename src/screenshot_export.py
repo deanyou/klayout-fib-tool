@@ -204,6 +204,160 @@ def create_scale_bar(view, view_bbox):
         print(f"[Screenshot] Error creating scale bar: {e}")
 
 
+def select_marker_path(view, marker):
+    """
+    Select the marker's coordinate text labels for highlighting in screenshots
+    
+    This function finds and selects the text labels associated with the marker
+    to make them more visible in screenshots with highlighting boxes.
+    
+    Args:
+        view: LayoutView object
+        marker: Marker object
+    
+    Returns:
+        bool: True if selection successful
+    """
+    try:
+        print(f"[Screenshot] Attempting to select text labels for {marker.id}")
+        
+        # Clear any existing selection first
+        view.clear_selection()
+        
+        cellview = view.active_cellview()
+        if not cellview.is_valid():
+            print(f"[Screenshot] Invalid cellview for {marker.id}")
+            return False
+        
+        cell = cellview.cell
+        layout = cellview.layout()
+        dbu = layout.dbu
+        
+        # Get marker layer
+        marker_class = marker.__class__.__name__.lower()
+        if 'cut' in marker_class:
+            layer_key = 'cut'
+        elif 'connect' in marker_class:
+            layer_key = 'connect'
+        elif 'probe' in marker_class:
+            layer_key = 'probe'
+        else:
+            layer_key = 'cut'  # fallback
+        
+        from config import LAYERS
+        fib_layer_num = LAYERS[layer_key]
+        fib_layer = layout.layer(fib_layer_num, 0)
+        
+        # Create search regions around marker coordinates to find text labels
+        search_regions = []
+        
+        if hasattr(marker, 'points') and len(marker.points) >= 2:
+            # Multi-point marker: search around each point for coordinate texts
+            print(f"[Screenshot] Searching for {len(marker.points)} coordinate texts for multi-point {marker.id}")
+            for i, (x, y) in enumerate(marker.points):
+                # Create search box around each coordinate
+                margin = 5.0  # 5 microns search radius
+                db_box = pya.Box(
+                    int((x - margin) / dbu), 
+                    int((y - margin) / dbu),
+                    int((x + margin) / dbu), 
+                    int((y + margin) / dbu)
+                )
+                search_regions.append(db_box)
+                
+        elif hasattr(marker, 'x1'):
+            # Regular 2-point marker: search around both endpoints
+            print(f"[Screenshot] Searching for 2 coordinate texts for 2-point {marker.id}")
+            for x, y in [(marker.x1, marker.y1), (marker.x2, marker.y2)]:
+                margin = 5.0  # 5 microns search radius
+                db_box = pya.Box(
+                    int((x - margin) / dbu), 
+                    int((y - margin) / dbu),
+                    int((x + margin) / dbu), 
+                    int((y + margin) / dbu)
+                )
+                search_regions.append(db_box)
+                
+        else:
+            # PROBE marker: search around single point
+            print(f"[Screenshot] Searching for 1 coordinate text for probe {marker.id}")
+            margin = 5.0  # 5 microns search radius
+            db_box = pya.Box(
+                int((marker.x - margin) / dbu), 
+                int((marker.y - margin) / dbu),
+                int((marker.x + margin) / dbu), 
+                int((marker.y + margin) / dbu)
+            )
+            search_regions.append(db_box)
+        
+        # Search for text labels in each region
+        texts_found = 0
+        texts_selected = 0
+        
+        for i, search_box in enumerate(search_regions):
+            print(f"[Screenshot] Searching region {i+1}/{len(search_regions)}: {search_box}")
+            
+            for shape in cell.shapes(fib_layer).each_overlapping(search_box):
+                if shape.is_text():
+                    text_obj = shape.text
+                    text_string = text_obj.string
+                    texts_found += 1
+                    
+                    # Check if this text belongs to our marker
+                    if marker.id in text_string or any(f"({coord[0]:.3f},{coord[1]:.3f})" in text_string 
+                                                     for coord in (marker.points if hasattr(marker, 'points') 
+                                                                 else [(marker.x1, marker.y1), (marker.x2, marker.y2)] if hasattr(marker, 'x1')
+                                                                 else [(marker.x, marker.y)])):
+                        
+                        print(f"[Screenshot] Found matching text: '{text_string}'")
+                        
+                        # Create a highlight box around the text for better visibility
+                        try:
+                            text_pos = text_obj.trans.disp
+                            select_point = pya.DPoint(text_pos.x * dbu, text_pos.y * dbu)
+                            
+                            print(f"[Screenshot] Found text '{text_string}' at ({select_point.x:.2f}, {select_point.y:.2f})")
+                            
+                            # Create a highlight annotation box around the text
+                            try:
+                                # Create a rectangular annotation around the text
+                                margin = 3.0  # 3 microns margin around text
+                                highlight_box = pya.Annotation()
+                                highlight_box.p1 = pya.DPoint(select_point.x - margin, select_point.y - margin)
+                                highlight_box.p2 = pya.DPoint(select_point.x + margin, select_point.y + margin)
+                                highlight_box.style = pya.Annotation.StyleRectangle
+                                
+                                # Add the highlight annotation to the view
+                                view.insert_annotation(highlight_box)
+                                
+                                print(f"[Screenshot] ✓ Created highlight box around text '{text_string}'")
+                                texts_selected += 1
+                                
+                            except Exception as highlight_error:
+                                print(f"[Screenshot] Could not create highlight box: {highlight_error}")
+                                # Still count as processed even if highlighting failed
+                                texts_selected += 1
+                            
+                        except Exception as text_select_error:
+                            print(f"[Screenshot] Could not process text '{text_string}': {text_select_error}")
+        
+        print(f"[Screenshot] Text search results for {marker.id}: {texts_found} texts found, {texts_selected} processed")
+        
+        if texts_found > 0:
+            print(f"[Screenshot] ✓ Found {texts_found} text labels for {marker.id}")
+            return True
+        else:
+            print(f"[Screenshot] ⚠ No text labels found for {marker.id}")
+            return False
+            
+    except Exception as e:
+        print(f"[Screenshot] Error selecting text labels for {marker.id}: {e}")
+        import traceback
+        traceback.print_exc()
+        # Don't fail the screenshot process due to selection issues
+        return True
+
+
 def take_marker_screenshots(marker, view, output_dir):
     """
     Generate 3 screenshots for a single marker
@@ -235,6 +389,14 @@ def take_marker_screenshots(marker, view, output_dir):
         
         # Store original view state
         original_box = view.box()
+        
+        # Attempt to select marker path for highlighting in screenshots
+        # Note: Path selection is currently disabled due to API compatibility issues
+        selection_success = select_marker_path(view, marker)
+        if selection_success:
+            print(f"[Screenshot] ✓ Marker path selected for highlighting in {marker.id}")
+        else:
+            print(f"[Screenshot] ℹ Screenshots will be generated without path highlighting for {marker.id}")
         
         # === Screenshot 1: Overview (Fit All) with crosshair ===
         try:
@@ -325,8 +487,9 @@ def take_marker_screenshots(marker, view, output_dir):
         except Exception as e:
             print(f"[Screenshot]   ✗ Detail failed: {e}")
         
-        # Restore original view
+        # Restore original view and clear selection
         view.clear_annotations()
+        view.clear_selection()  # Clear marker path selection
         view.zoom_box(original_box)
         
         print(f"[Screenshot] Completed {marker.id}: {len(screenshots)} screenshots")
@@ -555,19 +718,36 @@ def generate_html_report_with_screenshots(markers, screenshots_dict, output_path
             length_str = ""
             
             if hasattr(marker, 'points') and len(marker.points) > 0:
+                # Display all points for multi-point markers
+                if len(marker.points) <= 5:
+                    # For 5 or fewer points, show all coordinates
+                    point_strs = [f"({p[0]:.3f},{p[1]:.3f})" for p in marker.points]
+                    coords = f"{len(marker.points)} points: " + " → ".join(point_strs)
+                else:
+                    # For more than 5 points, show first 3, ..., last 2
+                    first_points = [f"({p[0]:.3f},{p[1]:.3f})" for p in marker.points[:3]]
+                    last_points = [f"({p[0]:.3f},{p[1]:.3f})" for p in marker.points[-2:]]
+                    coords = f"{len(marker.points)} points: " + " → ".join(first_points) + " → ... → " + " → ".join(last_points)
+                
+                # Calculate dimensions (first to last point)
                 first = marker.points[0]
                 last = marker.points[-1]
-                coords = f"{len(marker.points)} points: ({first[0]:.2f},{first[1]:.2f}) to ({last[0]:.2f},{last[1]:.2f})"
-                # Calculate dimensions
                 delta_x = abs(last[0] - first[0])
                 delta_y = abs(last[1] - first[1])
-                # Calculate line length (Euclidean distance)
+                
+                # Calculate total path length (sum of all segments)
                 import math
-                length = math.sqrt(delta_x**2 + delta_y**2)
+                total_length = 0
+                for i in range(len(marker.points) - 1):
+                    p1 = marker.points[i]
+                    p2 = marker.points[i + 1]
+                    segment_length = math.sqrt((p2[0] - p1[0])**2 + (p2[1] - p1[1])**2)
+                    total_length += segment_length
+                
                 dimensions_str = f"ΔX = {delta_x:.2f} μm, ΔY = {delta_y:.2f} μm"
-                length_str = f"Length = {length:.2f} μm"
+                length_str = f"Path Length = {total_length:.2f} μm"
             elif hasattr(marker, 'x1'):
-                coords = f"({marker.x1:.2f},{marker.y1:.2f}) to ({marker.x2:.2f},{marker.y2:.2f})"
+                coords = f"({marker.x1:.3f},{marker.y1:.3f}) to ({marker.x2:.3f},{marker.y2:.3f})"
                 # Calculate dimensions
                 delta_x = abs(marker.x2 - marker.x1)
                 delta_y = abs(marker.y2 - marker.y1)
@@ -577,7 +757,7 @@ def generate_html_report_with_screenshots(markers, screenshots_dict, output_path
                 dimensions_str = f"ΔX = {delta_x:.2f} μm, ΔY = {delta_y:.2f} μm"
                 length_str = f"Length = {length:.2f} μm"
             else:
-                coords = f"({marker.x:.2f},{marker.y:.2f})"
+                coords = f"({marker.x:.3f},{marker.y:.3f})"
                 dimensions_str = "Single point marker"
                 length_str = "-"
             

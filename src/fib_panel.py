@@ -44,15 +44,15 @@ class FIBPanel(pya.QDockWidget):
     def setup_ui(self):
         """Setup the panel UI"""
         try:
-            # Main container
+            # Main container with compact spacing
             self.container = pya.QWidget()
             self.main_layout = pya.QVBoxLayout(self.container)
-            self.main_layout.setContentsMargins(5, 5, 5, 5)
-            self.main_layout.setSpacing(5)
+            self.main_layout.setContentsMargins(2, 2, 2, 2)  # Reduced margins
+            self.main_layout.setSpacing(1)  # Further reduced spacing for height compression
             
-            # Title
+            # Title with compact styling
             title = pya.QLabel("FIB Tool Panel")
-            title.setStyleSheet("font-weight: bold; font-size: 14px;")
+            title.setStyleSheet("font-weight: bold; font-size: 12px; margin: 0px; padding: 1px;")  # Smaller font and minimal padding
             self.main_layout.addWidget(title)
             
             # Project management section
@@ -61,12 +61,15 @@ class FIBPanel(pya.QDockWidget):
             # Marker creation section
             self.create_marker_section()
             
+            # Coordinate jump section
+            self.create_coordinate_jump_section()
+            
             # Marker list section
             self.create_marker_list_section()
             
             # Set the widget
             self.setWidget(self.container)
-            self.setMinimumWidth(250)
+            self.setMinimumWidth(170)  # Reduced from 250 to 170 (about 1/3 smaller)
             
         except Exception as e:
             print(f"[FIB Panel] Error in setup_ui: {e}")
@@ -81,6 +84,8 @@ class FIBPanel(pya.QDockWidget):
         try:
             group = pya.QGroupBox("Project")
             group_layout = pya.QVBoxLayout(group)
+            group_layout.setSpacing(1)  # Further reduced spacing for height compression
+            group_layout.setContentsMargins(2, 1, 2, 1)  # Minimal margins for height compression
             
             # First row: New, Save, Load
             btn_layout1 = pya.QHBoxLayout()
@@ -118,44 +123,104 @@ class FIBPanel(pya.QDockWidget):
         try:
             group = pya.QGroupBox("Add Markers")
             group_layout = pya.QVBoxLayout(group)
+            group_layout.setSpacing(1)  # Further reduced spacing for height compression
+            group_layout.setContentsMargins(2, 1, 2, 1)  # Minimal margins for height compression
             
-            # Cut section with dropdown
-            cut_layout = pya.QHBoxLayout()
+            # Use grid layout for perfect alignment with flexible sizing (very compact)
+            grid_layout = pya.QGridLayout()
+            grid_layout.setSpacing(2)  # Further reduced spacing for height compression
+            
+            # Create all widgets with identical sizing and styling (very compact layout)
+            widget_height = 24  # Reduced from 32 to 24 for height compression
+            widget_min_width = 60  # Reduced from 80 to 60 for more compact layout
+            
+            # Cut button with explicit styling
             self.btn_cut = pya.QPushButton("Cut")
+            self.btn_cut.setMinimumWidth(widget_min_width)
+            self.btn_cut.setFixedHeight(widget_height)
+            self.btn_cut.setContentsMargins(0, 0, 0, 0)  # Remove internal margins
+            
+            # Cut mode combo with identical styling
             self.cut_mode_combo = pya.QComboBox()
             self.cut_mode_combo.addItem("2 Points")
             self.cut_mode_combo.addItem("Multi Points")
-            self.cut_mode_combo.setMinimumWidth(80)
+            self.cut_mode_combo.setMinimumWidth(widget_min_width)
+            self.cut_mode_combo.setFixedHeight(widget_height)
+            self.cut_mode_combo.setContentsMargins(0, 0, 0, 0)  # Remove internal margins
             
-            self.btn_cut.clicked.connect(self.on_cut_clicked)
-            
-            cut_layout.addWidget(self.btn_cut)
-            cut_layout.addWidget(self.cut_mode_combo)
-            group_layout.addLayout(cut_layout)
-            
-            # Connect section with dropdown
-            connect_layout = pya.QHBoxLayout()
+            # Connect button with identical styling
             self.btn_connect = pya.QPushButton("Connect")
+            self.btn_connect.setMinimumWidth(widget_min_width)
+            self.btn_connect.setFixedHeight(widget_height)
+            self.btn_connect.setContentsMargins(0, 0, 0, 0)  # Remove internal margins
+            
+            # Connect mode combo with identical styling
             self.connect_mode_combo = pya.QComboBox()
             self.connect_mode_combo.addItem("2 Points")
             self.connect_mode_combo.addItem("Multi Points")
-            self.connect_mode_combo.setMinimumWidth(80)
+            self.connect_mode_combo.setMinimumWidth(widget_min_width)
+            self.connect_mode_combo.setFixedHeight(widget_height)
+            self.connect_mode_combo.setContentsMargins(0, 0, 0, 0)  # Remove internal margins
             
-            self.btn_connect.clicked.connect(self.on_connect_clicked)
-            
-            connect_layout.addWidget(self.btn_connect)
-            connect_layout.addWidget(self.connect_mode_combo)
-            group_layout.addLayout(connect_layout)
-            
-            # Probe section (no dropdown needed)
-            probe_layout = pya.QHBoxLayout()
+            # Probe button with identical styling
             self.btn_probe = pya.QPushButton("Probe")
+            self.btn_probe.setMinimumWidth(widget_min_width)
+            self.btn_probe.setFixedHeight(widget_height)
+            self.btn_probe.setContentsMargins(0, 0, 0, 0)  # Remove internal margins
+            
+            # Apply consistent styling to ensure perfect alignment
+            button_style = """
+                QPushButton {
+                    margin: 0px;
+                    padding: 0px;
+                    border: 1px solid #ccc;
+                    border-radius: 4px;
+                    text-align: center;
+                }
+            """
+            
+            combo_style = """
+                QComboBox {
+                    margin: 0px;
+                    padding: 0px;
+                    border: 1px solid #ccc;
+                    border-radius: 4px;
+                }
+            """
+            
+            # Apply styles to ensure identical rendering
+            self.btn_cut.setStyleSheet(button_style)
+            self.btn_connect.setStyleSheet(button_style)
+            self.btn_probe.setStyleSheet(button_style)
+            self.cut_mode_combo.setStyleSheet(combo_style)
+            self.connect_mode_combo.setStyleSheet(combo_style)
+            
+            # Connect signals
+            self.btn_cut.clicked.connect(self.on_cut_clicked)
+            self.btn_connect.clicked.connect(self.on_connect_clicked)
             self.btn_probe.clicked.connect(self.on_probe_clicked)
             
-            probe_layout.addWidget(self.btn_probe)
-            # Add spacer to align with other rows
-            probe_layout.addStretch()
-            group_layout.addLayout(probe_layout)
+            # Add widgets to grid with explicit alignment flags
+            grid_layout.addWidget(self.btn_cut, 0, 0, pya.Qt.AlignTop | pya.Qt.AlignLeft)
+            grid_layout.addWidget(self.cut_mode_combo, 0, 1, pya.Qt.AlignTop | pya.Qt.AlignLeft)
+            grid_layout.addWidget(self.btn_connect, 1, 0, pya.Qt.AlignTop | pya.Qt.AlignLeft)
+            grid_layout.addWidget(self.connect_mode_combo, 1, 1, pya.Qt.AlignTop | pya.Qt.AlignLeft)
+            grid_layout.addWidget(self.btn_probe, 2, 0, pya.Qt.AlignTop | pya.Qt.AlignLeft)
+            
+            # Set uniform row heights to ensure consistent spacing
+            grid_layout.setRowMinimumHeight(0, widget_height)
+            grid_layout.setRowMinimumHeight(1, widget_height)
+            grid_layout.setRowMinimumHeight(2, widget_height)
+            
+            # Set column stretch factors so both columns expand equally
+            grid_layout.setColumnStretch(0, 1)  # Column 0 (buttons) can stretch
+            grid_layout.setColumnStretch(1, 1)  # Column 1 (combos) can stretch
+            
+            # Remove any default spacing that might cause misalignment
+            grid_layout.setContentsMargins(0, 0, 0, 0)
+            
+            # Add the grid layout to the group
+            group_layout.addLayout(grid_layout)
             
             # Status label
             self.status_label = pya.QLabel("Ready")
@@ -173,26 +238,66 @@ class FIBPanel(pya.QDockWidget):
         except Exception as e:
             print(f"[FIB Panel] Error creating marker section: {e}")
     
+    def create_coordinate_jump_section(self):
+        """Create coordinate jump section"""
+        try:
+            group = pya.QGroupBox("Coordinate")
+            group_layout = pya.QVBoxLayout(group)
+            group_layout.setSpacing(1)
+            group_layout.setContentsMargins(2, 1, 2, 1)
+            
+            # Coordinate input layout
+            coord_layout = pya.QHBoxLayout()
+            coord_layout.setSpacing(2)
+            
+            # Input field for coordinates
+            self.coord_input = pya.QLineEdit()
+            self.coord_input.setPlaceholderText("e.g. 100,100")
+            self.coord_input.setFixedHeight(24)
+            # Connect Enter key to jump function
+            self.coord_input.returnPressed.connect(self.on_coordinate_jump)
+            
+            # Jump button
+            btn_jump = pya.QPushButton("Go")
+            btn_jump.setFixedHeight(24)
+            btn_jump.setFixedWidth(40)
+            btn_jump.clicked.connect(self.on_coordinate_jump)
+            
+            coord_layout.addWidget(self.coord_input)
+            coord_layout.addWidget(btn_jump)
+            
+            group_layout.addLayout(coord_layout)
+            self.main_layout.addWidget(group)
+            
+        except Exception as e:
+            print(f"[FIB Panel] Error creating coordinate jump section: {e}")
+    
     def create_marker_list_section(self):
         """Create marker list section"""
         try:
             group = pya.QGroupBox("Markers")
             group_layout = pya.QVBoxLayout(group)
+            group_layout.setSpacing(1)
+            group_layout.setContentsMargins(2, 1, 2, 1)
             
-            # Simple list widget instead of tree
+            # Simple list widget that can expand with window
             self.marker_list = pya.QListWidget()
             self.marker_list.setContextMenuPolicy(pya.Qt.CustomContextMenu)
             self.marker_list.customContextMenuRequested.connect(self.on_marker_context_menu)
             self.marker_list.itemDoubleClicked.connect(self.on_marker_double_clicked)
+            # Remove maximum height constraint to allow expansion
             
-            group_layout.addWidget(self.marker_list)
+            # Add list with stretch factor so it expands
+            group_layout.addWidget(self.marker_list, 1)  # Stretch factor = 1
             
-            # Clear button
+            # Clear button with compact height - always at bottom
             btn_clear = pya.QPushButton("Clear All")
+            btn_clear.setFixedHeight(24)
             btn_clear.clicked.connect(self.on_clear_all)
-            group_layout.addWidget(btn_clear)
+            group_layout.addWidget(btn_clear, 0)  # Stretch factor = 0, stays at bottom
             
-            self.main_layout.addWidget(group)
+            # Add group with stretch factor so it expands vertically
+            self.main_layout.addWidget(group, 1)  # Stretch factor = 1
             
         except Exception as e:
             print(f"[FIB Panel] Error creating marker list section: {e}")
@@ -466,6 +571,82 @@ class FIBPanel(pya.QDockWidget):
         self.context_menu.handle_double_click(item)
     
 
+    def on_coordinate_jump(self):
+        """Jump to specified coordinates in the layout"""
+        try:
+            # Get text from input - handle both property and method access
+            try:
+                coord_text = self.coord_input.text
+                if callable(coord_text):
+                    coord_text = coord_text()
+            except:
+                coord_text = str(self.coord_input.text)
+            
+            coord_text = coord_text.strip()
+            
+            if not coord_text:
+                pya.MessageBox.warning("Coordinate Jump", "Please enter coordinates", pya.MessageBox.Ok)
+                return
+            
+            # Parse coordinates - support multiple formats
+            # Formats: "100 100", "100,100", "(100,100)", "(100 100)", "100, 100"
+            import re
+            
+            # Remove quotes if present
+            coord_text = coord_text.strip('"\'')
+            
+            # Remove parentheses if present
+            coord_text = coord_text.strip('()')
+            
+            # Try to extract two numbers
+            # Match patterns like: "100 100", "100,100", "100, 100"
+            pattern = r'([0-9.-]+)\s*[,\s]\s*([0-9.-]+)'
+            match = re.match(pattern, coord_text)
+            
+            if not match:
+                pya.MessageBox.warning(
+                    "Coordinate Jump", 
+                    f"Invalid coordinate format: '{coord_text}'\n\nSupported formats:\n- 100 100\n- 100,100\n- (100,100)\n- (100 100)\n- \"100,100\"",
+                    pya.MessageBox.Ok
+                )
+                return
+            
+            # Extract coordinates
+            try:
+                x = float(match.group(1))
+                y = float(match.group(2))
+            except ValueError:
+                pya.MessageBox.warning("Coordinate Jump", "Invalid number format", pya.MessageBox.Ok)
+                return
+            
+            # Get current view
+            main_window = pya.Application.instance().main_window()
+            current_view = main_window.current_view()
+            
+            if not current_view:
+                pya.MessageBox.warning("Coordinate Jump", "No active layout view", pya.MessageBox.Ok)
+                return
+            
+            # Zoom to coordinate with some padding
+            padding = 10.0  # 10 microns padding around the point
+            zoom_box = pya.DBox(x - padding, y - padding, x + padding, y + padding)
+            
+            current_view.zoom_box(zoom_box)
+            
+            print(f"[FIB Panel] Jumped to coordinates: ({x:.3f}, {y:.3f})")
+            
+            # Show brief message
+            try:
+                pya.MainWindow.instance().message(f"Jumped to ({x:.3f}, {y:.3f})", 2000)
+            except:
+                pass
+                
+        except Exception as e:
+            print(f"[FIB Panel] Error in coordinate jump: {e}")
+            import traceback
+            traceback.print_exc()
+            pya.MessageBox.warning("Coordinate Jump", f"Error: {e}", pya.MessageBox.Ok)
+    
     def on_clear_all(self):
         """Clear all markers"""
         if self.markers_list:
@@ -905,11 +1086,17 @@ class FIBPanel(pya.QDockWidget):
                         else:
                             marker_type = "MULTI"
                         
-                        # Show point count and range for multi-point markers
+                        # Show complete point coordinates for multi-point markers
                         if hasattr(marker, 'points') and len(marker.points) > 0:
-                            first_point = marker.points[0]
-                            last_point = marker.points[-1]
-                            coords = f"{len(marker.points)} pts: ({first_point[0]:.2f},{first_point[1]:.2f}) to ({last_point[0]:.2f},{last_point[1]:.2f})"
+                            if len(marker.points) <= 3:
+                                # For 3 or fewer points, show all coordinates in panel
+                                point_strs = [f"({p[0]:.3f},{p[1]:.3f})" for p in marker.points]
+                                coords = f"{len(marker.points)} pts: " + " → ".join(point_strs)
+                            else:
+                                # For more than 3 points, show first 2, ..., last 1 (shorter for panel)
+                                first_points = [f"({p[0]:.3f},{p[1]:.3f})" for p in marker.points[:2]]
+                                last_point = f"({marker.points[-1][0]:.3f},{marker.points[-1][1]:.3f})"
+                                coords = f"{len(marker.points)} pts: " + " → ".join(first_points) + " → ... → " + last_point
                         else:
                             coords = "No points"
                     else:
@@ -917,9 +1104,9 @@ class FIBPanel(pya.QDockWidget):
                         marker_type = marker_class_name.replace('Marker', '').upper()
                         
                         if hasattr(marker, 'x1'):  # CUT or CONNECT
-                            coords = f"({marker.x1:.2f},{marker.y1:.2f}) to ({marker.x2:.2f},{marker.y2:.2f})"
+                            coords = f"({marker.x1:.3f},{marker.y1:.3f}) to ({marker.x2:.3f},{marker.y2:.3f})"
                         else:  # PROBE
-                            coords = f"({marker.x:.2f},{marker.y:.2f})"
+                            coords = f"({marker.x:.3f},{marker.y:.3f})"
                     
                     item_text = f"{marker.id} - {marker_type} - {coords}"
                     self.marker_list.addItem(item_text)

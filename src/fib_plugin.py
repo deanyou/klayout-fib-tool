@@ -19,6 +19,36 @@ if script_dir not in sys.path:
 import pya
 from markers import CutMarker, ConnectMarker, ProbeMarker
 from config import LAYERS
+from layer_manager import ensure_fib_layers, get_layer_info_summary, verify_layers_exist
+
+
+def get_or_create_layer(layout, layer_num, datatype=0, layer_name=None):
+    """
+    Get layer index, create if it doesn't exist.
+    
+    Args:
+        layout: pya.Layout object
+        layer_num: Layer number
+        datatype: Datatype (default 0)
+        layer_name: Optional layer name
+    
+    Returns:
+        int: Layer index
+    """
+    # First try to find existing layer
+    for layer_info in layout.layer_infos():
+        if layer_info.layer == layer_num and layer_info.datatype == datatype:
+            return layout.layer(layer_info)
+    
+    # Layer doesn't exist, create it
+    if layer_name is None:
+        layer_name = f"Layer_{layer_num}"
+    
+    new_layer_info = pya.LayerInfo(layer_num, datatype, layer_name)
+    layer_index = layout.insert_layer(new_layer_info)
+    print(f"[FIB] Created layer {layer_num}/{datatype} ({layer_name}) with index {layer_index}")
+    
+    return layer_index
 
 # FIB Tool - Version 3.0
 # This version uses KLayout's Plugin system for mouse handling
@@ -224,7 +254,10 @@ def draw_marker(marker, cell, layout):
         # Regular markers
         layer_key = marker_class_name.replace('marker', '')
     
-    fib_layer = layout.layer(LAYERS[layer_key], 0)
+    # Get or create the FIB layer
+    layer_names = {'cut': 'FIB_CUT', 'connect': 'FIB_CONNECT', 'probe': 'FIB_PROBE'}
+    layer_name = layer_names.get(layer_key, f'FIB_{layer_key.upper()}')
+    fib_layer = get_or_create_layer(layout, LAYERS[layer_key], 0, layer_name)
     
     # Draw marker
     marker.to_gds(cell, fib_layer)
@@ -247,9 +280,9 @@ def draw_marker(marker, cell, layout):
 def update_coordinate_texts_with_marker_id(marker, cell, layout):
     """Update coordinate texts to include marker ID"""
     try:
-        # Get coordinate layer
+        # Get or create coordinate layer
         coord_layer_num = LAYERS['coordinates']
-        coord_layer = layout.layer(coord_layer_num, 0)
+        coord_layer = get_or_create_layer(layout, coord_layer_num, 0, 'FIB_COORDINATES')
         dbu = layout.dbu
         
         # Get marker coordinates
@@ -269,7 +302,7 @@ def update_coordinate_texts_with_marker_id(marker, cell, layout):
             search_y = int(coord_y / dbu)
             
             # Create search region - larger radius to ensure we find the text
-            search_radius = int(2.0 / dbu)  # 2 micron search radius
+            search_radius = int(5.0 / dbu)  # 5 micron search radius (increased for better matching)
             search_box = pya.Box(
                 search_x - search_radius, search_y - search_radius,
                 search_x + search_radius, search_y + search_radius
@@ -287,13 +320,31 @@ def update_coordinate_texts_with_marker_id(marker, cell, layout):
                     # Check if this is a coordinate text for this position
                     expected_coord = f"({coord_x:.2f},{coord_y:.2f})"
                     
+                    # More flexible matching - check if coordinates are close enough
+                    # Extract coordinates from text using regex
+                    import re
+                    coord_pattern = r'\(([0-9.-]+),([0-9.-]+)\)'
+                    match = re.search(coord_pattern, text_string)
+                    
+                    is_matching_coord = False
+                    if match:
+                        try:
+                            text_x = float(match.group(1))
+                            text_y = float(match.group(2))
+                            # Check if coordinates are close (within 0.001 micron for high precision)
+                            if abs(text_x - coord_x) < 0.001 and abs(text_y - coord_y) < 0.001:
+                                is_matching_coord = True
+                        except ValueError:
+                            pass
+                    
                     # Look for coordinate text that matches this position and doesn't already have marker ID
-                    if (expected_coord in text_string and 
+                    if (is_matching_coord and 
                         not text_string.startswith(marker.id) and 
                         not ":" in text_string):  # Simple coordinate text without ID
                         
-                        # Update the text to include marker ID
-                        new_text_string = f"{marker.id}:{expected_coord}"
+                        # Update the text to include marker ID - use original coordinate text with 3 decimal precision
+                        original_coord = f"({text_x:.3f},{text_y:.3f})"
+                        new_text_string = f"{marker.id}:{original_coord}"
                         
                         # Mark for replacement
                         shapes_to_remove.append(shape)
@@ -747,10 +798,11 @@ class FIBToolPlugin(pya.Plugin):
             dbu = layout.dbu
             
             # x, y are in the correct units (likely microns), create display text
+            # Use 3 decimal places for 0.001 precision
             if marker_id:
-                coord_text = f"{marker_id}:({x:.2f},{y:.2f})"
+                coord_text = f"{marker_id}:({x:.3f},{y:.3f})"
             else:
-                coord_text = f"({x:.2f},{y:.2f})"
+                coord_text = f"({x:.3f},{y:.3f})"
             
             # For text placement, we need to convert to database units
             # If x, y are already in microns, divide by dbu
@@ -764,9 +816,9 @@ class FIBToolPlugin(pya.Plugin):
             # Create text object at the click position
             text_obj = pya.Text(coord_text, pya.Trans(pya.Point(text_x, text_y)))
             
-            # Get coordinate text layer
+            # Get or create coordinate text layer
             coord_layer_num = LAYERS['coordinates']
-            coord_layer = layout.layer(coord_layer_num, 0)
+            coord_layer = get_or_create_layer(layout, coord_layer_num, 0, 'FIB_COORDINATES')
             
             # Insert text into the layout
             cell.shapes(coord_layer).insert(text_obj)
@@ -825,6 +877,21 @@ class FIBProbePluginFactory(pya.PluginFactory):
 # Create and register all plugin factories
 # This will add buttons to the toolbar automatically
 print("=== FIB Tool Initialization ===")
+
+# Check and create FIB layers if needed
+print("\n=== Layer Check ===")
+try:
+    layer_check_result = ensure_fib_layers()
+    if layer_check_result:
+        print("✓ FIB layers verified/created successfully")
+        print(get_layer_info_summary())
+    else:
+        print("⚠ Layer check completed with warnings (check console for details)")
+except Exception as layer_error:
+    print(f"⚠ Layer check error: {layer_error}")
+    print("  Plugin will continue, but layers may need manual creation")
+
+print("\n=== Plugin Registration ===")
 try:
     # Create factory instances
     cut_factory = FIBCutPluginFactory()
@@ -895,8 +962,8 @@ def clear_coordinate_texts():
         cell = cellview.cell
         layout = cellview.layout()
         
-        # Clear coordinate layer
-        coord_layer = layout.layer(LAYERS['coordinates'], 0)
+        # Get or create coordinate layer, then clear it
+        coord_layer = get_or_create_layer(layout, LAYERS['coordinates'], 0, 'FIB_COORDINATES')
         cell.shapes(coord_layer).clear()
         
         print("[DEBUG] Cleared all coordinate texts")

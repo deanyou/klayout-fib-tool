@@ -28,9 +28,9 @@ class MarkerContextMenu:
             # Create menu
             menu = pya.QMenu()
             
+            action_notes = menu.addAction("Add Notes")
             action_fit = menu.addAction("Zoom to Fit")
             action_copy = menu.addAction("Copy Coordinates")
-            action_notes = menu.addAction("Add Notes")
             action_rename = menu.addAction("Rename Marker")
             action_delete = menu.addAction("Delete Marker")
             
@@ -539,9 +539,9 @@ class MarkerContextMenu:
                 marker_type = marker.__class__.__name__.replace('Marker', '').upper()
                 
                 if hasattr(marker, 'x1'):  # CUT or CONNECT
-                    coords = f"({marker.x1:.2f},{marker.y1:.2f}) to ({marker.x2:.2f},{marker.y2:.2f})"
+                    coords = f"({marker.x1:.3f},{marker.y1:.3f}) to ({marker.x2:.3f},{marker.y2:.3f})"
                 else:  # PROBE
-                    coords = f"({marker.x:.2f},{marker.y:.2f})"
+                    coords = f"({marker.x:.3f},{marker.y:.3f})"
                 
                 item_text = f"{marker.id} - {marker_type} - {coords}"
                 self.panel.marker_list.addItem(item_text)

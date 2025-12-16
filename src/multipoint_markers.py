@@ -213,6 +213,17 @@ def create_multipoint_cut_marker(marker_id: str, points: List[Tuple[float, float
     marker.target_layers = target_layers or []
     marker.notes = "切断"  # Default notes for multi-point CUT markers
     marker.screenshots = []
+    
+    # Notify panel if available
+    try:
+        from fib_panel import get_fib_panel
+        panel = get_fib_panel()
+        if panel:
+            panel.add_marker(marker)
+            print(f"[MultiPoint] Added {marker_id} to panel")
+    except Exception as e:
+        print(f"[MultiPoint] Error notifying panel for multi-point CUT marker: {e}")
+    
     return marker
 
 
@@ -223,4 +234,15 @@ def create_multipoint_connect_marker(marker_id: str, points: List[Tuple[float, f
     marker.target_layers = target_layers or []
     marker.notes = "连接"  # Default notes for multi-point CONNECT markers
     marker.screenshots = []
+    
+    # Notify panel if available
+    try:
+        from fib_panel import get_fib_panel
+        panel = get_fib_panel()
+        if panel:
+            panel.add_marker(marker)
+            print(f"[MultiPoint] Added {marker_id} to panel")
+    except Exception as e:
+        print(f"[MultiPoint] Error notifying panel for multi-point CONNECT marker: {e}")
+    
     return marker
