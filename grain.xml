@@ -31,12 +31,18 @@
   </doc>
   
   <author>Dean</author>
+  <author-contact>deanyou@example.com</author-contact>
   <license>MIT</license>
-  
+
+  <doc-url>https://github.com/deanyou/klayout-fib-tool</doc-url>
+
   <dependencies>
     <dependency name="klayout" version="&gt;=0.28"/>
   </dependencies>
-  
-  <url>https://github.com/yourusername/klayout-fib-tool</url>
+
+  <url>git+https://github.com/deanyou/klayout-fib-tool.git[v1.0.0]</url>
+
+  <icon>iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAIAAAAlC+aJAAABzElEQVR4nO2avW6DMBSFL1X2ShFjXiVrlw5seQHWjlHFhuiEIsaueYFuSM0T8CqMUaQ8QTtchbr8xdi+vpj4UwZiDNyTc2z+Erx8fIPLrADg6/2VuwxFdofTE3cNujgvYEW69+fPABeubz9Eh3DeAVoBzQ/fWGEc7wA35AKoU+Qd4MaGANIUeQe4sSSALkXeAW7sCSBKkXeAG6sCKFJEe0c2gqhB536NP0Kad5u2BRi/OWZ2QF8Pf4Q0YRBgNkXOO8AzjRo0wXkHnBcwGKHd4WSzDhl6XwMs1wFkJu8+RuLgvAOKAvbHC8vaLo/qwHxwXoDUpURvLrExSaM8K8X2JI0gK00NgyJej9cmJaC7l/3xUsTr82YLAEkahXWF7d2W3vpwh9gZAMTOzVpJtCLUqrspqOVJL03n1vJUdMdASwP8/zmHwM5hXeEHNDQYGMRixTLVm8WAAFNhUMPALIRf86zE5fNme3cWws6i2jwr4baJ7VkIAMK6KgAgribMQrfOf5uLa6VRj1DvqO2O6RHEQayMugA8cPfwQ+1EmDkPtJA5D5ji4a+FJm2isJZqFpoPS4/QDB+utFiuAzN5oHIX5x3wArjxArgJXP/7/S82z8zZqPgEWwAAAABJRU5ErkJggg==</icon>
+
   <screenshot>docs/screenshot.png</screenshot>
 </salt-grain>
