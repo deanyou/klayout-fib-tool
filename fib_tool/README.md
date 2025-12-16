@@ -11,9 +11,9 @@
 3. 复制粘贴以下命令：
 
 ```python
-import sys; sys.path.insert(0, '/Users/dean/Documents/git/klayout-fib-tool/src'); 
+import sys; sys.path.insert(0, '/Users/dean/Documents/git/klayout-fib-tool/fib_tool'); 
 
-exec(open('/Users/dean/Documents/git/klayout-fib-tool/src/fib_plugin.py', encoding='utf-8').read())
+exec(open('/Users/dean/Documents/git/klayout-fib-tool/fib_tool/fib_plugin.py', encoding='utf-8').read())
 ```
 
 4. 按 Enter，工具栏会出现 FIB Cut、FIB Connect、FIB Probe 按钮

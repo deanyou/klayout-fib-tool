@@ -6,65 +6,119 @@
 - **Python** 3.8+ (KLayout 内置)
 - **操作系统**: Windows / macOS / Linux
 
-## 安装步骤
+---
 
-### 方法 1：手动安装（推荐）
+## 安装方式对比
 
-1. **找到 KLayout 插件目录**
+| 方式 | 适用场景 | 优点 | 缺点 |
+|------|---------|------|------|
+| **SALT Package** | 生产使用 | 一键安装、自动更新 | 需要 GitHub Release |
+| **手动复制** | 内部团队 | 简单直接 | 需要手动更新 |
+| **exec() 加载** | 开发调试 | 快速重载 | 每次启动需重新加载 |
 
-   **macOS:**
-   ```bash
-   ~/.klayout/pymacros/
-   ```
+---
 
-   **Linux:**
-   ```bash
-   ~/.klayout/pymacros/
-   ```
+## 方法 1：SALT Package Manager（推荐）
 
-   **Windows:**
-   ```
-   %APPDATA%\KLayout\pymacros\
-   ```
+### 安装步骤
 
-2. **复制源代码**
+1. **打开 Salt Package Manager**
+   - 菜单：`Tools` → `Manage Packages`
 
-   ```bash
-   # macOS/Linux
-   cd /Users/dean/Documents/git/klayout-fib-tool
-   cp -r src/* ~/.klayout/pymacros/
-   
-   # Windows (PowerShell)
-   cd C:\path\to\klayout-fib-tool
-   Copy-Item -Recurse src\* $env:APPDATA\KLayout\pymacros\
-   ```
-   
-   **重要**：
-   - 将 `src` 目录下的**所有文件**直接复制到 `pymacros` 目录
-   - 不要创建 `fib_tool` 子目录
-   - 确保 `fib_tool.lym` 文件在 `pymacros` 目录下
+2. **安装包**
+   - 点击 `Install New Packages` 标签
+   - 点击 `Add Package Source`
+   - 输入 GitHub Release URL：
+     ```
+     https://github.com/yourusername/klayout-fib-tool/releases/download/v1.0.0/klayout-fib-tool-1.0.0.zip
+     ```
+   - 点击 `Install`
 
 3. **重启 KLayout**
 
 4. **验证安装**
-   - 打开 KLayout
-   - 查看 **Tools → Macros** 菜单，应该能看到 "FIB Tool"
-   - 或者按 `Ctrl+Shift+F`
-   - 或者查看工具栏是否有 "FIB Tool" 按钮
+   - 工具栏应出现：`FIB Cut`, `FIB Connect`, `FIB Probe` 三个按钮
+   - 控制台显示 "FIB Tool initialized successfully"
 
-### 方法 2：开发模式（用于调试）
+详细说明：[SALT 安装指南](docs/SALT_INSTALLATION.md)
 
-如果你要修改代码，可以创建符号链接：
+---
 
-```bash
-# macOS/Linux
-ln -s /Users/dean/Documents/git/klayout-fib-tool/src ~/.klayout/pymacros/fib_tool
+## 方法 2：手动安装
 
-# Windows (需要管理员权限)
-mklink /D %APPDATA%\KLayout\pymacros\fib_tool C:\path\to\klayout-fib-tool\src
+### 安装步骤
+
+1. **下载代码**
+   ```bash
+   git clone https://github.com/yourusername/klayout-fib-tool.git
+   cd klayout-fib-tool
+   ```
+
+2. **复制到 SALT 目录**
+
+   **macOS/Linux:**
+   ```bash
+   cp -r fib_tool ~/.klayout/salt/
+   ```
+
+   **Windows:**
+   ```cmd
+   xcopy /E /I fib_tool %USERPROFILE%\KLayout\salt\fib_tool
+   ```
+
+3. **重启 KLayout**
+
+4. **验证安装**
+   - 工具栏应出现三个 FIB 按钮
+   - 按 `F5` 打开控制台，查看初始化日志
+
+### 目录结构
+
+安装后：
+```
+~/.klayout/salt/fib_tool/
+├── klayout_package.py      # SALT 入口点
+├── fib_plugin.py            # 主插件
+├── fib_panel.py             # 面板 UI
+└── ...其他文件
 ```
 
-这样修改代码后只需重启 KLayout 即可生效。
+---
+
+## 方法 3：exec() 加载（开发调试）
+
+### 适用场景
+- 开发新功能
+- 调试问题
+- 快速测试修改
+
+### 使用步骤
+
+1. **打开 KLayout**
+
+2. **按 F5 打开 Macro Development 窗口**
+
+3. **执行加载命令**
+   ```python
+   import sys
+   sys.path.insert(0, '/path/to/klayout-fib-tool/fib_tool')
+   exec(open('/path/to/klayout-fib-tool/fib_tool/fib_plugin.py', encoding='utf-8').read())
+   ```
+
+4. **验证**
+   - 控制台显示 "FIB Tool Initialization"
+   - 工具栏出现三个按钮
+
+### macOS 示例
+```python
+import sys
+sys.path.insert(0, '/Users/dean/Documents/git/klayout-fib-tool/fib_tool')
+exec(open('/Users/dean/Documents/git/klayout-fib-tool/fib_tool/fib_plugin.py', encoding='utf-8').read())
+```
+
+### 重新加载
+
+修改代码后，重新执行上述命令即可（部分功能可能需要重启 KLayout）。
 
 ## 验证安装
 

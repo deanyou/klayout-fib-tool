@@ -1,11 +1,18 @@
 #!/usr/bin/env python3
 """
 FIB Tool Plugin - Mouse-based marker creation
-This is the pure Python version extracted from fib_tool.lym
 
-Run in KLayout Macro Development console:
-    import sys; sys.path.insert(0, '/Users/dean/Documents/git/klayout-fib-tool/src')
-    exec(open('/Users/dean/Documents/git/klayout-fib-tool/src/fib_plugin.py', encoding='utf-8').read())
+This plugin can be loaded in two ways:
+
+1. Via SALT Package (recommended for production):
+   - Automatically loaded by klayout_package.py
+   - Install via Salt Package Manager
+
+2. Via exec() (for development/testing):
+   import sys; sys.path.insert(0, '/path/to/klayout-fib-tool/fib_tool')
+   exec(open('/path/to/klayout-fib-tool/fib_tool/fib_plugin.py', encoding='utf-8').read())
+
+Version: 1.0.0
 """
 
 import sys
@@ -20,6 +27,10 @@ import pya
 from markers import CutMarker, ConnectMarker, ProbeMarker
 from config import LAYERS
 from layer_manager import ensure_fib_layers, get_layer_info_summary, verify_layers_exist
+
+# Global flag to prevent double initialization
+# This is important when the plugin is loaded both via SALT and exec()
+_FIB_PLUGIN_FACTORIES_CREATED = False
 
 
 def get_or_create_layer(layout, layer_num, datatype=0, layer_name=None):
@@ -876,38 +887,47 @@ class FIBProbePluginFactory(pya.PluginFactory):
 
 # Create and register all plugin factories
 # This will add buttons to the toolbar automatically
-print("=== FIB Tool Initialization ===")
+# Protected against double initialization
 
-# Check and create FIB layers if needed
-print("\n=== Layer Check ===")
-try:
-    layer_check_result = ensure_fib_layers()
-    if layer_check_result:
-        print("✓ FIB layers verified/created successfully")
-        print(get_layer_info_summary())
-    else:
-        print("⚠ Layer check completed with warnings (check console for details)")
-except Exception as layer_error:
-    print(f"⚠ Layer check error: {layer_error}")
-    print("  Plugin will continue, but layers may need manual creation")
-
-print("\n=== Plugin Registration ===")
-try:
-    # Create factory instances
-    cut_factory = FIBCutPluginFactory()
-    connect_factory = FIBConnectPluginFactory()
-    probe_factory = FIBProbePluginFactory()
+if not _FIB_PLUGIN_FACTORIES_CREATED:
+    print("=== FIB Tool Initialization ===")
     
-    # Store as class attributes to prevent garbage collection
-    FIBCutPluginFactory.instance = cut_factory
-    FIBConnectPluginFactory.instance = connect_factory
-    FIBProbePluginFactory.instance = probe_factory
+    # Check and create FIB layers if needed
+    print("\n=== Layer Check ===")
+    try:
+        layer_check_result = ensure_fib_layers()
+        if layer_check_result:
+            print("✓ FIB layers verified/created successfully")
+            print(get_layer_info_summary())
+        else:
+            print("⚠ Layer check completed with warnings (check console for details)")
+    except Exception as layer_error:
+        print(f"⚠ Layer check error: {layer_error}")
+        print("  Plugin will continue, but layers may need manual creation")
     
-    print("✓ Plugin factories created successfully")
-    print("✓ Three buttons added to toolbar: FIB Cut, FIB Connect, FIB Probe")
-    print("✓ Each button activates a different FIB marker mode")
-except Exception as e:
-    print(f"✗ Error initializing plugin factories: {e}")
+    print("\n=== Plugin Registration ===")
+    try:
+        # Create factory instances
+        cut_factory = FIBCutPluginFactory()
+        connect_factory = FIBConnectPluginFactory()
+        probe_factory = FIBProbePluginFactory()
+        
+        # Store as class attributes to prevent garbage collection
+        FIBCutPluginFactory.instance = cut_factory
+        FIBConnectPluginFactory.instance = connect_factory
+        FIBProbePluginFactory.instance = probe_factory
+        
+        print("✓ Plugin factories created successfully")
+        print("✓ Three buttons added to toolbar: FIB Cut, FIB Connect, FIB Probe")
+        print("✓ Each button activates a different FIB marker mode")
+        
+        # Mark as created
+        _FIB_PLUGIN_FACTORIES_CREATED = True
+        
+    except Exception as e:
+        print(f"✗ Error initializing plugin factories: {e}")
+else:
+    print("[FIB Plugin] Factories already created, skipping initialization...")
 
 # Print usage instructions
 print("\n=== FIB Tool Usage ===")

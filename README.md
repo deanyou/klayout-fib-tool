@@ -10,13 +10,25 @@
 
 ### 安装
 
-```bash
-cp -r src ~/.klayout/pymacros/fib_tool
+**方式 1: SALT Package Manager（推荐）**
+```
+Tools → Manage Packages → Install from URL
+输入 GitHub Release URL
 ```
 
-重启 KLayout，按 `Ctrl+Shift+F` 启动工具。
+**方式 2: 手动安装**
+```bash
+cp -r fib_tool ~/.klayout/salt/
+```
 
-详细安装说明：[INSTALL.md](INSTALL.md)
+**方式 3: 开发调试**
+```python
+# 在 KLayout Macro Development (F5) 中执行
+import sys; sys.path.insert(0, '/path/to/klayout-fib-tool/fib_tool')
+exec(open('/path/to/klayout-fib-tool/fib_tool/fib_plugin.py', encoding='utf-8').read())
+```
+
+详细安装说明：[INSTALL.md](INSTALL.md) | [SALT 安装指南](docs/SALT_INSTALLATION.md)
 
 ### 使用
 
@@ -32,27 +44,32 @@ cp -r src ~/.klayout/pymacros/fib_tool
 
 ```
 klayout-fib-tool/
-├── src/                    # 源代码（核心实现）
-│   ├── __init__.py         # 插件注册入口
-│   ├── plugin.py           # 核心逻辑（鼠标事件）
-│   ├── markers.py          # 3 种标记类
-│   ├── storage.py          # XML 序列化
-│   ├── ui.py               # Qt 界面
-│   ├── report.py           # HTML 报告生成
-│   ├── config.py           # 配置管理
-│   └── test_markers.py     # 测试脚本
+├── fib_tool/                    # 源代码（SALT 包）
+│   ├── klayout_package.py       # SALT 入口点
+│   ├── __init__.py              # 包初始化
+│   ├── fib_plugin.py            # 主插件（Plugin Factory）
+│   ├── fib_panel.py             # 面板 UI
+│   ├── markers.py               # 基础标记类
+│   ├── multipoint_markers.py    # 多点标记
+│   ├── config.py                # 配置管理
+│   ├── layer_manager.py         # 自动图层创建
+│   ├── screenshot_export.py     # 截图导出
+│   ├── marker_menu.py           # 右键菜单
+│   ├── storage.py               # XML 序列化
+│   ├── report.py                # HTML/PDF 报告
+│   ├── smart_counter.py         # 智能计数器
+│   ├── utils.py                 # 工具函数
+│   └── file_dialog_helper.py    # 文件对话框
 │
-├── docs/                   # 设计文档
-│   ├── requirements.md     # 技术需求
-│   ├── prd.md              # 产品需求
-│   ├── mvp_plan.md         # MVP 详细规划
-│   ├── mvp_checklist.md    # 执行清单
-│   └── klayout_api_research.md  # KLayout API 研究
+├── docs/                        # 文档
+│   ├── SALT_INSTALLATION.md     # SALT 安装指南
+│   ├── LAYER_AUTO_CREATION_TEST.md  # 图层测试
+│   └── ...                      # 其他设计文档
 │
-├── INSTALL.md              # 安装指南
-├── MVP_SUMMARY.md          # 实现总结
-├── VERIFICATION.md         # 验证清单
-└── LinusTorvalds.md        # 编程哲学
+├── salt.xml                     # SALT 包描述文件
+├── test_layer_creation.py       # 图层创建测试脚本
+├── INSTALL.md                   # 安装指南
+└── README.md                    # 本文件
 ```
 
 ## 已实现功能
