@@ -1,0 +1,658 @@
+#!/usr/bin/env python3
+"""
+Screenshot Export Module for FIB Tool
+
+Generates 3-level screenshots for each marker:
+1. Overview (Fit All) with crosshair
+2. Zoom 2x (medium zoom)
+3. Detail (close-up)
+
+Each screenshot includes a scale bar in micrometers.
+"""
+
+import os
+import pya
+
+
+def get_marker_bbox(marker):
+    """
+    Get bounding box for a marker
+    
+    Args:
+        marker: Marker object (CutMarker, ConnectMarker, ProbeMarker, or MultiPoint)
+    
+    Returns:
+        pya.DBox: Bounding box in microns
+    """
+    try:
+        # Multi-point markers
+        if hasattr(marker, 'points') and marker.points:
+            xs = [p[0] for p in marker.points]
+            ys = [p[1] for p in marker.points]
+            return pya.DBox(min(xs), min(ys), max(xs), max(ys))
+        
+        # CUT or CONNECT markers (2 points)
+        elif hasattr(marker, 'x1'):
+            return pya.DBox(
+                min(marker.x1, marker.x2), 
+                min(marker.y1, marker.y2),
+                max(marker.x1, marker.x2), 
+                max(marker.y1, marker.y2)
+            )
+        
+        # PROBE marker (single point)
+        elif hasattr(marker, 'x'):
+            # Use a default radius for single point
+            r = 1.0  # 1 micron radius
+            return pya.DBox(marker.x - r, marker.y - r, marker.x + r, marker.y + r)
+        
+        else:
+            print(f"[Screenshot] Warning: Unknown marker type for {marker.id}")
+            return pya.DBox(0, 0, 10, 10)
+            
+    except Exception as e:
+        print(f"[Screenshot] Error getting bbox for {marker.id}: {e}")
+        return pya.DBox(0, 0, 10, 10)
+
+
+def calculate_scale_bar_length(view_width):
+    """
+    Calculate appropriate scale bar length
+    
+    Args:
+        view_width: Width of the view in microns
+    
+    Returns:
+        float: Scale bar length in microns
+    """
+    # Target: 10-20% of view width
+    target_length = view_width * 0.15
+    
+    # Nice round numbers for scale bars
+    nice_values = [
+        0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 
+        200, 500, 1000, 2000, 5000, 10000
+    ]
+    
+    # Find the closest nice value
+    for val in nice_values:
+        if val >= target_length * 0.5:
+            return val
+    
+    return nice_values[-1]
+
+
+def create_marker_dimension_rulers(view, marker):
+    """
+    Create dimension rulers at marker coordinates showing X and Y lengths
+    
+    Args:
+        view: LayoutView object
+        marker: Marker object
+    """
+    try:
+        # Get marker coordinates
+        if hasattr(marker, 'points') and len(marker.points) >= 2:
+            # Multi-point marker: use first and last points
+            x1, y1 = marker.points[0]
+            x2, y2 = marker.points[-1]
+        elif hasattr(marker, 'x1'):
+            # CUT or CONNECT marker
+            x1, y1 = marker.x1, marker.y1
+            x2, y2 = marker.x2, marker.y2
+        else:
+            # PROBE marker - no dimensions to show
+            print(f"[Screenshot] PROBE marker has no dimensions to measure")
+            return
+        
+        # Calculate deltas
+        delta_x = abs(x2 - x1)
+        delta_y = abs(y2 - y1)
+        
+        # X direction ruler (horizontal)
+        if delta_x > 0.01:  # Only show if significant
+            x_ruler = pya.Annotation()
+            x_ruler.p1 = pya.DPoint(x1, y1)
+            x_ruler.p2 = pya.DPoint(x2, y1)
+            x_ruler.style = pya.Annotation.StyleRuler  # Ruler with measurement
+            # Remove custom format to avoid $ syntax errors
+            view.insert_annotation(x_ruler)
+            print(f"[Screenshot] Created X ruler: ΔX = {delta_x:.2f} μm")
+        
+        # Y direction ruler (vertical)
+        if delta_y > 0.01:  # Only show if significant
+            y_ruler = pya.Annotation()
+            y_ruler.p1 = pya.DPoint(x2, y1)
+            y_ruler.p2 = pya.DPoint(x2, y2)
+            y_ruler.style = pya.Annotation.StyleRuler  # Ruler with measurement
+            # Remove custom format to avoid $ syntax errors
+            view.insert_annotation(y_ruler)
+            print(f"[Screenshot] Created Y ruler: ΔY = {delta_y:.2f} μm")
+        
+        print(f"[Screenshot] Marker dimensions: ΔX={delta_x:.2f} μm, ΔY={delta_y:.2f} μm")
+        
+    except Exception as e:
+        print(f"[Screenshot] Error creating dimension rulers: {e}")
+        import traceback
+        traceback.print_exc()
+
+
+def create_crosshair_annotation(view, marker_center, layout_bbox):
+    """
+    Create crosshair annotation pointing to marker center
+    
+    Note: Annotation color is controlled by KLayout view settings.
+    To change to white, go to: File → Setup → Display → Rulers/Annotations
+    and set the color to white (RGB: 255, 255, 255).
+    
+    Args:
+        view: LayoutView object
+        marker_center: pya.DPoint - center of marker
+        layout_bbox: pya.DBox - layout bounding box
+    """
+    try:
+        # Horizontal line
+        h_ruler = pya.Annotation()
+        h_ruler.p1 = pya.DPoint(layout_bbox.left, marker_center.y)
+        h_ruler.p2 = pya.DPoint(layout_bbox.right, marker_center.y)
+        h_ruler.style = pya.Annotation.StyleLine
+        view.insert_annotation(h_ruler)
+        
+        # Vertical line
+        v_ruler = pya.Annotation()
+        v_ruler.p1 = pya.DPoint(marker_center.x, layout_bbox.bottom)
+        v_ruler.p2 = pya.DPoint(marker_center.x, layout_bbox.top)
+        v_ruler.style = pya.Annotation.StyleLine
+        view.insert_annotation(v_ruler)
+        
+        print(f"[Screenshot] Created crosshair at ({marker_center.x:.2f}, {marker_center.y:.2f})")
+        print(f"[Screenshot] Note: To change crosshair color to white, set ruler color in KLayout preferences")
+        
+    except Exception as e:
+        print(f"[Screenshot] Error creating crosshair: {e}")
+
+
+def create_scale_bar(view, view_bbox):
+    """
+    Create scale bar annotation in lower left corner
+    
+    Args:
+        view: LayoutView object
+        view_bbox: pya.DBox - current view bounding box
+    """
+    try:
+        # Calculate appropriate scale bar length
+        scale_length = calculate_scale_bar_length(view_bbox.width())
+        
+        # Position: lower left corner with 5% margin
+        margin_x = view_bbox.width() * 0.05
+        margin_y = view_bbox.height() * 0.05
+        
+        scale_x = view_bbox.left + margin_x
+        scale_y = view_bbox.bottom + margin_y
+        
+        # Create scale bar with ruler style (shows measurement)
+        scale_bar = pya.Annotation()
+        scale_bar.p1 = pya.DPoint(scale_x, scale_y)
+        scale_bar.p2 = pya.DPoint(scale_x + scale_length, scale_y)
+        scale_bar.style = pya.Annotation.StyleRuler  # Ruler style with measurement
+        view.insert_annotation(scale_bar)
+        
+        print(f"[Screenshot] Created scale bar: {scale_length} μm")
+        
+    except Exception as e:
+        print(f"[Screenshot] Error creating scale bar: {e}")
+
+
+def take_marker_screenshots(marker, view, output_dir):
+    """
+    Generate 3 screenshots for a single marker
+    
+    Args:
+        marker: Marker object
+        view: LayoutView object
+        output_dir: Output directory path
+    
+    Returns:
+        list: List of tuples (description, filename, filepath)
+    """
+    screenshots = []
+    
+    try:
+        # Get layout and marker info
+        cellview = view.active_cellview()
+        if not cellview.is_valid():
+            print(f"[Screenshot] Error: Invalid cellview")
+            return screenshots
+        
+        layout_bbox = cellview.cell.dbbox()
+        marker_bbox = get_marker_bbox(marker)
+        marker_center = marker_bbox.center()
+        
+        print(f"[Screenshot] Processing {marker.id}...")
+        print(f"[Screenshot]   Marker bbox: {marker_bbox}")
+        print(f"[Screenshot]   Marker center: ({marker_center.x:.2f}, {marker_center.y:.2f})")
+        
+        # Store original view state
+        original_box = view.box()
+        
+        # === Screenshot 1: Overview (Fit All) with crosshair ===
+        try:
+            view.zoom_fit()
+            view.clear_annotations()
+            
+            # Create crosshair pointing to marker
+            create_crosshair_annotation(view, marker_center, layout_bbox)
+            
+            # Create scale bar
+            current_box = view.box()
+            create_scale_bar(view, current_box)
+            
+            # Save screenshot
+            overview_filename = f"{marker.id}_overview.png"
+            overview_path = os.path.join(output_dir, overview_filename)
+            view.save_image(overview_path, 800, 600)
+            
+            screenshots.append(('Overview', overview_filename, overview_path))
+            print(f"[Screenshot]   ✓ Overview saved: {overview_filename}")
+            
+        except Exception as e:
+            print(f"[Screenshot]   ✗ Overview failed: {e}")
+        
+        # === Screenshot 2: Zoom 2x (medium zoom) ===
+        try:
+            view.clear_annotations()
+            
+            # Expand marker bbox by 10x
+            zoom2_bbox = marker_bbox.enlarged(
+                marker_bbox.width() * 5, 
+                marker_bbox.height() * 5
+            )
+            
+            # Ensure minimum size (50 microns)
+            if zoom2_bbox.width() < 50:
+                zoom2_bbox = zoom2_bbox.enlarged(25, 25)
+            
+            view.zoom_box(zoom2_bbox)
+            
+            # Create dimension rulers showing marker X and Y lengths
+            create_marker_dimension_rulers(view, marker)
+            
+            # Create scale bar
+            create_scale_bar(view, zoom2_bbox)
+            
+            # Save screenshot
+            zoom2_filename = f"{marker.id}_zoom2x.png"
+            zoom2_path = os.path.join(output_dir, zoom2_filename)
+            view.save_image(zoom2_path, 800, 600)
+            
+            screenshots.append(('Zoom 2x', zoom2_filename, zoom2_path))
+            print(f"[Screenshot]   ✓ Zoom 2x saved: {zoom2_filename}")
+            
+        except Exception as e:
+            print(f"[Screenshot]   ✗ Zoom 2x failed: {e}")
+        
+        # === Screenshot 3: Detail (close-up) ===
+        try:
+            view.clear_annotations()
+            
+            # Expand marker bbox by 2x
+            detail_bbox = marker_bbox.enlarged(
+                marker_bbox.width() * 0.5, 
+                marker_bbox.height() * 0.5
+            )
+            
+            # Ensure minimum size (10 microns)
+            if detail_bbox.width() < 10:
+                detail_bbox = detail_bbox.enlarged(5, 5)
+            
+            view.zoom_box(detail_bbox)
+            
+            # Create dimension rulers showing marker X and Y lengths
+            create_marker_dimension_rulers(view, marker)
+            
+            # Create scale bar
+            create_scale_bar(view, detail_bbox)
+            
+            # Save screenshot
+            detail_filename = f"{marker.id}_detail.png"
+            detail_path = os.path.join(output_dir, detail_filename)
+            view.save_image(detail_path, 800, 600)
+            
+            screenshots.append(('Detail', detail_filename, detail_path))
+            print(f"[Screenshot]   ✓ Detail saved: {detail_filename}")
+            
+        except Exception as e:
+            print(f"[Screenshot]   ✗ Detail failed: {e}")
+        
+        # Restore original view
+        view.clear_annotations()
+        view.zoom_box(original_box)
+        
+        print(f"[Screenshot] Completed {marker.id}: {len(screenshots)} screenshots")
+        
+    except Exception as e:
+        print(f"[Screenshot] Error processing {marker.id}: {e}")
+        import traceback
+        traceback.print_exc()
+    
+    return screenshots
+
+
+def export_markers_with_screenshots(markers, view, output_dir):
+    """
+    Export all markers with screenshots
+    
+    Args:
+        markers: List of marker objects
+        view: LayoutView object
+        output_dir: Output directory path
+    
+    Returns:
+        dict: Dictionary mapping marker.id to list of screenshots
+    """
+    all_screenshots = {}
+    
+    try:
+        # Create images subdirectory
+        images_dir = os.path.join(output_dir, 'images')
+        os.makedirs(images_dir, exist_ok=True)
+        
+        print(f"[Screenshot] Starting export for {len(markers)} markers")
+        print(f"[Screenshot] Output directory: {images_dir}")
+        
+        # Process each marker
+        for i, marker in enumerate(markers, 1):
+            print(f"[Screenshot] [{i}/{len(markers)}] Processing {marker.id}...")
+            
+            screenshots = take_marker_screenshots(marker, view, images_dir)
+            all_screenshots[marker.id] = screenshots
+        
+        print(f"[Screenshot] Export complete: {len(all_screenshots)} markers processed")
+        
+    except Exception as e:
+        print(f"[Screenshot] Error in export: {e}")
+        import traceback
+        traceback.print_exc()
+    
+    return all_screenshots
+
+
+def generate_html_report_with_screenshots(markers, screenshots_dict, output_path):
+    """
+    Generate HTML report with screenshots
+    
+    Args:
+        markers: List of marker objects
+        screenshots_dict: Dictionary mapping marker.id to screenshots
+        output_path: Output HTML file path
+    """
+    from datetime import datetime
+    
+    try:
+        # Group markers by type
+        markers_by_type = {'CUT': [], 'CONNECT': [], 'PROBE': []}
+        
+        for marker in markers:
+            marker_class = marker.__class__.__name__
+            if 'Cut' in marker_class:
+                markers_by_type['CUT'].append(marker)
+            elif 'Connect' in marker_class:
+                markers_by_type['CONNECT'].append(marker)
+            elif 'Probe' in marker_class:
+                markers_by_type['PROBE'].append(marker)
+        
+        # Generate HTML
+        html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>FIB Markers Report with Screenshots</title>
+    <style>
+        body {{
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }}
+        .header {{
+            background-color: #2c3e50;
+            color: white;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }}
+        h1 {{
+            margin: 0;
+            font-size: 24px;
+        }}
+        .summary {{
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 20px;
+        }}
+        .summary-box {{
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+            flex: 1;
+            margin: 0 10px;
+        }}
+        .summary-box h3 {{
+            margin: 0;
+            color: #7f8c8d;
+            font-size: 14px;
+        }}
+        .summary-box .number {{
+            font-size: 36px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin: 10px 0;
+        }}
+        .marker-section {{
+            background-color: white;
+            padding: 20px;
+            margin-bottom: 30px;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            page-break-inside: avoid;
+        }}
+        .marker-section h2 {{
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+            margin-top: 0;
+        }}
+        .marker-info {{
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #ecf0f1;
+            border-radius: 5px;
+        }}
+        .marker-info p {{
+            margin: 5px 0;
+        }}
+        .screenshots {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }}
+        .screenshot {{
+            text-align: center;
+        }}
+        .screenshot h4 {{
+            margin: 0 0 10px 0;
+            color: #34495e;
+        }}
+        .screenshot img {{
+            width: 100%;
+            max-width: 800px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }}
+        .screenshot p {{
+            margin: 5px 0;
+            color: #7f8c8d;
+            font-size: 12px;
+        }}
+        .footer {{
+            text-align: center;
+            color: #7f8c8d;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+        }}
+        @media print {{
+            .marker-section {{
+                page-break-inside: avoid;
+            }}
+        }}
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>FIB Markers Report with Screenshots</h1>
+        <p>Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
+        <p>Total Markers: {len(markers)}</p>
+    </div>
+    
+    <div class="summary">
+        <div class="summary-box">
+            <h3>CUT Markers</h3>
+            <div class="number">{len(markers_by_type['CUT'])}</div>
+        </div>
+        <div class="summary-box">
+            <h3>CONNECT Markers</h3>
+            <div class="number">{len(markers_by_type['CONNECT'])}</div>
+        </div>
+        <div class="summary-box">
+            <h3>PROBE Markers</h3>
+            <div class="number">{len(markers_by_type['PROBE'])}</div>
+        </div>
+    </div>
+"""
+        
+        # Add each marker section
+        for marker in markers:
+            marker_class = marker.__class__.__name__
+            
+            # Get marker type
+            if 'MultiPoint' in marker_class:
+                if 'Cut' in marker_class:
+                    marker_type = "CUT (Multi-Point)"
+                elif 'Connect' in marker_class:
+                    marker_type = "CONNECT (Multi-Point)"
+                else:
+                    marker_type = "Multi-Point"
+            else:
+                marker_type = marker_class.replace('Marker', '').upper()
+            
+            # Get coordinates and dimensions
+            dimensions_str = ""
+            length_str = ""
+            
+            if hasattr(marker, 'points') and len(marker.points) > 0:
+                first = marker.points[0]
+                last = marker.points[-1]
+                coords = f"{len(marker.points)} points: ({first[0]:.2f},{first[1]:.2f}) to ({last[0]:.2f},{last[1]:.2f})"
+                # Calculate dimensions
+                delta_x = abs(last[0] - first[0])
+                delta_y = abs(last[1] - first[1])
+                # Calculate line length (Euclidean distance)
+                import math
+                length = math.sqrt(delta_x**2 + delta_y**2)
+                dimensions_str = f"ΔX = {delta_x:.2f} μm, ΔY = {delta_y:.2f} μm"
+                length_str = f"Length = {length:.2f} μm"
+            elif hasattr(marker, 'x1'):
+                coords = f"({marker.x1:.2f},{marker.y1:.2f}) to ({marker.x2:.2f},{marker.y2:.2f})"
+                # Calculate dimensions
+                delta_x = abs(marker.x2 - marker.x1)
+                delta_y = abs(marker.y2 - marker.y1)
+                # Calculate line length (Euclidean distance)
+                import math
+                length = math.sqrt(delta_x**2 + delta_y**2)
+                dimensions_str = f"ΔX = {delta_x:.2f} μm, ΔY = {delta_y:.2f} μm"
+                length_str = f"Length = {length:.2f} μm"
+            else:
+                coords = f"({marker.x:.2f},{marker.y:.2f})"
+                dimensions_str = "Single point marker"
+                length_str = "-"
+            
+            # Try to get notes from centralized dict first (if available)
+            notes = getattr(marker, 'notes', '')
+            
+            # If notes is empty, set default based on marker type
+            if not notes:
+                if 'Cut' in marker_class:
+                    notes = "切断"
+                elif 'Connect' in marker_class:
+                    notes = "连接"
+                elif 'Probe' in marker_class:
+                    notes = "点测"
+            
+            # Debug: Print notes for each marker
+            print(f"[Screenshot Export] {marker.id}: notes='{notes}' (obj_id={id(marker)})")
+            print(f"[Screenshot Export] Marker class: {marker_class}")
+            
+            html += f"""
+    <div class="marker-section">
+        <h2>{marker.id}</h2>
+        
+        <div class="marker-info">
+            <p><strong>Type:</strong> {marker_type}</p>
+            <p><strong>Coordinates:</strong> {coords} μm</p>
+            <p><strong>Dimensions:</strong> {dimensions_str}</p>
+            <p><strong>Length:</strong> {length_str}</p>
+            <p><strong>Notes:</strong> {notes if notes else '-'}</p>
+        </div>
+"""
+            
+            # Add screenshots
+            if marker.id in screenshots_dict:
+                screenshots = screenshots_dict[marker.id]
+                
+                html += """
+        <div class="screenshots">
+"""
+                
+                for desc, filename, filepath in screenshots:
+                    html += f"""
+            <div class="screenshot">
+                <h4>{desc}</h4>
+                <img src="images/{filename}" alt="{desc}">
+                <p>{desc} view of {marker.id}</p>
+            </div>
+"""
+                
+                html += """
+        </div>
+"""
+            
+            html += """
+    </div>
+"""
+        
+        html += """
+    <div class="footer">
+        <p>Generated by KLayout FIB Tool</p>
+        <p>All measurements in micrometers (μm)</p>
+    </div>
+</body>
+</html>
+"""
+        
+        # Write HTML file
+        with open(output_path, 'w', encoding='utf-8') as f:
+            f.write(html)
+        
+        print(f"[Screenshot] HTML report saved: {output_path}")
+        return True
+        
+    except Exception as e:
+        print(f"[Screenshot] Error generating HTML: {e}")
+        import traceback
+        traceback.print_exc()
+        return False

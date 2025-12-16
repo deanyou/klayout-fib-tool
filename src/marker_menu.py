@@ -30,6 +30,7 @@ class MarkerContextMenu:
             
             action_fit = menu.addAction("Zoom to Fit")
             action_copy = menu.addAction("Copy Coordinates")
+            action_notes = menu.addAction("Add Notes")
             action_rename = menu.addAction("Rename Marker")
             action_delete = menu.addAction("Delete Marker")
             
@@ -42,6 +43,8 @@ class MarkerContextMenu:
                 self.zoom_to_marker()
             elif selected_action == action_copy:
                 self.copy_coordinates()
+            elif selected_action == action_notes:
+                self.add_notes()
             elif selected_action == action_rename:
                 self.rename_marker()
             elif selected_action == action_delete:
@@ -181,6 +184,97 @@ class MarkerContextMenu:
                 
         except Exception as e:
             print(f"[Marker Menu] Error copying coordinates: {e}")
+    
+    def add_notes(self):
+        """Add or edit notes for the selected marker"""
+        if not self.current_item:
+            return
+        
+        try:
+            marker_id = self.get_marker_id_from_item(self.current_item)
+            marker = self.find_marker_by_id(marker_id)
+            
+            if not marker:
+                pya.MessageBox.warning("Marker Menu", f"Marker {marker_id} not found", pya.MessageBox.Ok)
+                return
+            
+            # Get current notes
+            current_notes = getattr(marker, 'notes', '')
+            
+            # If notes is empty, set default based on marker type
+            if not current_notes:
+                marker_class = marker.__class__.__name__
+                if 'Cut' in marker_class:
+                    current_notes = "切断"
+                elif 'Connect' in marker_class:
+                    current_notes = "连接"
+                elif 'Probe' in marker_class:
+                    current_notes = "点测"
+            
+            # Show input dialog for notes
+            try:
+                result = pya.QInputDialog.getText(
+                    self.panel, 
+                    f"Add Notes - {marker_id}",
+                    "Enter notes for this marker:",
+                    pya.QLineEdit.Normal,
+                    current_notes
+                )
+                
+                # Handle different return formats
+                if isinstance(result, tuple) and len(result) >= 2:
+                    new_notes, ok = result[0], result[1]
+                else:
+                    new_notes = str(result) if result else ""
+                    ok = bool(new_notes) or new_notes == ""  # Allow empty notes
+                    
+            except Exception as dialog_error:
+                print(f"[Marker Menu] Dialog error: {dialog_error}")
+                return
+            
+            if ok:
+                # Update marker notes in both places for redundancy
+                marker.notes = new_notes
+                
+                # Also store in centralized dictionary
+                if hasattr(self.panel, 'marker_notes_dict'):
+                    self.panel.marker_notes_dict[marker_id] = new_notes
+                    print(f"[Marker Menu] Stored in dict: {marker_id} -> '{new_notes}'")
+                
+                print(f"[Marker Menu] Updated notes for {marker_id}: '{new_notes}'")
+                print(f"[Marker Menu] Marker object id: {id(marker)}")
+                print(f"[Marker Menu] Total markers in panel: {len(self.panel.markers_list)}")
+                
+                # Verify the update by checking all markers
+                for m in self.panel.markers_list:
+                    if hasattr(m, 'notes'):
+                        print(f"[Marker Menu]   {m.id}: notes='{m.notes}' (obj_id={id(m)})")
+                
+                # Also print the centralized dict
+                if hasattr(self.panel, 'marker_notes_dict'):
+                    print(f"[Marker Menu] Centralized dict: {self.panel.marker_notes_dict}")
+                
+                # Show success message
+                try:
+                    if new_notes:
+                        pya.MainWindow.instance().message(f"Notes added to {marker_id}", 2000)
+                    else:
+                        pya.MainWindow.instance().message(f"Notes cleared for {marker_id}", 2000)
+                except:
+                    pass
+                
+                # Show confirmation dialog
+                if new_notes:
+                    pya.MessageBox.info(
+                        "Notes Updated", 
+                        f"Notes for {marker_id}:\n\n{new_notes}\n\nNotes will be included in PDF export.",
+                        pya.MessageBox.Ok
+                    )
+                
+        except Exception as e:
+            print(f"[Marker Menu] Error adding notes: {e}")
+            import traceback
+            traceback.print_exc()
     
     def rename_marker(self):
         """Rename the selected marker"""

@@ -49,6 +49,18 @@ except ImportError:
     PANEL_AVAILABLE = False
     print("[FIB Plugin] Panel not available")
 
+# Import multi-point marker classes
+try:
+    from multipoint_markers import (
+        MultiPointCutMarker, MultiPointConnectMarker,
+        create_multipoint_cut_marker, create_multipoint_connect_marker
+    )
+    MULTIPOINT_AVAILABLE = True
+    print("[FIB Plugin] Multi-point markers available")
+except ImportError:
+    MULTIPOINT_AVAILABLE = False
+    print("[FIB Plugin] Multi-point markers not available")
+
 # Marker creation functions
 def create_cut_marker(x1, y1, x2, y2, target_layers=None):
     """Create a CUT marker connecting two points"""
@@ -85,7 +97,7 @@ def create_cut_marker(x1, y1, x2, y2, target_layers=None):
     
     marker = CutMarker(marker_id, x1, y1, x2, y2, 6)
     marker.target_layers = target_layers or []  # Store layer info in marker
-    marker.notes = ""  # Initialize notes
+    marker.notes = "切断"  # Default notes for CUT markers
     marker.screenshots = []  # Initialize screenshots
     print(f"[DEBUG] Created marker: {marker_id} from ({x1}, {y1}) to ({x2}, {y2}) on layers {target_layers}")
     
@@ -133,7 +145,7 @@ def create_connect_marker(x1, y1, x2, y2, target_layers=None):
     
     marker = ConnectMarker(marker_id, x1, y1, x2, y2, 6)
     marker.target_layers = target_layers or []
-    marker.notes = ""  # Initialize notes
+    marker.notes = "连接"  # Default notes for CONNECT markers
     marker.screenshots = []  # Initialize screenshots
     
     # Notify panel if available
@@ -180,7 +192,7 @@ def create_probe_marker(x, y, target_layers=None):
     
     marker = ProbeMarker(marker_id, x, y, 6)
     marker.target_layers = target_layers or []
-    marker.notes = ""  # Initialize notes
+    marker.notes = "点测"  # Default notes for PROBE markers
     marker.screenshots = []  # Initialize screenshots
     
     # Notify panel if available
@@ -198,8 +210,21 @@ def create_probe_marker(x, y, target_layers=None):
 def draw_marker(marker, cell, layout):
     """Draw marker to GDS and show message"""
     # Get FIB layer based on marker type
-    marker_type = marker.__class__.__name__.lower().replace('marker', '')
-    fib_layer = layout.layer(LAYERS[marker_type], 0)
+    marker_class_name = marker.__class__.__name__.lower()
+    
+    # Handle multi-point markers
+    if 'multipoint' in marker_class_name:
+        if 'cut' in marker_class_name:
+            layer_key = 'cut'
+        elif 'connect' in marker_class_name:
+            layer_key = 'connect'
+        else:
+            layer_key = 'cut'  # fallback
+    else:
+        # Regular markers
+        layer_key = marker_class_name.replace('marker', '')
+    
+    fib_layer = layout.layer(LAYERS[layer_key], 0)
     
     # Draw marker
     marker.to_gds(cell, fib_layer)
@@ -209,7 +234,10 @@ def draw_marker(marker, cell, layout):
     
     # Show message
     try:
-        pya.MainWindow.instance().message(f"Created {marker.id}", 2000)
+        if hasattr(marker, 'points') and len(marker.points) > 2:
+            pya.MainWindow.instance().message(f"Created {marker.id} ({len(marker.points)} points)", 2000)
+        else:
+            pya.MainWindow.instance().message(f"Created {marker.id}", 2000)
     except Exception as msg_error:
         print(f"[FIB] Message error: {msg_error}")
         print(f"[FIB] Created {marker.id}")
@@ -225,7 +253,9 @@ def update_coordinate_texts_with_marker_id(marker, cell, layout):
         dbu = layout.dbu
         
         # Get marker coordinates
-        if hasattr(marker, 'x1'):  # CUT or CONNECT markers
+        if hasattr(marker, 'points'):  # Multi-point markers
+            coordinates = marker.points
+        elif hasattr(marker, 'x1'):  # CUT or CONNECT markers
             coordinates = [(marker.x1, marker.y1), (marker.x2, marker.y2)]
         else:  # PROBE marker
             coordinates = [(marker.x, marker.y)]
@@ -294,8 +324,13 @@ class FIBToolPlugin(pya.Plugin):
     def __init__(self, manager):
         super(FIBToolPlugin, self).__init__()
         self.manager = manager
-        self.mode = None  # 'cut', 'connect', 'probe'
+        self.mode = None  # 'cut', 'connect', 'probe', 'cut_multi', 'connect_multi'
         self.temp_points = []
+        self.is_multipoint_mode = False
+        self.last_click_time = 0
+        self.last_click_pos = None
+        self.double_click_threshold = 500  # milliseconds
+        self.double_click_distance = 5.0  # microns (increased for easier detection)
         print(f"[FIB Plugin] Initialized")
     
     def activated(self):
@@ -308,11 +343,18 @@ class FIBToolPlugin(pya.Plugin):
         current_mode = self.mode
         active_plugin = self
         
+        # Determine if this is a multi-point mode
+        self.is_multipoint_mode = self.mode.endswith('_multi')
+        
         try:
             if self.mode == 'cut':
                 pya.MainWindow.instance().message("CUT mode: Click twice (position + direction)", 10000)
+            elif self.mode == 'cut_multi':
+                pya.MainWindow.instance().message("CUT multi-point mode: Left-click to add points, right-click to finish", 10000)
             elif self.mode == 'connect':
                 pya.MainWindow.instance().message("CONNECT mode: Click twice (start + end)", 10000)
+            elif self.mode == 'connect_multi':
+                pya.MainWindow.instance().message("CONNECT multi-point mode: Left-click to add points, right-click to finish", 10000)
             elif self.mode == 'probe':
                 pya.MainWindow.instance().message("PROBE mode: Click once", 10000)
         except Exception as msg_error:
@@ -329,16 +371,29 @@ class FIBToolPlugin(pya.Plugin):
             current_mode = None
             active_plugin = None
         
+        # Reset all state
         self.temp_points = []
+        self.last_click_time = 0
+        self.last_click_pos = None
     
     def mouse_click_event(self, p, buttons, prio):
         """Handle mouse click events"""
         global current_mode, active_plugin
         
+        # Check for right-click to finish multi-point mode
+        if buttons & pya.ButtonState.RightButton:
+            return self._handle_right_click_finish(p, buttons, prio)
+        
+        # Handle left-click
+        if not (buttons & pya.ButtonState.LeftButton):
+            return False
+        
         # Determine which mode to use
         if current_mode:
             # Panel activation - use global mode, but only if this plugin matches
-            if self.mode != current_mode:
+            base_mode = current_mode.replace('_multi', '')
+            plugin_base_mode = self.mode.replace('_multi', '')
+            if plugin_base_mode != base_mode:
                 return False
             effective_mode = current_mode
         else:
@@ -365,20 +420,22 @@ class FIBToolPlugin(pya.Plugin):
         x = p.x
         y = p.y
         
+
+        
         # TODO: Tap functionality to find layers at this position
         # Currently disabled for debugging - will implement proper tap detection later
         target_layers = []  # Temporarily disabled
         # target_layers = self._get_layers_at_position(view, p)
         print(f"[DEBUG] Position ({x:.3f}, {y:.3f}) - Tap detection temporarily disabled")
         
-        # Store the point with layer information
+        # Store the point with layer information (only for non-double-click)
         point_info = {
             'x': x,
             'y': y,
             'layers': target_layers
         }
         self.temp_points.append(point_info)
-        print(f"[DEBUG] Stored points: {self.temp_points}")
+        print(f"[DEBUG] Stored points: {len(self.temp_points)} total")
         
         # Add coordinate text at click position (will be updated with marker ID later)
         self._add_coordinate_text(view, x, y)
@@ -396,6 +453,13 @@ class FIBToolPlugin(pya.Plugin):
                 )
                 draw_marker(marker, cell, layout)
                 self.temp_points = []
+        elif working_mode == 'cut_multi':
+            # Multi-point cut mode - collect points until right-click
+            if len(self.temp_points) >= 2:
+                try:
+                    pya.MainWindow.instance().message(f"Cut path: {len(self.temp_points)} points. Right-click to finish.", 3000)
+                except:
+                    pass
         elif working_mode == 'connect':
             if len(self.temp_points) == 2:
                 target_layer_info = self.temp_points[0]['layers']
@@ -406,6 +470,13 @@ class FIBToolPlugin(pya.Plugin):
                 )
                 draw_marker(marker, cell, layout)
                 self.temp_points = []
+        elif working_mode == 'connect_multi':
+            # Multi-point connect mode - collect points until right-click
+            if len(self.temp_points) >= 2:
+                try:
+                    pya.MainWindow.instance().message(f"Connect path: {len(self.temp_points)} points. Right-click to finish.", 3000)
+                except:
+                    pass
         elif working_mode == 'probe':
             if len(self.temp_points) == 1:
                 target_layer_info = self.temp_points[0]['layers']
@@ -416,6 +487,152 @@ class FIBToolPlugin(pya.Plugin):
                 draw_marker(marker, cell, layout)
                 self.temp_points = []
         return True
+    
+    def _handle_right_click_finish(self, p, buttons, prio):
+        """Handle right-click to finish multi-point input"""
+        global current_mode
+        
+        # Determine which mode to use
+        if current_mode:
+            base_mode = current_mode.replace('_multi', '')
+            plugin_base_mode = self.mode.replace('_multi', '')
+            if plugin_base_mode != base_mode:
+                return False
+            effective_mode = current_mode
+        else:
+            if not prio or not self.mode:
+                return False
+            effective_mode = self.mode
+        
+        print(f"[DEBUG] Right-click detected in mode: {effective_mode}")
+        
+        # Only handle right-click in multi-point modes
+        if not effective_mode.endswith('_multi'):
+            print(f"[DEBUG] Not in multi-point mode, ignoring right-click")
+            return False
+        
+        # Get current view and cell
+        view = pya.Application.instance().main_window().current_view()
+        if not view or not view.active_cellview().is_valid():
+            return False
+        
+        cellview = view.active_cellview()
+        cell = cellview.cell
+        layout = cellview.layout()
+        
+        # Check if we have enough points
+        if len(self.temp_points) < 2:
+            print(f"[DEBUG] Not enough points: {len(self.temp_points)} < 2")
+            try:
+                pya.MainWindow.instance().message("Need at least 2 points. Continue clicking with left button.", 3000)
+            except:
+                pass
+            return True
+        
+        print(f"[DEBUG] Right-click: Finishing {effective_mode} with {len(self.temp_points)} points")
+        print(f"[DEBUG] MULTIPOINT_AVAILABLE = {MULTIPOINT_AVAILABLE}")
+        
+        # Create multi-point marker
+        if effective_mode == 'cut_multi':
+            if MULTIPOINT_AVAILABLE:
+                print(f"[DEBUG] Creating multi-point CUT marker...")
+                self._create_multipoint_cut_marker(cell, layout)
+            else:
+                print(f"[DEBUG] ERROR: MULTIPOINT_AVAILABLE is False!")
+        elif effective_mode == 'connect_multi':
+            if MULTIPOINT_AVAILABLE:
+                print(f"[DEBUG] Creating multi-point CONNECT marker...")
+                self._create_multipoint_connect_marker(cell, layout)
+            else:
+                print(f"[DEBUG] ERROR: MULTIPOINT_AVAILABLE is False!")
+        
+        return True
+    
+    def _create_multipoint_cut_marker(self, cell, layout):
+        """Create a multi-point cut marker"""
+        try:
+            print(f"[DEBUG] _create_multipoint_cut_marker called with {len(self.temp_points)} points")
+            
+            # Use smart counter to get next available number
+            if PANEL_AVAILABLE:
+                panel = get_fib_panel()
+                if panel and hasattr(panel, 'smart_counter'):
+                    next_number = panel.smart_counter.get_next_number('cut')
+                else:
+                    next_number = marker_counter['cut']
+            else:
+                next_number = marker_counter['cut']
+            
+            # Create marker ID
+            marker_id = f"CUT_{next_number}"
+            print(f"[DEBUG] Marker ID: {marker_id}")
+            
+            # Update global counter
+            marker_counter['cut'] = max(marker_counter['cut'], next_number + 1)
+            
+            # Extract points and layer info
+            points = [(point['x'], point['y']) for point in self.temp_points]
+            target_layers = self.temp_points[0]['layers'] if self.temp_points else []
+            
+            print(f"[DEBUG] Points to create marker: {points}")
+            print(f"[DEBUG] Target layers: {target_layers}")
+            
+            # Create multi-point marker
+            marker = create_multipoint_cut_marker(marker_id, points, target_layers)
+            print(f"[DEBUG] Marker object created: {marker}")
+            
+            # Draw marker
+            draw_marker(marker, cell, layout)
+            print(f"[DEBUG] Marker drawn to GDS")
+            
+            # Clear temp points
+            self.temp_points = []
+            
+            print(f"[DEBUG] ✓ Successfully created multi-point cut marker {marker_id} with {len(points)} points")
+            
+        except Exception as e:
+            print(f"[DEBUG] ✗ Error creating multi-point cut marker: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    def _create_multipoint_connect_marker(self, cell, layout):
+        """Create a multi-point connect marker"""
+        try:
+            # Use smart counter to get next available number
+            if PANEL_AVAILABLE:
+                panel = get_fib_panel()
+                if panel and hasattr(panel, 'smart_counter'):
+                    next_number = panel.smart_counter.get_next_number('connect')
+                else:
+                    next_number = marker_counter['connect']
+            else:
+                next_number = marker_counter['connect']
+            
+            # Create marker ID
+            marker_id = f"CONNECT_{next_number}"
+            
+            # Update global counter
+            marker_counter['connect'] = max(marker_counter['connect'], next_number + 1)
+            
+            # Extract points and layer info
+            points = [(point['x'], point['y']) for point in self.temp_points]
+            target_layers = self.temp_points[0]['layers'] if self.temp_points else []
+            
+            # Create multi-point marker
+            marker = create_multipoint_connect_marker(marker_id, points, target_layers)
+            
+            # Draw marker
+            draw_marker(marker, cell, layout)
+            
+            # Clear temp points
+            self.temp_points = []
+            
+            print(f"[DEBUG] Created multi-point connect marker {marker_id} with {len(points)} points")
+            
+        except Exception as e:
+            print(f"[DEBUG] Error creating multi-point connect marker: {e}")
+            import traceback
+            traceback.print_exc()
     
     def _get_layers_at_position(self, view, point):
         """Use KLayout's tap functionality to find layers at the given position"""
@@ -709,22 +926,27 @@ def activate_fib_mode(mode):
             pya.MessageBox.warning("FIB Tool", "No active layout view found", pya.MessageBox.Ok)
             return False
         
-        # Clear temp_points from all plugins when switching modes
+        # Clear temp_points and double-click state from all plugins when switching modes
         for plugin_mode, plugin in current_plugins.items():
             if plugin and hasattr(plugin, 'temp_points'):
                 plugin.temp_points = []
+                plugin.last_click_time = 0
+                plugin.last_click_pos = None
         
         # Set global mode
         current_mode = mode
         
-        # Get or create the plugin for this mode
-        if mode in current_plugins and current_plugins[mode]:
-            plugin = current_plugins[mode]
+        # Get base mode for plugin lookup (remove _multi suffix)
+        base_mode = mode.replace('_multi', '')
+        
+        # Get or create the plugin for this base mode
+        if base_mode in current_plugins and current_plugins[base_mode]:
+            plugin = current_plugins[base_mode]
         else:
             # Create a new plugin instance if needed
             plugin = FIBToolPlugin(None)
-            plugin.mode = mode
-            current_plugins[mode] = plugin
+            plugin.mode = base_mode
+            current_plugins[base_mode] = plugin
         
         # Set as active plugin
         active_plugin = plugin
@@ -733,8 +955,12 @@ def activate_fib_mode(mode):
         try:
             if mode == 'cut':
                 pya.MainWindow.instance().message("CUT mode: Click twice (position + direction)", 10000)
+            elif mode == 'cut_multi':
+                pya.MainWindow.instance().message("CUT multi-point mode: Left-click to add points, right-click to finish", 10000)
             elif mode == 'connect':
                 pya.MainWindow.instance().message("CONNECT mode: Click twice (start + end)", 10000)
+            elif mode == 'connect_multi':
+                pya.MainWindow.instance().message("CONNECT multi-point mode: Left-click to add points, right-click to finish", 10000)
             elif mode == 'probe':
                 pya.MainWindow.instance().message("PROBE mode: Click once", 10000)
         except Exception as msg_error:

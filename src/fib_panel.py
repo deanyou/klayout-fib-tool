@@ -26,6 +26,7 @@ class FIBPanel(pya.QDockWidget):
         super().__init__("FIB Panel", parent)
         self.markers_list = []  # Global marker list
         self.active_mode = None
+        self.marker_notes_dict = {}  # Centralized notes storage: marker_id -> notes
         
         # Initialize context menu handler and smart counter
         self.context_menu = MarkerContextMenu(self)
@@ -81,8 +82,8 @@ class FIBPanel(pya.QDockWidget):
             group = pya.QGroupBox("Project")
             group_layout = pya.QVBoxLayout(group)
             
-            # Buttons row
-            btn_layout = pya.QHBoxLayout()
+            # First row: New, Save, Load
+            btn_layout1 = pya.QHBoxLayout()
             
             btn_new = pya.QPushButton("New")
             btn_save = pya.QPushButton("Save")
@@ -92,11 +93,21 @@ class FIBPanel(pya.QDockWidget):
             btn_save.clicked.connect(self.on_save_project)
             btn_load.clicked.connect(self.on_load_project)
             
-            btn_layout.addWidget(btn_new)
-            btn_layout.addWidget(btn_save)
-            btn_layout.addWidget(btn_load)
+            btn_layout1.addWidget(btn_new)
+            btn_layout1.addWidget(btn_save)
+            btn_layout1.addWidget(btn_load)
             
-            group_layout.addLayout(btn_layout)
+            group_layout.addLayout(btn_layout1)
+            
+            # Second row: Export PDF
+            btn_layout2 = pya.QHBoxLayout()
+            
+            btn_export_pdf = pya.QPushButton("Export PDF")
+            btn_export_pdf.clicked.connect(self.on_export_pdf)
+            
+            btn_layout2.addWidget(btn_export_pdf)
+            
+            group_layout.addLayout(btn_layout2)
             self.main_layout.addWidget(group)
             
         except Exception as e:
@@ -108,22 +119,43 @@ class FIBPanel(pya.QDockWidget):
             group = pya.QGroupBox("Add Markers")
             group_layout = pya.QVBoxLayout(group)
             
-            # Buttons row
-            btn_layout = pya.QHBoxLayout()
-            
+            # Cut section with dropdown
+            cut_layout = pya.QHBoxLayout()
             self.btn_cut = pya.QPushButton("Cut")
-            self.btn_connect = pya.QPushButton("Connect")
-            self.btn_probe = pya.QPushButton("Probe")
+            self.cut_mode_combo = pya.QComboBox()
+            self.cut_mode_combo.addItem("2 Points")
+            self.cut_mode_combo.addItem("Multi Points")
+            self.cut_mode_combo.setMinimumWidth(80)
             
             self.btn_cut.clicked.connect(self.on_cut_clicked)
+            
+            cut_layout.addWidget(self.btn_cut)
+            cut_layout.addWidget(self.cut_mode_combo)
+            group_layout.addLayout(cut_layout)
+            
+            # Connect section with dropdown
+            connect_layout = pya.QHBoxLayout()
+            self.btn_connect = pya.QPushButton("Connect")
+            self.connect_mode_combo = pya.QComboBox()
+            self.connect_mode_combo.addItem("2 Points")
+            self.connect_mode_combo.addItem("Multi Points")
+            self.connect_mode_combo.setMinimumWidth(80)
+            
             self.btn_connect.clicked.connect(self.on_connect_clicked)
+            
+            connect_layout.addWidget(self.btn_connect)
+            connect_layout.addWidget(self.connect_mode_combo)
+            group_layout.addLayout(connect_layout)
+            
+            # Probe section (no dropdown needed)
+            probe_layout = pya.QHBoxLayout()
+            self.btn_probe = pya.QPushButton("Probe")
             self.btn_probe.clicked.connect(self.on_probe_clicked)
             
-            btn_layout.addWidget(self.btn_cut)
-            btn_layout.addWidget(self.btn_connect)
-            btn_layout.addWidget(self.btn_probe)
-            
-            group_layout.addLayout(btn_layout)
+            probe_layout.addWidget(self.btn_probe)
+            # Add spacer to align with other rows
+            probe_layout.addStretch()
+            group_layout.addLayout(probe_layout)
             
             # Status label
             self.status_label = pya.QLabel("Ready")
@@ -232,15 +264,95 @@ class FIBPanel(pya.QDockWidget):
             print(f"[FIB Panel] Error in load project: {e}")
             pya.MessageBox.warning("FIB Panel", f"Error loading project: {e}", pya.MessageBox.Ok)
     
+    def on_export_pdf(self):
+        """Handle Export PDF"""
+        try:
+            if not self.markers_list:
+                pya.MessageBox.warning("FIB Panel", "No markers to export. Create some markers first.", pya.MessageBox.Ok)
+                return
+            
+            # Get current view
+            main_window = pya.Application.instance().main_window()
+            current_view = main_window.current_view()
+            
+            if not current_view or not current_view.active_cellview().is_valid():
+                pya.MessageBox.warning("FIB Panel", "No active layout view found", pya.MessageBox.Ok)
+                return
+            
+            # Ask for filename
+            home_dir = os.path.expanduser("~")
+            default_filename = os.path.join(home_dir, "fib_markers_report.pdf")
+            
+            # Use Qt file dialog
+            file_dialog = pya.QFileDialog()
+            filename = file_dialog.getSaveFileName(self, "Export PDF Report", default_filename, "PDF Files (*.pdf)")
+            
+            # Handle different return types
+            if isinstance(filename, tuple):
+                filename = filename[0] if filename[0] else None
+            
+            if not filename:
+                print("[FIB Panel] Export PDF cancelled by user")
+                return
+            
+            # Ensure .pdf extension
+            if not filename.endswith('.pdf'):
+                filename += '.pdf'
+            
+            print(f"[FIB Panel] Exporting PDF to: {filename}")
+            
+            # Export to PDF
+            success = self.export_markers_to_pdf(filename, current_view)
+            
+            if success:
+                basename = os.path.basename(filename)
+                pya.MessageBox.info("FIB Panel", f"PDF report exported successfully:\n{basename}\n\n{len(self.markers_list)} markers included", pya.MessageBox.Ok)
+            else:
+                pya.MessageBox.warning("FIB Panel", "Failed to export PDF. Check console for details.", pya.MessageBox.Ok)
+                
+        except Exception as e:
+            print(f"[FIB Panel] Error in export PDF: {e}")
+            import traceback
+            traceback.print_exc()
+            pya.MessageBox.warning("FIB Panel", f"Error exporting PDF: {e}", pya.MessageBox.Ok)
+    
     def on_cut_clicked(self):
         """Handle Cut button - activate toolbar plugin"""
-        self.activate_toolbar_plugin('cut')
-        self.activate_mode('cut')
+        try:
+            # Get selected mode from dropdown
+            current_text = self.cut_mode_combo.currentText
+            if callable(current_text):
+                is_multipoint = current_text() == "Multi Points"
+            else:
+                is_multipoint = current_text == "Multi Points"
+            mode = 'cut_multi' if is_multipoint else 'cut'
+            
+            self.activate_toolbar_plugin(mode)
+            self.activate_mode(mode)
+        except Exception as e:
+            print(f"[FIB Panel] Error in on_cut_clicked: {e}")
+            # Fallback to regular cut mode
+            self.activate_toolbar_plugin('cut')
+            self.activate_mode('cut')
     
     def on_connect_clicked(self):
         """Handle Connect button - activate toolbar plugin"""
-        self.activate_toolbar_plugin('connect')
-        self.activate_mode('connect')
+        try:
+            # Get selected mode from dropdown
+            current_text = self.connect_mode_combo.currentText
+            if callable(current_text):
+                is_multipoint = current_text() == "Multi Points"
+            else:
+                is_multipoint = current_text == "Multi Points"
+            mode = 'connect_multi' if is_multipoint else 'connect'
+            
+            self.activate_toolbar_plugin(mode)
+            self.activate_mode(mode)
+        except Exception as e:
+            print(f"[FIB Panel] Error in on_connect_clicked: {e}")
+            # Fallback to regular connect mode
+            self.activate_toolbar_plugin('connect')
+            self.activate_mode('connect')
     
     def on_probe_clicked(self):
         """Handle Probe button - activate toolbar plugin"""
@@ -313,8 +425,18 @@ class FIBPanel(pya.QDockWidget):
         else:
             # Activate new mode
             self.active_mode = mode
-            self.mode_buttons[mode].setStyleSheet("background-color: lightgreen;")
-            self.status_label.setText(f"{mode.upper()} mode active - Click on layout")
+            
+            # Highlight the appropriate button
+            base_mode = mode.replace('_multi', '')
+            if base_mode in self.mode_buttons:
+                self.mode_buttons[base_mode].setStyleSheet("background-color: lightgreen;")
+            
+            # Set appropriate status message
+            if mode.endswith('_multi'):
+                self.status_label.setText(f"{base_mode.upper()} multi-point mode - Left-click points, right-click to finish")
+            else:
+                self.status_label.setText(f"{mode.upper()} mode active - Click on layout")
+            
             # Clear any pending points when switching modes
             self.clear_pending_points()
         
@@ -329,7 +451,9 @@ class FIBPanel(pya.QDockWidget):
                 for plugin_mode, plugin in current_plugins.items():
                     if plugin and hasattr(plugin, 'temp_points'):
                         plugin.temp_points = []
-                        print(f"[FIB Panel] Cleared temp_points for {plugin_mode} plugin")
+                        plugin.last_click_time = 0
+                        plugin.last_click_pos = None
+                        print(f"[FIB Panel] Cleared temp_points and double-click state for {plugin_mode} plugin")
         except Exception as e:
             print(f"[FIB Panel] Error clearing pending points: {e}")
     
@@ -469,23 +593,44 @@ class FIBPanel(pya.QDockWidget):
             # Prepare marker data
             markers_data = []
             for marker in self.markers_list:
-                marker_dict = {
-                    'id': marker.id,
-                    'type': marker.__class__.__name__.replace('Marker', '').lower(),
-                    'notes': getattr(marker, 'notes', ''),
-                    'screenshots': getattr(marker, 'screenshots', []),
-                    'target_layers': getattr(marker, 'target_layers', [])
-                }
+                marker_class_name = marker.__class__.__name__
                 
-                # Add coordinates based on marker type
-                if hasattr(marker, 'x1'):  # CUT or CONNECT
-                    marker_dict['x1'] = marker.x1
-                    marker_dict['y1'] = marker.y1
-                    marker_dict['x2'] = marker.x2
-                    marker_dict['y2'] = marker.y2
-                else:  # PROBE
-                    marker_dict['x'] = marker.x
-                    marker_dict['y'] = marker.y
+                # Handle multi-point markers
+                if 'MultiPoint' in marker_class_name:
+                    if 'Cut' in marker_class_name:
+                        marker_type = 'multipoint_cut'
+                    elif 'Connect' in marker_class_name:
+                        marker_type = 'multipoint_connect'
+                    else:
+                        marker_type = 'multipoint'
+                    
+                    marker_dict = {
+                        'id': marker.id,
+                        'type': marker_type,
+                        'points': marker.points if hasattr(marker, 'points') else [],
+                        'notes': getattr(marker, 'notes', ''),
+                        'screenshots': getattr(marker, 'screenshots', []),
+                        'target_layers': getattr(marker, 'target_layers', [])
+                    }
+                else:
+                    # Regular markers
+                    marker_dict = {
+                        'id': marker.id,
+                        'type': marker_class_name.replace('Marker', '').lower(),
+                        'notes': getattr(marker, 'notes', ''),
+                        'screenshots': getattr(marker, 'screenshots', []),
+                        'target_layers': getattr(marker, 'target_layers', [])
+                    }
+                    
+                    # Add coordinates based on marker type
+                    if hasattr(marker, 'x1'):  # CUT or CONNECT
+                        marker_dict['x1'] = marker.x1
+                        marker_dict['y1'] = marker.y1
+                        marker_dict['x2'] = marker.x2
+                        marker_dict['y2'] = marker.y2
+                    else:  # PROBE
+                        marker_dict['x'] = marker.x
+                        marker_dict['y'] = marker.y
                 
                 markers_data.append(marker_dict)
             
@@ -494,6 +639,7 @@ class FIBPanel(pya.QDockWidget):
                 json.dump({
                     'version': '1.0',
                     'markers': markers_data,
+                    'marker_notes_dict': self.marker_notes_dict,  # Save centralized notes dict
                     'marker_counters': {
                         'cut': sys.modules['__main__'].__dict__.get('marker_counter', {}).get('cut', 0),
                         'connect': sys.modules['__main__'].__dict__.get('marker_counter', {}).get('connect', 0),
@@ -532,6 +678,13 @@ class FIBPanel(pya.QDockWidget):
             # Clear current markers
             self.on_new_project()
             
+            # Load centralized notes dictionary
+            if 'marker_notes_dict' in data:
+                self.marker_notes_dict = data['marker_notes_dict']
+                print(f"[FIB Panel] Loaded notes dict: {self.marker_notes_dict}")
+            else:
+                self.marker_notes_dict = {}
+            
             # Load marker counters
             if 'marker_counters' in data:
                 counters = data['marker_counters']
@@ -556,6 +709,14 @@ class FIBPanel(pya.QDockWidget):
             # Import marker classes and drawing function
             from markers import CutMarker, ConnectMarker, ProbeMarker
             
+            # Try to import multi-point markers
+            try:
+                from multipoint_markers import MultiPointCutMarker, MultiPointConnectMarker
+                multipoint_available = True
+            except ImportError:
+                multipoint_available = False
+                print("[FIB Panel] Multi-point markers not available for loading")
+            
             # Load markers
             loaded_count = 0
             for marker_data in data.get('markers', []):
@@ -564,7 +725,13 @@ class FIBPanel(pya.QDockWidget):
                     marker_id = marker_data['id']
                     
                     # Create marker object
-                    if marker_type == 'cut':
+                    if marker_type == 'multipoint_cut' and multipoint_available:
+                        points = marker_data.get('points', [])
+                        marker = MultiPointCutMarker(marker_id, points, LAYERS['cut'])
+                    elif marker_type == 'multipoint_connect' and multipoint_available:
+                        points = marker_data.get('points', [])
+                        marker = MultiPointConnectMarker(marker_id, points, LAYERS['connect'])
+                    elif marker_type == 'cut':
                         marker = CutMarker(marker_id, marker_data['x1'], marker_data['y1'], 
                                          marker_data['x2'], marker_data['y2'], 6)
                     elif marker_type == 'connect':
@@ -577,13 +744,33 @@ class FIBPanel(pya.QDockWidget):
                         continue
                     
                     # Set additional properties
-                    marker.notes = marker_data.get('notes', '')
+                    # Try to get notes from dict first, then from marker_data
+                    if marker_id in self.marker_notes_dict:
+                        marker.notes = self.marker_notes_dict[marker_id]
+                        print(f"[FIB Panel] Restored notes from dict for {marker_id}: '{marker.notes}'")
+                    else:
+                        loaded_notes = marker_data.get('notes', '')
+                        # If no notes in file, set default based on marker type
+                        if not loaded_notes:
+                            if marker_type == 'cut' or marker_type == 'multipoint_cut':
+                                loaded_notes = "切断"
+                            elif marker_type == 'connect' or marker_type == 'multipoint_connect':
+                                loaded_notes = "连接"
+                            elif marker_type == 'probe':
+                                loaded_notes = "点测"
+                        marker.notes = loaded_notes
+                    
                     marker.screenshots = marker_data.get('screenshots', [])
                     marker.target_layers = marker_data.get('target_layers', [])
                     
                     # Draw marker to GDS
                     from config import LAYERS
-                    fib_layer = layout.layer(LAYERS[marker_type], 0)
+                    if marker_type.startswith('multipoint_'):
+                        base_type = marker_type.replace('multipoint_', '')
+                        fib_layer = layout.layer(LAYERS[base_type], 0)
+                    else:
+                        fib_layer = layout.layer(LAYERS[marker_type], 0)
+                    
                     marker.to_gds(cell, fib_layer)
                     
                     # Add to panel
@@ -600,7 +787,94 @@ class FIBPanel(pya.QDockWidget):
         except Exception as e:
             print(f"[FIB Panel] Error loading from JSON: {e}")
             return False
-
+    
+    def export_markers_to_pdf(self, filename, view):
+        """Export markers to PDF report with screenshots"""
+        try:
+            import os
+            from screenshot_export import (
+                export_markers_with_screenshots,
+                generate_html_report_with_screenshots
+            )
+            
+            # Get output directory
+            output_dir = os.path.dirname(filename)
+            if not output_dir:
+                output_dir = os.path.expanduser("~")
+            
+            print(f"[FIB Panel] Starting export with screenshots...")
+            print(f"[FIB Panel] Output directory: {output_dir}")
+            
+            # Generate screenshots for all markers
+            screenshots_dict = export_markers_with_screenshots(
+                self.markers_list, 
+                view, 
+                output_dir
+            )
+            
+            print(f"[FIB Panel] Screenshots generated: {len(screenshots_dict)} markers")
+            
+            # Generate HTML report with screenshots
+            html_filename = filename.replace('.pdf', '.html')
+            success = generate_html_report_with_screenshots(
+                self.markers_list,
+                screenshots_dict,
+                html_filename
+            )
+            
+            if not success:
+                print(f"[FIB Panel] Failed to generate HTML report")
+                return False
+            
+            print(f"[FIB Panel] HTML report saved to: {html_filename}")
+            
+            # Try to convert to PDF using available tools
+            pdf_created = False
+            
+            # Method 1: Try using wkhtmltopdf (if installed)
+            try:
+                import subprocess
+                result = subprocess.run(['wkhtmltopdf', '--version'], 
+                                      capture_output=True, timeout=5)
+                if result.returncode == 0:
+                    print("[FIB Panel] Using wkhtmltopdf for PDF conversion")
+                    subprocess.run(['wkhtmltopdf', html_filename, filename], 
+                                 check=True, timeout=30)
+                    pdf_created = True
+            except (FileNotFoundError, subprocess.TimeoutExpired, subprocess.CalledProcessError) as e:
+                print(f"[FIB Panel] wkhtmltopdf not available: {e}")
+            
+            # Method 2: Try using weasyprint (if installed)
+            if not pdf_created:
+                try:
+                    from weasyprint import HTML
+                    print("[FIB Panel] Using weasyprint for PDF conversion")
+                    HTML(html_filename).write_pdf(filename)
+                    pdf_created = True
+                except ImportError:
+                    print("[FIB Panel] weasyprint not available")
+            
+            # If PDF conversion failed, just keep the HTML
+            if not pdf_created:
+                print(f"[FIB Panel] PDF conversion tools not available. HTML report saved instead.")
+                pya.MessageBox.info("FIB Panel", 
+                    f"PDF conversion tools not installed.\n\n"
+                    f"HTML report with screenshots saved to:\n{html_filename}\n\n"
+                    f"To enable PDF export, install:\n"
+                    f"  pip install weasyprint\n"
+                    f"or install wkhtmltopdf",
+                    pya.MessageBox.Ok)
+                return True
+            
+            print(f"[FIB Panel] PDF report created: {filename}")
+            return True
+            
+        except Exception as e:
+            print(f"[FIB Panel] Error exporting to PDF: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+    
     # Public methods for plugin integration
     def add_marker(self, marker):
         """Add a marker to the panel (called by plugin)"""
@@ -620,12 +894,32 @@ class FIBPanel(pya.QDockWidget):
                     _ = self.marker_list.count  # This will throw if widget is destroyed
                     
                     # Add to list widget
-                    marker_type = marker.__class__.__name__.replace('Marker', '').upper()
+                    marker_class_name = marker.__class__.__name__
                     
-                    if hasattr(marker, 'x1'):  # CUT or CONNECT
-                        coords = f"({marker.x1:.2f},{marker.y1:.2f}) to ({marker.x2:.2f},{marker.y2:.2f})"
-                    else:  # PROBE
-                        coords = f"({marker.x:.2f},{marker.y:.2f})"
+                    # Handle multi-point markers
+                    if 'MultiPoint' in marker_class_name:
+                        if 'Cut' in marker_class_name:
+                            marker_type = "CUT (MULTI)"
+                        elif 'Connect' in marker_class_name:
+                            marker_type = "CONNECT (MULTI)"
+                        else:
+                            marker_type = "MULTI"
+                        
+                        # Show point count and range for multi-point markers
+                        if hasattr(marker, 'points') and len(marker.points) > 0:
+                            first_point = marker.points[0]
+                            last_point = marker.points[-1]
+                            coords = f"{len(marker.points)} pts: ({first_point[0]:.2f},{first_point[1]:.2f}) to ({last_point[0]:.2f},{last_point[1]:.2f})"
+                        else:
+                            coords = "No points"
+                    else:
+                        # Regular markers
+                        marker_type = marker_class_name.replace('Marker', '').upper()
+                        
+                        if hasattr(marker, 'x1'):  # CUT or CONNECT
+                            coords = f"({marker.x1:.2f},{marker.y1:.2f}) to ({marker.x2:.2f},{marker.y2:.2f})"
+                        else:  # PROBE
+                            coords = f"({marker.x:.2f},{marker.y:.2f})"
                     
                     item_text = f"{marker.id} - {marker_type} - {coords}"
                     self.marker_list.addItem(item_text)
