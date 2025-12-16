@@ -1,6 +1,14 @@
-# KLayout FIB Tool --> development stage (Not ready for production)
+# KLayout FIB Tool
+
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![KLayout](https://img.shields.io/badge/KLayout-%3E%3D0.28-green.svg)
+![Version](https://img.shields.io/badge/version-1.0.0-orange.svg)
+![Python](https://img.shields.io/badge/python-3.8%2B-blue.svg)
+![Status](https://img.shields.io/badge/status-MVP%20Complete-brightgreen.svg)
 
 **简单、实用的 FIB 标注工具。遵循 Linus Torvalds 编程哲学：零废话，直接能用。**
+
+> **开发阶段说明**: MVP 已完成，功能完整。正在准备发布到 KLayout SALT Mine。
 
 ## 项目状态
 
