@@ -6,6 +6,12 @@
 - **Python** 3.8+ (KLayout 内置)
 - **操作系统**: Windows / macOS / Linux
 
+### 可选依赖（用于 PDF 导出）
+
+- **wkhtmltopdf**（推荐）或 **weasyprint**
+- 不安装也可以使用，会生成 HTML 报告
+- 详见：[PDF 导出依赖说明](docs/PDF_EXPORT_DEPENDENCIES.md)
+
 ---
 
 ## 安装方式对比

@@ -320,15 +320,37 @@ def select_marker_path(view, marker):
                             
                             # Create a highlight annotation box around the text
                             try:
-                                # Create a rectangular annotation around the text
+                                # Use line annotations to create a box (more compatible)
                                 margin = 3.0  # 3 microns margin around text
-                                highlight_box = pya.Annotation()
-                                highlight_box.p1 = pya.DPoint(select_point.x - margin, select_point.y - margin)
-                                highlight_box.p2 = pya.DPoint(select_point.x + margin, select_point.y + margin)
-                                highlight_box.style = pya.Annotation.StyleRectangle
                                 
-                                # Add the highlight annotation to the view
-                                view.insert_annotation(highlight_box)
+                                # Create 4 lines to form a rectangle
+                                # Top line
+                                top_line = pya.Annotation()
+                                top_line.p1 = pya.DPoint(select_point.x - margin, select_point.y + margin)
+                                top_line.p2 = pya.DPoint(select_point.x + margin, select_point.y + margin)
+                                top_line.style = pya.Annotation.StyleLine
+                                view.insert_annotation(top_line)
+                                
+                                # Bottom line
+                                bottom_line = pya.Annotation()
+                                bottom_line.p1 = pya.DPoint(select_point.x - margin, select_point.y - margin)
+                                bottom_line.p2 = pya.DPoint(select_point.x + margin, select_point.y - margin)
+                                bottom_line.style = pya.Annotation.StyleLine
+                                view.insert_annotation(bottom_line)
+                                
+                                # Left line
+                                left_line = pya.Annotation()
+                                left_line.p1 = pya.DPoint(select_point.x - margin, select_point.y - margin)
+                                left_line.p2 = pya.DPoint(select_point.x - margin, select_point.y + margin)
+                                left_line.style = pya.Annotation.StyleLine
+                                view.insert_annotation(left_line)
+                                
+                                # Right line
+                                right_line = pya.Annotation()
+                                right_line.p1 = pya.DPoint(select_point.x + margin, select_point.y - margin)
+                                right_line.p2 = pya.DPoint(select_point.x + margin, select_point.y + margin)
+                                right_line.style = pya.Annotation.StyleLine
+                                view.insert_annotation(right_line)
                                 
                                 print(f"[Screenshot] ✓ Created highlight box around text '{text_string}'")
                                 texts_selected += 1

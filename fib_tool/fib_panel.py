@@ -132,11 +132,11 @@ class FIBPanel(pya.QDockWidget):
             
             # Create all widgets with identical sizing and styling (very compact layout)
             widget_height = 24  # Reduced from 32 to 24 for height compression
-            widget_min_width = 60  # Reduced from 80 to 60 for more compact layout
+            widget_min_width = 75  # Adjusted to 75 to comfortably fit "Connect" text
             
             # Cut button with explicit styling
             self.btn_cut = pya.QPushButton("Cut")
-            self.btn_cut.setMinimumWidth(widget_min_width)
+            self.btn_cut.setFixedWidth(widget_min_width)  # Fixed width for consistency
             self.btn_cut.setFixedHeight(widget_height)
             self.btn_cut.setContentsMargins(0, 0, 0, 0)  # Remove internal margins
             
@@ -144,13 +144,13 @@ class FIBPanel(pya.QDockWidget):
             self.cut_mode_combo = pya.QComboBox()
             self.cut_mode_combo.addItem("2 Points")
             self.cut_mode_combo.addItem("Multi Points")
-            self.cut_mode_combo.setMinimumWidth(widget_min_width)
+            self.cut_mode_combo.setFixedWidth(widget_min_width)  # Fixed width to prevent expansion
             self.cut_mode_combo.setFixedHeight(widget_height)
             self.cut_mode_combo.setContentsMargins(0, 0, 0, 0)  # Remove internal margins
             
             # Connect button with identical styling
             self.btn_connect = pya.QPushButton("Connect")
-            self.btn_connect.setMinimumWidth(widget_min_width)
+            self.btn_connect.setFixedWidth(widget_min_width)  # Fixed width for consistency
             self.btn_connect.setFixedHeight(widget_height)
             self.btn_connect.setContentsMargins(0, 0, 0, 0)  # Remove internal margins
             
@@ -158,13 +158,13 @@ class FIBPanel(pya.QDockWidget):
             self.connect_mode_combo = pya.QComboBox()
             self.connect_mode_combo.addItem("2 Points")
             self.connect_mode_combo.addItem("Multi Points")
-            self.connect_mode_combo.setMinimumWidth(widget_min_width)
+            self.connect_mode_combo.setFixedWidth(widget_min_width)  # Fixed width to prevent expansion
             self.connect_mode_combo.setFixedHeight(widget_height)
             self.connect_mode_combo.setContentsMargins(0, 0, 0, 0)  # Remove internal margins
             
             # Probe button with identical styling
             self.btn_probe = pya.QPushButton("Probe")
-            self.btn_probe.setMinimumWidth(widget_min_width)
+            self.btn_probe.setFixedWidth(widget_min_width)  # Fixed width for consistency
             self.btn_probe.setFixedHeight(widget_height)
             self.btn_probe.setContentsMargins(0, 0, 0, 0)  # Remove internal margins
             
@@ -222,8 +222,11 @@ class FIBPanel(pya.QDockWidget):
             # Add the grid layout to the group
             group_layout.addLayout(grid_layout)
             
-            # Status label
+            # Status label with word wrap to prevent panel expansion
             self.status_label = pya.QLabel("Ready")
+            self.status_label.setWordWrap(True)  # Enable word wrap
+            self.status_label.setMaximumWidth(160)  # Limit width to prevent panel expansion
+            self.status_label.setAlignment(pya.Qt.AlignLeft | pya.Qt.AlignTop)  # Align text
             group_layout.addWidget(self.status_label)
             
             self.main_layout.addWidget(group)
@@ -536,11 +539,11 @@ class FIBPanel(pya.QDockWidget):
             if base_mode in self.mode_buttons:
                 self.mode_buttons[base_mode].setStyleSheet("background-color: lightgreen;")
             
-            # Set appropriate status message
+            # Set appropriate status message (keep it short to prevent panel expansion)
             if mode.endswith('_multi'):
-                self.status_label.setText(f"{base_mode.upper()} multi-point mode - Left-click points, right-click to finish")
+                self.status_label.setText(f"{base_mode.upper()} Multi: L-click add, R-click finish")
             else:
-                self.status_label.setText(f"{mode.upper()} mode active - Click on layout")
+                self.status_label.setText(f"{mode.upper()}: Click to add")
             
             # Clear any pending points when switching modes
             self.clear_pending_points()
@@ -1024,6 +1027,8 @@ class FIBPanel(pya.QDockWidget):
                     pdf_created = True
             except (FileNotFoundError, subprocess.TimeoutExpired, subprocess.CalledProcessError) as e:
                 print(f"[FIB Panel] wkhtmltopdf not available: {e}")
+            except Exception as wk_error:
+                print(f"[FIB Panel] wkhtmltopdf error: {wk_error}")
             
             # Method 2: Try using weasyprint (if installed)
             if not pdf_created:
@@ -1034,6 +1039,8 @@ class FIBPanel(pya.QDockWidget):
                     pdf_created = True
                 except ImportError:
                     print("[FIB Panel] weasyprint not available")
+                except Exception as weasy_error:
+                    print(f"[FIB Panel] weasyprint error: {weasy_error}")
             
             # If PDF conversion failed, just keep the HTML
             if not pdf_created:

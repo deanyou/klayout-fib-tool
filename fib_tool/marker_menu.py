@@ -466,6 +466,9 @@ class MarkerContextMenu:
         try:
             # Get the marker layer
             marker_type = marker.__class__.__name__.lower().replace('marker', '')
+            # Handle multi-point markers (e.g., "multipointcutmarker" -> "cut")
+            if 'multipoint' in marker_type:
+                marker_type = marker_type.replace('multipoint', '')
             
             from config import LAYERS
             if marker_type not in LAYERS:
@@ -478,7 +481,12 @@ class MarkerContextMenu:
             print(f"[Marker Menu] Deleting {marker_type} geometry from layer {layer_num}")
             
             # Get marker coordinates for geometry matching
-            if hasattr(marker, 'x1'):  # CUT or CONNECT markers
+            # Check for multi-point markers first (they have 'points' attribute)
+            if hasattr(marker, 'points') and len(marker.points) > 0:
+                # Multi-point marker: search around ALL points
+                marker_coords = marker.points
+                print(f"[Marker Menu] Multi-point marker with {len(marker_coords)} points")
+            elif hasattr(marker, 'x1'):  # Regular CUT or CONNECT markers
                 marker_coords = [(marker.x1, marker.y1), (marker.x2, marker.y2)]
             else:  # PROBE marker
                 marker_coords = [(marker.x, marker.y)]
@@ -515,6 +523,7 @@ class MarkerContextMenu:
                 shapes.erase(shape)
                 deleted_count += 1
             
+            print(f"[Marker Menu] Deleted {deleted_count} geometry shapes for {marker.id}")
             return deleted_count
             
         except Exception as e:
