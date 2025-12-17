@@ -289,6 +289,10 @@ class FIBPanel(pya.QDockWidget):
             
             # Simple list widget that can expand with window
             self.marker_list = pya.QListWidget()
+            
+            # Enable multi-selection with Ctrl/Cmd and Shift keys
+            self.marker_list.setSelectionMode(pya.QAbstractItemView.ExtendedSelection)
+            
             self.marker_list.setContextMenuPolicy(pya.Qt.CustomContextMenu)
             self.marker_list.customContextMenuRequested.connect(self.on_marker_context_menu)
             self.marker_list.itemDoubleClicked.connect(self.on_marker_double_clicked)
@@ -1612,92 +1616,122 @@ class FIBPanel(pya.QDockWidget):
             raise
     
     def on_move_marker_up(self):
-        """Move selected marker up in the list"""
+        """Move selected marker(s) up in the list"""
         try:
-            # Get current row
-            try:
-                current_row = self.marker_list.currentRow()
-            except TypeError:
-                current_row = self.marker_list.currentRow
-            
-            print(f"[FIB Panel] Move up: current_row = {current_row}")
-            
-            if current_row <= 0:
-                # Already at top or no selection
-                print(f"[FIB Panel] Cannot move up: already at top or no selection")
+            # Get all selected rows
+            selected_items = self.marker_list.selectedItems()
+            if not selected_items:
+                print(f"[FIB Panel] No markers selected")
                 return
             
-            # Instead of using takeItem/insertItem, rebuild the entire list
-            # This avoids potential Qt binding issues
+            # Get row indices for selected items
+            selected_rows = []
+            for item in selected_items:
+                try:
+                    row = self.marker_list.row(item)
+                    selected_rows.append(row)
+                except:
+                    pass
             
-            # Step 1: Swap markers in the internal list
-            self.markers_list[current_row], self.markers_list[current_row - 1] = \
-                self.markers_list[current_row - 1], self.markers_list[current_row]
+            # Sort rows in ascending order
+            selected_rows.sort()
             
-            print(f"[FIB Panel] Swapped markers in internal list")
+            print(f"[FIB Panel] Move up: selected rows = {selected_rows}")
+            
+            # Check if any selected row is already at top
+            if not selected_rows or selected_rows[0] <= 0:
+                print(f"[FIB Panel] Cannot move up: first selected item already at top")
+                return
+            
+            # Move each selected marker up by swapping with the one above
+            # Process from top to bottom to avoid conflicts
+            for row in selected_rows:
+                if row > 0:
+                    self.markers_list[row], self.markers_list[row - 1] = \
+                        self.markers_list[row - 1], self.markers_list[row]
+            
             print(f"[FIB Panel] New order: {[m.id for m in self.markers_list]}")
             
-            # Step 2: Rebuild the UI list from markers_list
+            # Rebuild the UI list
             self._rebuild_marker_list_ui()
             
-            # Step 3: Set selection to the new position
-            try:
-                self.marker_list.setCurrentRow(current_row - 1)
-            except:
-                pass
+            # Restore selection at new positions
+            for row in selected_rows:
+                if row > 0:
+                    try:
+                        item = self.marker_list.item(row - 1)
+                        if item:
+                            item.setSelected(True)
+                    except:
+                        pass
             
-            print(f"[FIB Panel] Moved marker up from row {current_row} to {current_row - 1}")
+            print(f"[FIB Panel] Moved {len(selected_rows)} marker(s) up")
             
         except Exception as e:
-            print(f"[FIB Panel] Error moving marker up: {e}")
+            print(f"[FIB Panel] Error moving markers up: {e}")
             import traceback
             traceback.print_exc()
     
     def on_move_marker_down(self):
-        """Move selected marker down in the list"""
+        """Move selected marker(s) down in the list"""
         try:
-            # Get current row
-            try:
-                current_row = self.marker_list.currentRow()
-            except TypeError:
-                current_row = self.marker_list.currentRow
+            # Get all selected rows
+            selected_items = self.marker_list.selectedItems()
+            if not selected_items:
+                print(f"[FIB Panel] No markers selected")
+                return
             
-            # Get count
+            # Get row indices for selected items
+            selected_rows = []
+            for item in selected_items:
+                try:
+                    row = self.marker_list.row(item)
+                    selected_rows.append(row)
+                except:
+                    pass
+            
+            # Sort rows in descending order (process from bottom to top)
+            selected_rows.sort(reverse=True)
+            
+            # Get list count
             try:
                 list_count = self.marker_list.count()
             except TypeError:
                 list_count = self.marker_list.count
             
-            print(f"[FIB Panel] Move down: current_row = {current_row}, list_count = {list_count}")
+            print(f"[FIB Panel] Move down: selected rows = {selected_rows}, list_count = {list_count}")
             
-            if current_row < 0 or current_row >= list_count - 1:
-                # Already at bottom or no selection
-                print(f"[FIB Panel] Cannot move down: already at bottom or no selection")
+            # Check if any selected row is already at bottom
+            if not selected_rows or selected_rows[0] >= list_count - 1:
+                print(f"[FIB Panel] Cannot move down: last selected item already at bottom")
                 return
             
-            # Instead of using takeItem/insertItem, rebuild the entire list
-            # This avoids potential Qt binding issues
+            # Move each selected marker down by swapping with the one below
+            # Process from bottom to top to avoid conflicts
+            for row in selected_rows:
+                if row < len(self.markers_list) - 1:
+                    self.markers_list[row], self.markers_list[row + 1] = \
+                        self.markers_list[row + 1], self.markers_list[row]
             
-            # Step 1: Swap markers in the internal list
-            self.markers_list[current_row], self.markers_list[current_row + 1] = \
-                self.markers_list[current_row + 1], self.markers_list[current_row]
-            
-            print(f"[FIB Panel] Swapped markers in internal list")
             print(f"[FIB Panel] New order: {[m.id for m in self.markers_list]}")
             
-            # Step 2: Rebuild the UI list from markers_list
+            # Rebuild the UI list
             self._rebuild_marker_list_ui()
             
-            # Step 3: Set selection to the new position
-            try:
-                self.marker_list.setCurrentRow(current_row + 1)
-            except:
-                pass
+            # Restore selection at new positions
+            for row in selected_rows:
+                if row < list_count - 1:
+                    try:
+                        item = self.marker_list.item(row + 1)
+                        if item:
+                            item.setSelected(True)
+                    except:
+                        pass
             
-            print(f"[FIB Panel] Moved marker down from row {current_row} to {current_row + 1}")
+            print(f"[FIB Panel] Moved {len(selected_rows)} marker(s) down")
             
         except Exception as e:
-            print(f"[FIB Panel] Error moving marker down: {e}")
+            print(f"[FIB Panel] Error moving markers down: {e}")
             import traceback
             traceback.print_exc()
 
