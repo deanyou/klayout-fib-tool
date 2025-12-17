@@ -12,6 +12,7 @@ Each screenshot includes a scale bar in micrometers.
 
 import os
 import pya
+from config import SCREENSHOT_CONFIG
 
 
 def get_marker_bbox(marker):
@@ -43,7 +44,7 @@ def get_marker_bbox(marker):
         # PROBE marker (single point)
         elif hasattr(marker, 'x'):
             # Use a default radius for single point
-            r = 1.0  # 1 micron radius
+            r = SCREENSHOT_CONFIG['default_probe_radius']  # Default probe radius
             return pya.DBox(marker.x - r, marker.y - r, marker.x + r, marker.y + r)
         
         else:
@@ -66,13 +67,10 @@ def calculate_scale_bar_length(view_width):
         float: Scale bar length in microns
     """
     # Target: 10-20% of view width
-    target_length = view_width * 0.15
-    
+    target_length = view_width * SCREENSHOT_CONFIG['scale_bar']['target_percentage']
+
     # Nice round numbers for scale bars
-    nice_values = [
-        0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 
-        200, 500, 1000, 2000, 5000, 10000
-    ]
+    nice_values = SCREENSHOT_CONFIG['scale_bar']['nice_values']
     
     # Find the closest nice value
     for val in nice_values:
@@ -256,7 +254,7 @@ def select_marker_path(view, marker):
             print(f"[Screenshot] Searching for {len(marker.points)} coordinate texts for multi-point {marker.id}")
             for i, (x, y) in enumerate(marker.points):
                 # Create search box around each coordinate
-                margin = 5.0  # 5 microns search radius
+                margin = SCREENSHOT_CONFIG['search_radius']  # Search radius in microns
                 db_box = pya.Box(
                     int((x - margin) / dbu), 
                     int((y - margin) / dbu),
@@ -269,7 +267,7 @@ def select_marker_path(view, marker):
             # Regular 2-point marker: search around both endpoints
             print(f"[Screenshot] Searching for 2 coordinate texts for 2-point {marker.id}")
             for x, y in [(marker.x1, marker.y1), (marker.x2, marker.y2)]:
-                margin = 5.0  # 5 microns search radius
+                margin = SCREENSHOT_CONFIG['search_radius']  # Search radius in microns
                 db_box = pya.Box(
                     int((x - margin) / dbu), 
                     int((y - margin) / dbu),
@@ -281,7 +279,7 @@ def select_marker_path(view, marker):
         else:
             # PROBE marker: search around single point
             print(f"[Screenshot] Searching for 1 coordinate text for probe {marker.id}")
-            margin = 5.0  # 5 microns search radius
+            margin = SCREENSHOT_CONFIG['search_radius']  # Search radius in microns
             db_box = pya.Box(
                 int((marker.x - margin) / dbu), 
                 int((marker.y - margin) / dbu),
@@ -321,7 +319,7 @@ def select_marker_path(view, marker):
                             # Create a highlight annotation box around the text
                             try:
                                 # Use line annotations to create a box (more compatible)
-                                margin = 3.0  # 3 microns margin around text
+                                margin = SCREENSHOT_CONFIG['highlight_margin']  # Margin around text in microns
                                 
                                 # Create 4 lines to form a rectangle
                                 # Top line

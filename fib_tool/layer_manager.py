@@ -6,7 +6,7 @@ Automatically detects and creates required layers if they don't exist.
 """
 
 import pya
-from config import LAYERS
+from config import LAYERS, LAYER_COLORS, LAYER_MARKER_CONFIG
 
 
 def check_and_create_layers(layout):
@@ -88,11 +88,11 @@ def insert_fib_layer_views_to_panel(current_view, layout):
     try:
         print("[Layer Manager] Inserting FIB layer views to Layer Panel...")
         
-        # FIB layer definitions with colors - FINAL COLORS
+        # FIB layer definitions with colors
         fib_layers = {
-            337: {'name': 'FIB_CUT', 'color': 0xFF69B4},      # Pink (粉色)
-            338: {'name': 'FIB_CONNECT', 'color': 0xFFFF00},  # Yellow (黄色)
-            339: {'name': 'FIB_PROBE', 'color': 0xFFFFFF}     # White (白色) - 修复：6个F
+            337: {'name': 'FIB_CUT', 'color': LAYER_COLORS['cut']},         # Pink (粉色)
+            338: {'name': 'FIB_CONNECT', 'color': LAYER_COLORS['connect']}, # Yellow (黄色)
+            339: {'name': 'FIB_PROBE', 'color': LAYER_COLORS['probe']}      # White (白色)
         }
         
         # Try to get layer list from view
@@ -303,18 +303,20 @@ def create_practical_layer_markers(current_view, layout):
             shapes = cell.shapes(layer_index)
             
             # Calculate marker position (X from 0 onwards, Y below 0)
-            marker_x = (layer_num - 337) * 5000  # X: 0, 5000, 10000 (0μm, 5μm, 10μm)
-            marker_y = -5000  # Y: -5μm (below 0)
-            
+            base_x, base_y = LAYER_MARKER_CONFIG['base_position']
+            marker_x = (layer_num - 337) * base_x  # X: 0, 5000, 10000 (0μm, 5μm, 10μm)
+            marker_y = base_y  # Y: -5μm (below 0)
+
             # Create a visible marker box (2μm x 2μm)
             marker_size = 2000  # 2μm
             marker_box = pya.Box(marker_x, marker_y, marker_x + marker_size, marker_y + marker_size)
             shapes.insert(marker_box)
-            
+
             # Create descriptive text (place text below the marker)
             text_content = f"{layer_info['name']}\nLayer {layer_num}\n{layer_info['description']}"
-            text_obj = pya.Text(text_content, marker_x, marker_y - 1500)  # Text 1.5μm below marker
-            text_obj.size = 300  # Readable size
+            label_offset_y = LAYER_MARKER_CONFIG['label_offset_y']
+            text_obj = pya.Text(text_content, marker_x, marker_y + label_offset_y)  # Text below marker
+            text_obj.size = LAYER_MARKER_CONFIG['text_size']  # Readable size
             shapes.insert(text_obj)
             
             print(f"[Layer Manager] ✓ Created practical marker for {layer_info['name']} at ({marker_x/1000:.1f}, {marker_y/1000:.1f})")
@@ -353,9 +355,9 @@ def set_layer_colors(current_view):
         
         # Layer colors configuration
         layer_colors = {
-            337: {'color': 0xFF69B4, 'name': 'FIB_CUT'},      # Pink
-            338: {'color': 0xFFFF00, 'name': 'FIB_CONNECT'},  # Yellow
-            339: {'color': 0xFFFFFF, 'name': 'FIB_PROBE'}     # White
+            337: {'color': LAYER_COLORS['cut'], 'name': 'FIB_CUT'},         # Pink
+            338: {'color': LAYER_COLORS['connect'], 'name': 'FIB_CONNECT'}, # Yellow
+            339: {'color': LAYER_COLORS['probe'], 'name': 'FIB_PROBE'}      # White
         }
         
         # Ensure all layers are visible in the panel
@@ -447,20 +449,22 @@ def create_layer_identification_markers(current_view, layout):
             layer_name = layer_names.get(layer_key, f'FIB_{layer_key.upper()}')
             
             # Calculate marker position (X from 0 onwards, Y below 0)
-            marker_x = (layer_num - 337) * 3000  # X: 0, 3000, 6000 (0μm, 3μm, 6μm)
-            marker_y = -8000  # Y: -8μm (below the main markers)
-            
+            spacing_y = LAYER_MARKER_CONFIG['spacing_y']
+            base_x_pos = LAYER_MARKER_CONFIG['base_x']
+            marker_x = (layer_num - 337) * spacing_y  # X: 0, 3000, 6000 (0μm, 3μm, 6μm)
+            marker_y = base_x_pos  # Y: -8μm (below the main markers)
+
             # Get the layer index
             layer_info = pya.LayerInfo(layer_num, 0, layer_name)
             layer_index = layout.layer(layer_info)
-            
+
             # Create shapes collection for this layer
             shapes = cell.shapes(layer_index)
-            
+
             # Create a small identification text
             text_string = f"FIB_{layer_key.upper()}_LAYER"
             text_obj = pya.Text(text_string, marker_x, marker_y)
-            text_obj.size = 200  # Readable size
+            text_obj.size = LAYER_MARKER_CONFIG['text_size']  # Readable size
             
             # Insert the text
             shapes.insert(text_obj)

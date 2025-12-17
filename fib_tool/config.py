@@ -68,6 +68,41 @@ DEFAULT_MARKER_NOTES = {
     'probe': '点测',
 }
 
+# Layer visualization colors (RGB hex format)
+LAYER_COLORS = {
+    'cut': 0xFF69B4,      # Hot Pink
+    'connect': 0xFFFF00,  # Yellow
+    'probe': 0xFFFFFF,    # White
+}
+
+# Layer marker configuration (for test/debug features)
+LAYER_MARKER_CONFIG = {
+    'base_position': (5000, -5000),  # Base position in DBU
+    'label_offset_y': -1500,         # Label Y offset in DBU
+    'spacing_y': 3000,               # Vertical spacing between markers in DBU
+    'base_x': -8000,                 # Base X position in DBU
+    'text_size': 200,                # Text size in DBU
+}
+
+# Screenshot export configuration
+SCREENSHOT_CONFIG = {
+    'default_probe_radius': 1.0,  # Default probe radius in μm
+    'image_size': (800, 600),     # Default image size (width, height)
+    'scale_bar': {
+        'target_percentage': 0.15,  # Scale bar target percentage of view (15%)
+        'nice_values': [0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10, 20, 50, 100, 200, 500, 1000],  # Nice scale values
+        'margin_percent': 0.05,     # Margin percentage (5%)
+    },
+    'search_radius': 5.0,          # Search radius for finding markers in μm
+    'highlight_margin': 3.0,       # Highlight box margin in μm
+    'zoom': {
+        'zoom2x_expansion': 5.0,   # Expansion factor for 2x zoom (5x the marker size)
+        'detail_expansion': 0.5,   # Expansion factor for detail view (0.5x the marker size)
+        'min_size_zoom2x': 50.0,   # Minimum size for 2x zoom view in μm
+        'min_size_detail': 10.0,   # Minimum size for detail view in μm
+    }
+}
+
 # Report settings
 REPORT_TEMPLATE = """<!DOCTYPE html>
 <html>
