@@ -28,6 +28,15 @@ from markers import CutMarker, ConnectMarker, ProbeMarker
 from config import LAYERS, GEOMETRIC_PARAMS, UI_TIMEOUTS, DEFAULT_MARKER_NOTES
 from layer_manager import ensure_fib_layers, get_layer_info_summary, verify_layers_exist
 
+# Import layer tap functionality
+try:
+    from layer_tap import get_layer_at_point_with_selection, format_layer_for_display
+    LAYER_TAP_AVAILABLE = True
+    print("[FIB Plugin] Layer tap functionality available")
+except ImportError as e:
+    LAYER_TAP_AVAILABLE = False
+    print(f"[FIB Plugin] Layer tap not available: {e}")
+
 # Global flag to prevent double initialization
 # This is important when the plugin is loaded both via SALT and exec()
 _FIB_PLUGIN_FACTORIES_CREATED = False
@@ -103,11 +112,18 @@ except ImportError:
     print("[FIB Plugin] Multi-point markers not available")
 
 # Marker creation functions
-def create_cut_marker(x1, y1, x2, y2, target_layers=None):
-    """Create a CUT marker connecting two points"""
+def create_cut_marker(x1, y1, x2, y2, layer1=None, layer2=None):
+    """Create a CUT marker connecting two points
+    
+    Args:
+        x1, y1: First point coordinates (microns)
+        x2, y2: Second point coordinates (microns)
+        layer1: Layer info string for point 1 (e.g., "M1" or "1/0")
+        layer2: Layer info string for point 2 (e.g., "M2" or "2/0")
+    """
     global marker_counter
     
-    print(f"[DEBUG] create_cut_marker called with: x1={x1}, y1={y1}, x2={x2}, y2={y2}, layers={target_layers}")
+    print(f"[DEBUG] create_cut_marker called with: x1={x1}, y1={y1}, x2={x2}, y2={y2}, layer1={layer1}, layer2={layer2}")
     
     # Use smart counter to get next available number
     try:
@@ -122,25 +138,15 @@ def create_cut_marker(x1, y1, x2, y2, target_layers=None):
     except:
         next_number = marker_counter['cut']
     
-    # Create marker ID with layer information (if available)
-    layer_suffix = ""
-    if target_layers and len(target_layers) > 0:
-        if len(target_layers) == 1:
-            layer_suffix = f"_L{target_layers[0]}"
-        else:
-            layers_str = "_".join(target_layers[:2])
-            layer_suffix = f"_L{layers_str}"
-    
-    marker_id = f"CUT_{next_number}{layer_suffix}"
+    marker_id = f"CUT_{next_number}"
     
     # Update global counter
     marker_counter['cut'] = max(marker_counter['cut'], next_number + 1)
     
-    marker = CutMarker(marker_id, x1, y1, x2, y2, 6)
-    marker.target_layers = target_layers or []  # Store layer info in marker
+    marker = CutMarker(marker_id, x1, y1, x2, y2, 6, layer1=layer1, layer2=layer2)
     marker.notes = DEFAULT_MARKER_NOTES['cut']
     marker.screenshots = []  # Initialize screenshots
-    print(f"[DEBUG] Created marker: {marker_id} from ({x1}, {y1}) to ({x2}, {y2}) on layers {target_layers}")
+    print(f"[DEBUG] Created marker: {marker_id} from ({x1}, {y1}) [{layer1 or 'N/A'}] to ({x2}, {y2}) [{layer2 or 'N/A'}]")
     
     # Notify panel if available
     if PANEL_AVAILABLE:
@@ -153,8 +159,15 @@ def create_cut_marker(x1, y1, x2, y2, target_layers=None):
     
     return marker
 
-def create_connect_marker(x1, y1, x2, y2, target_layers=None):
-    """Create a CONNECT marker"""
+def create_connect_marker(x1, y1, x2, y2, layer1=None, layer2=None):
+    """Create a CONNECT marker
+    
+    Args:
+        x1, y1: First point coordinates (microns)
+        x2, y2: Second point coordinates (microns)
+        layer1: Layer info string for point 1 (e.g., "M1" or "1/0")
+        layer2: Layer info string for point 2 (e.g., "M2" or "2/0")
+    """
     global marker_counter
     
     # Use smart counter to get next available number
@@ -170,24 +183,16 @@ def create_connect_marker(x1, y1, x2, y2, target_layers=None):
     except:
         next_number = marker_counter['connect']
     
-    # Create marker ID with layer information
-    layer_suffix = ""
-    if target_layers and len(target_layers) > 0:
-        if len(target_layers) == 1:
-            layer_suffix = f"_L{target_layers[0]}"
-        else:
-            layers_str = "_".join(target_layers[:2])
-            layer_suffix = f"_L{layers_str}"
-    
-    marker_id = f"CONNECT_{next_number}{layer_suffix}"
+    marker_id = f"CONNECT_{next_number}"
     
     # Update global counter
     marker_counter['connect'] = max(marker_counter['connect'], next_number + 1)
     
-    marker = ConnectMarker(marker_id, x1, y1, x2, y2, 6)
-    marker.target_layers = target_layers or []
+    marker = ConnectMarker(marker_id, x1, y1, x2, y2, 6, layer1=layer1, layer2=layer2)
     marker.notes = DEFAULT_MARKER_NOTES['connect']
     marker.screenshots = []  # Initialize screenshots
+    
+    print(f"[DEBUG] Created marker: {marker_id} from ({x1}, {y1}) [{layer1 or 'N/A'}] to ({x2}, {y2}) [{layer2 or 'N/A'}]")
     
     # Notify panel if available
     if PANEL_AVAILABLE:
@@ -200,8 +205,13 @@ def create_connect_marker(x1, y1, x2, y2, target_layers=None):
     
     return marker
 
-def create_probe_marker(x, y, target_layers=None):
-    """Create a PROBE marker"""
+def create_probe_marker(x, y, target_layer=None):
+    """Create a PROBE marker
+    
+    Args:
+        x, y: Probe point coordinates (microns)
+        target_layer: Layer info string at probe point (e.g., "M1" or "1/0")
+    """
     global marker_counter
     
     # Use smart counter to get next available number
@@ -217,24 +227,16 @@ def create_probe_marker(x, y, target_layers=None):
     except:
         next_number = marker_counter['probe']
     
-    # Create marker ID with layer information
-    layer_suffix = ""
-    if target_layers and len(target_layers) > 0:
-        if len(target_layers) == 1:
-            layer_suffix = f"_L{target_layers[0]}"
-        else:
-            layers_str = "_".join(target_layers[:2])
-            layer_suffix = f"_L{layers_str}"
-    
-    marker_id = f"PROBE_{next_number}{layer_suffix}"
+    marker_id = f"PROBE_{next_number}"
     
     # Update global counter
     marker_counter['probe'] = max(marker_counter['probe'], next_number + 1)
     
-    marker = ProbeMarker(marker_id, x, y, 6)
-    marker.target_layers = target_layers or []
+    marker = ProbeMarker(marker_id, x, y, 6, target_layer=target_layer)
     marker.notes = DEFAULT_MARKER_NOTES['probe']
     marker.screenshots = []  # Initialize screenshots
+    
+    print(f"[DEBUG] Created marker: {marker_id} at ({x}, {y}) [{target_layer or 'N/A'}]")
     
     # Notify panel if available
     if PANEL_AVAILABLE:
@@ -484,17 +486,27 @@ class FIBToolPlugin(pya.Plugin):
         
 
         
-        # TODO: Tap functionality to find layers at this position
-        # Currently disabled for debugging - will implement proper tap detection later
-        target_layers = []  # Temporarily disabled
-        # target_layers = self._get_layers_at_position(view, p)
-        print(f"[DEBUG] Position ({x:.3f}, {y:.3f}) - Tap detection temporarily disabled")
+        # Detect layer at click position using layer tap functionality
+        detected_layer = None
+        if LAYER_TAP_AVAILABLE:
+            try:
+                point_label = f"Point {len(self.temp_points) + 1}"
+                detected_layer = get_layer_at_point_with_selection(x, y, search_radius=0.01, position_label=point_label)
+                if detected_layer:
+                    layer_str = format_layer_for_display(detected_layer)
+                    print(f"[DEBUG] Position ({x:.3f}, {y:.3f}) - Detected layer: {layer_str}")
+                else:
+                    print(f"[DEBUG] Position ({x:.3f}, {y:.3f}) - No layer detected (N/A)")
+            except Exception as tap_error:
+                print(f"[DEBUG] Layer tap error: {tap_error}")
+        else:
+            print(f"[DEBUG] Position ({x:.3f}, {y:.3f}) - Layer tap not available")
         
-        # Store the point with layer information (only for non-double-click)
+        # Store the point with layer information
         point_info = {
             'x': x,
             'y': y,
-            'layers': target_layers
+            'layer': format_layer_for_display(detected_layer) if LAYER_TAP_AVAILABLE else None
         }
         self.temp_points.append(point_info)
         print(f"[DEBUG] Stored points: {len(self.temp_points)} total")
@@ -506,12 +518,13 @@ class FIBToolPlugin(pya.Plugin):
         if working_mode == 'cut':
             if len(self.temp_points) == 2:
                 print(f"[DEBUG] Creating CUT marker with points: {self.temp_points}")
-                # Use layers from first click point
-                target_layer_info = self.temp_points[0]['layers']
+                # Get layer info for each point
+                layer1 = self.temp_points[0].get('layer')
+                layer2 = self.temp_points[1].get('layer')
                 marker = create_cut_marker(
                     self.temp_points[0]['x'], self.temp_points[0]['y'], 
                     self.temp_points[1]['x'], self.temp_points[1]['y'],
-                    target_layer_info
+                    layer1=layer1, layer2=layer2
                 )
                 draw_marker(marker, cell, layout)
                 self.temp_points = []
@@ -524,11 +537,13 @@ class FIBToolPlugin(pya.Plugin):
                     pass
         elif working_mode == 'connect':
             if len(self.temp_points) == 2:
-                target_layer_info = self.temp_points[0]['layers']
+                # Get layer info for each point
+                layer1 = self.temp_points[0].get('layer')
+                layer2 = self.temp_points[1].get('layer')
                 marker = create_connect_marker(
                     self.temp_points[0]['x'], self.temp_points[0]['y'], 
                     self.temp_points[1]['x'], self.temp_points[1]['y'],
-                    target_layer_info
+                    layer1=layer1, layer2=layer2
                 )
                 draw_marker(marker, cell, layout)
                 self.temp_points = []
@@ -541,10 +556,11 @@ class FIBToolPlugin(pya.Plugin):
                     pass
         elif working_mode == 'probe':
             if len(self.temp_points) == 1:
-                target_layer_info = self.temp_points[0]['layers']
+                # Get layer info for probe point
+                target_layer = self.temp_points[0].get('layer')
                 marker = create_probe_marker(
                     self.temp_points[0]['x'], self.temp_points[0]['y'],
-                    target_layer_info
+                    target_layer=target_layer
                 )
                 draw_marker(marker, cell, layout)
                 self.temp_points = []
@@ -632,15 +648,15 @@ class FIBToolPlugin(pya.Plugin):
             # Update global counter
             marker_counter['cut'] = max(marker_counter['cut'], next_number + 1)
             
-            # Extract points and layer info
+            # Extract points and layer info for each point
             points = [(point['x'], point['y']) for point in self.temp_points]
-            target_layers = self.temp_points[0]['layers'] if self.temp_points else []
+            point_layers = [point.get('layer', 'N/A') for point in self.temp_points]
             
             print(f"[DEBUG] Points to create marker: {points}")
-            print(f"[DEBUG] Target layers: {target_layers}")
+            print(f"[DEBUG] Point layers: {point_layers}")
             
-            # Create multi-point marker
-            marker = create_multipoint_cut_marker(marker_id, points, target_layers)
+            # Create multi-point marker with layer info
+            marker = create_multipoint_cut_marker(marker_id, points, point_layers)
             print(f"[DEBUG] Marker object created: {marker}")
             
             # Draw marker
@@ -676,12 +692,12 @@ class FIBToolPlugin(pya.Plugin):
             # Update global counter
             marker_counter['connect'] = max(marker_counter['connect'], next_number + 1)
             
-            # Extract points and layer info
+            # Extract points and layer info for each point
             points = [(point['x'], point['y']) for point in self.temp_points]
-            target_layers = self.temp_points[0]['layers'] if self.temp_points else []
+            point_layers = [point.get('layer', 'N/A') for point in self.temp_points]
             
-            # Create multi-point marker
-            marker = create_multipoint_connect_marker(marker_id, points, target_layers)
+            # Create multi-point marker with layer info
+            marker = create_multipoint_connect_marker(marker_id, points, point_layers)
             
             # Draw marker
             draw_marker(marker, cell, layout)

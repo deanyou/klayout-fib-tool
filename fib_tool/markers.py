@@ -5,8 +5,8 @@ Simple dataclasses. No abstract base classes, no over-engineering.
 Each marker knows how to draw itself and serialize to XML.
 """
 
-from dataclasses import dataclass
-from typing import Tuple
+from dataclasses import dataclass, field
+from typing import Tuple, Optional
 import pya
 from config import LAYERS, SYMBOL_SIZES
 
@@ -20,6 +20,9 @@ class CutMarker:
     x2: float  # Second click point
     y2: float
     layer: int
+    # Layer info for each point (layer name or "layer/datatype" format)
+    layer1: Optional[str] = None  # Layer at point 1
+    layer2: Optional[str] = None  # Layer at point 2
     
     def to_gds(self, cell, fib_layer):
         """Draw line connecting the two click points with fixed width"""
@@ -45,20 +48,25 @@ class CutMarker:
     
     def to_xml(self) -> str:
         """Serialize to XML element"""
+        layer1_attr = f' layer1="{self.layer1}"' if self.layer1 else ''
+        layer2_attr = f' layer2="{self.layer2}"' if self.layer2 else ''
         return (f'<cut id="{self.id}" x1="{self.x1}" y1="{self.y1}" ' 
-                f'x2="{self.x2}" y2="{self.y2}" layer="{self.layer}"/>')
+                f'x2="{self.x2}" y2="{self.y2}" layer="{self.layer}"{layer1_attr}{layer2_attr}/>')
     
     @staticmethod
     def from_xml(elem) -> 'CutMarker':
         """Deserialize from XML element"""
-        return CutMarker(
+        marker = CutMarker(
             id=elem.get('id'),
             x1=float(elem.get('x1')),
             y1=float(elem.get('y1')),
             x2=float(elem.get('x2')),
             y2=float(elem.get('y2')),
-            layer=int(elem.get('layer'))
+            layer=int(elem.get('layer')),
+            layer1=elem.get('layer1'),
+            layer2=elem.get('layer2')
         )
+        return marker
 
 
 @dataclass
@@ -70,6 +78,9 @@ class ConnectMarker:
     x2: float
     y2: float
     layer: int
+    # Layer info for each point (layer name or "layer/datatype" format)
+    layer1: Optional[str] = None  # Layer at point 1
+    layer2: Optional[str] = None  # Layer at point 2
     
     def to_gds(self, cell, fib_layer):
         """Draw connection line + endpoints + label on GDS using fixed width path"""
@@ -107,22 +118,27 @@ class ConnectMarker:
     
     def to_xml(self) -> str:
         """Serialize to XML element"""
+        layer1_attr = f' layer1="{self.layer1}"' if self.layer1 else ''
+        layer2_attr = f' layer2="{self.layer2}"' if self.layer2 else ''
         return (f'<connect id="{self.id}" x1="{self.x1}" y1="{self.y1}" ' 
                 f'x2="{self.x2}" y2="{self.y2}" layer="{self.layer}" ' 
                 f'start_x="{self.x1}" start_y="{self.y1}" ' 
-                f'end_x="{self.x2}" end_y="{self.y2}"/>')
+                f'end_x="{self.x2}" end_y="{self.y2}"{layer1_attr}{layer2_attr}/>')
     
     @staticmethod
     def from_xml(elem) -> 'ConnectMarker':
         """Deserialize from XML element"""
-        return ConnectMarker(
+        marker = ConnectMarker(
             id=elem.get('id'),
             x1=float(elem.get('x1')),
             y1=float(elem.get('y1')),
             x2=float(elem.get('x2')),
             y2=float(elem.get('y2')),
-            layer=int(elem.get('layer'))
+            layer=int(elem.get('layer')),
+            layer1=elem.get('layer1'),
+            layer2=elem.get('layer2')
         )
+        return marker
 
 
 @dataclass
@@ -132,6 +148,8 @@ class ProbeMarker:
     x: float
     y: float
     layer: int
+    # Layer info at probe point (layer name or "layer/datatype" format)
+    target_layer: Optional[str] = None  # Layer at probe point
     
     def to_gds(self, cell, fib_layer):
         """Draw circle + label on GDS using KLayout's circle tool"""
@@ -159,16 +177,19 @@ class ProbeMarker:
     
     def to_xml(self) -> str:
         """Serialize to XML element"""
+        target_layer_attr = f' target_layer="{self.target_layer}"' if self.target_layer else ''
         return (f'<probe id="{self.id}" x="{self.x}" y="{self.y}" layer="{self.layer}" ' 
                 f'start_x="{self.x}" start_y="{self.y}" ' 
-                f'end_x="{self.x}" end_y="{self.y}"/>')
+                f'end_x="{self.x}" end_y="{self.y}"{target_layer_attr}/>')
     
     @staticmethod
     def from_xml(elem) -> 'ProbeMarker':
         """Deserialize from XML element"""
-        return ProbeMarker(
+        marker = ProbeMarker(
             id=elem.get('id'),
             x=float(elem.get('x')),
             y=float(elem.get('y')),
-            layer=int(elem.get('layer'))
+            layer=int(elem.get('layer')),
+            target_layer=elem.get('target_layer')
         )
+        return marker

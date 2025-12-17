@@ -767,12 +767,35 @@ class MarkerContextMenu:
             
             # Re-add all markers
             for marker in self.panel.markers_list:
-                marker_type = marker.__class__.__name__.replace('Marker', '').upper()
+                marker_class_name = marker.__class__.__name__
+                marker_type = marker_class_name.replace('Marker', '').upper()
                 
-                if hasattr(marker, 'x1'):  # CUT or CONNECT
-                    coords = f"({marker.x1:.3f},{marker.y1:.3f}) to ({marker.x2:.3f},{marker.y2:.3f})"
+                # Handle multi-point markers
+                if 'MultiPoint' in marker_class_name:
+                    if 'Cut' in marker_class_name:
+                        marker_type = "CUT (MULTI)"
+                    elif 'Connect' in marker_class_name:
+                        marker_type = "CONNECT (MULTI)"
+                    
+                    if hasattr(marker, 'points') and len(marker.points) > 0:
+                        if len(marker.points) <= 3:
+                            point_strs = [f"({p[0]:.3f},{p[1]:.3f})" for p in marker.points]
+                            coords = " -> ".join(point_strs)
+                        else:
+                            first = marker.points[0]
+                            last = marker.points[-1]
+                            coords = f"({first[0]:.3f},{first[1]:.3f}) -> ... -> ({last[0]:.3f},{last[1]:.3f}) [{len(marker.points)} pts]"
+                    else:
+                        coords = "(no points)"
+                elif hasattr(marker, 'x1'):  # CUT or CONNECT
+                    # Get layer info for display
+                    layer1_str = getattr(marker, 'layer1', None) or 'N/A'
+                    layer2_str = getattr(marker, 'layer2', None) or 'N/A'
+                    coords = f"({marker.x1:.3f},{marker.y1:.3f}) {layer1_str} to ({marker.x2:.3f},{marker.y2:.3f}) {layer2_str}"
                 else:  # PROBE
-                    coords = f"({marker.x:.3f},{marker.y:.3f})"
+                    # Get layer info for display
+                    target_layer_str = getattr(marker, 'target_layer', None) or 'N/A'
+                    coords = f"({marker.x:.3f},{marker.y:.3f}) {target_layer_str}"
                 
                 item_text = f"{marker.id} - {marker_type} - {coords}"
                 self.panel.marker_list.addItem(item_text)

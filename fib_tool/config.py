@@ -45,11 +45,12 @@ SCREENSHOT_MARGIN = 5.0  # μm
 GEOMETRIC_PARAMS = {
     'search_radius': 5.0,              # Search radius for markers (μm)
     'zoom_padding': 2.0,               # Padding when zooming to markers (μm) - reduced for better detail
-    'zoom_padding_detail': 0.5,       # Padding for double-click zoom (μm) - very close for maximum detail
+    'zoom_padding_detail': 0.5,        # Padding for double-click zoom (μm) - very close for maximum detail
     'coordinate_jump_padding': 10.0,   # Padding when jumping to coordinates (μm)
     'double_click_distance': 5.0,      # Maximum distance for double-click detection (μm)
     'coordinate_precision': 0.001,     # Coordinate precision (μm)
     'min_ruler_delta': 0.01,           # Minimum delta to show rulers (μm)
+    'layer_tap_radius': 0.01,          # Search radius for layer detection at click position (μm)
 }
 
 # UI timeout settings (milliseconds)

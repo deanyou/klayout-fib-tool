@@ -1357,9 +1357,14 @@ class FIBPanel(pya.QDockWidget):
                         marker_type = marker_class_name.replace('Marker', '').upper()
                         
                         if hasattr(marker, 'x1'):  # CUT or CONNECT
-                            coords = f"({marker.x1:.3f},{marker.y1:.3f}) to ({marker.x2:.3f},{marker.y2:.3f})"
+                            # Get layer info for display
+                            layer1_str = getattr(marker, 'layer1', None) or 'N/A'
+                            layer2_str = getattr(marker, 'layer2', None) or 'N/A'
+                            coords = f"({marker.x1:.3f},{marker.y1:.3f}) {layer1_str} to ({marker.x2:.3f},{marker.y2:.3f}) {layer2_str}"
                         else:  # PROBE
-                            coords = f"({marker.x:.3f},{marker.y:.3f})"
+                            # Get layer info for display
+                            target_layer_str = getattr(marker, 'target_layer', None) or 'N/A'
+                            coords = f"({marker.x:.3f},{marker.y:.3f}) {target_layer_str}"
                     
                     item_text = f"{marker.id} - {marker_type} - {coords}"
                     self._safe_call(self.marker_list, 'addItem', item_text)
@@ -1513,9 +1518,14 @@ class FIBPanel(pya.QDockWidget):
                     marker_type = marker_class_name.replace('Marker', '').upper()
                     
                     if hasattr(marker, 'x1'):  # CUT or CONNECT
-                        coords = f"({marker.x1:.3f},{marker.y1:.3f}) to ({marker.x2:.3f},{marker.y2:.3f})"
+                        # Get layer info for display
+                        layer1_str = getattr(marker, 'layer1', None) or 'N/A'
+                        layer2_str = getattr(marker, 'layer2', None) or 'N/A'
+                        coords = f"({marker.x1:.3f},{marker.y1:.3f}) {layer1_str} to ({marker.x2:.3f},{marker.y2:.3f}) {layer2_str}"
                     else:  # PROBE
-                        coords = f"({marker.x:.3f},{marker.y:.3f})"
+                        # Get layer info for display
+                        target_layer_str = getattr(marker, 'target_layer', None) or 'N/A'
+                        coords = f"({marker.x:.3f},{marker.y:.3f}) {target_layer_str}"
                 
                 item_text = f"{marker.id} - {marker_type} - {coords}"
                 self.marker_list.addItem(item_text)

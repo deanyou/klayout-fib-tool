@@ -17,6 +17,8 @@ class MultiPointCutMarker:
     id: str
     points: List[Tuple[float, float]]  # List of (x, y) coordinates
     layer: int
+    # Layer info for each point (list of layer names or "layer/datatype" format)
+    point_layers: List[str] = field(default_factory=list)  # Layer at each point
     
     def __post_init__(self):
         """Validate that we have at least 2 points"""
@@ -108,6 +110,8 @@ class MultiPointConnectMarker:
     id: str
     points: List[Tuple[float, float]]  # List of (x, y) coordinates
     layer: int
+    # Layer info for each point (list of layer names or "layer/datatype" format)
+    point_layers: List[str] = field(default_factory=list)  # Layer at each point
     
     def __post_init__(self):
         """Validate that we have at least 2 points"""
@@ -207,10 +211,21 @@ class MultiPointConnectMarker:
 
 # Utility functions for creating markers
 def create_multipoint_cut_marker(marker_id: str, points: List[Tuple[float, float]], 
-                                target_layers=None) -> MultiPointCutMarker:
-    """Create a multi-point cut marker with additional metadata"""
-    marker = MultiPointCutMarker(marker_id, points, LAYERS['cut'])
-    marker.target_layers = target_layers or []
+                                point_layers: List[str] = None) -> MultiPointCutMarker:
+    """Create a multi-point cut marker with additional metadata
+    
+    Args:
+        marker_id: Unique marker identifier
+        points: List of (x, y) coordinates
+        point_layers: List of layer info strings for each point (e.g., ["M1", "M2", "M1"])
+    """
+    # Ensure point_layers has same length as points
+    if point_layers is None:
+        point_layers = ['N/A'] * len(points)
+    elif len(point_layers) < len(points):
+        point_layers = point_layers + ['N/A'] * (len(points) - len(point_layers))
+    
+    marker = MultiPointCutMarker(marker_id, points, LAYERS['cut'], point_layers=point_layers)
     marker.notes = DEFAULT_MARKER_NOTES['cut']
     marker.screenshots = []
     
@@ -220,7 +235,7 @@ def create_multipoint_cut_marker(marker_id: str, points: List[Tuple[float, float
         panel = get_fib_panel()
         if panel:
             panel.add_marker(marker)
-            print(f"[MultiPoint] Added {marker_id} to panel")
+            print(f"[MultiPoint] Added {marker_id} to panel with {len(points)} points")
     except Exception as e:
         print(f"[MultiPoint] Error notifying panel for multi-point CUT marker: {e}")
     
@@ -228,10 +243,21 @@ def create_multipoint_cut_marker(marker_id: str, points: List[Tuple[float, float
 
 
 def create_multipoint_connect_marker(marker_id: str, points: List[Tuple[float, float]], 
-                                   target_layers=None) -> MultiPointConnectMarker:
-    """Create a multi-point connect marker with additional metadata"""
-    marker = MultiPointConnectMarker(marker_id, points, LAYERS['connect'])
-    marker.target_layers = target_layers or []
+                                   point_layers: List[str] = None) -> MultiPointConnectMarker:
+    """Create a multi-point connect marker with additional metadata
+    
+    Args:
+        marker_id: Unique marker identifier
+        points: List of (x, y) coordinates
+        point_layers: List of layer info strings for each point (e.g., ["M1", "M2", "M1"])
+    """
+    # Ensure point_layers has same length as points
+    if point_layers is None:
+        point_layers = ['N/A'] * len(points)
+    elif len(point_layers) < len(points):
+        point_layers = point_layers + ['N/A'] * (len(points) - len(point_layers))
+    
+    marker = MultiPointConnectMarker(marker_id, points, LAYERS['connect'], point_layers=point_layers)
     marker.notes = DEFAULT_MARKER_NOTES['connect']
     marker.screenshots = []
     
@@ -241,7 +267,7 @@ def create_multipoint_connect_marker(marker_id: str, points: List[Tuple[float, f
         panel = get_fib_panel()
         if panel:
             panel.add_marker(marker)
-            print(f"[MultiPoint] Added {marker_id} to panel")
+            print(f"[MultiPoint] Added {marker_id} to panel with {len(points)} points")
     except Exception as e:
         print(f"[MultiPoint] Error notifying panel for multi-point CONNECT marker: {e}")
     

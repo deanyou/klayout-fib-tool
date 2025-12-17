@@ -44,6 +44,7 @@ __all__ = [
     'multipoint_markers',
     'config',
     'layer_manager',
+    'layer_tap',
     'fib_panel',
     'fib_plugin',
 ]
