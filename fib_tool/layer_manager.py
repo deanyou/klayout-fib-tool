@@ -90,9 +90,9 @@ def insert_fib_layer_views_to_panel(current_view, layout):
         
         # FIB layer definitions with colors
         fib_layers = {
-            317: {'name': 'FIB_CUT', 'color': 0xFF0000},      # Red
-            318: {'name': 'FIB_CONNECT', 'color': 0x00FF00},  # Green  
-            319: {'name': 'FIB_PROBE', 'color': 0x0000FF}     # Blue
+            337: {'name': 'FIB_CUT', 'color': 0xFF69B4},      # Pink (粉色)
+            338: {'name': 'FIB_CONNECT', 'color': 0xFFFF00},  # Yellow (黄色)
+            339: {'name': 'FIB_PROBE', 'color': 0xFFFFFF}     # White (白色)
         }
         
         # Try to get layer list from view
@@ -285,9 +285,9 @@ def create_practical_layer_markers(current_view, layout):
         
         # FIB layer definitions with better visibility
         fib_layers = {
-            317: {'name': 'FIB_CUT', 'description': 'FIB cutting paths'},
-            318: {'name': 'FIB_CONNECT', 'description': 'FIB connection paths'},
-            319: {'name': 'FIB_PROBE', 'description': 'FIB probe points'}
+            337: {'name': 'FIB_CUT', 'description': 'FIB cutting paths'},
+            338: {'name': 'FIB_CONNECT', 'description': 'FIB connection paths'},
+            339: {'name': 'FIB_PROBE', 'description': 'FIB probe points'}
         }
         
         # Create visible markers spread horizontally
@@ -303,7 +303,7 @@ def create_practical_layer_markers(current_view, layout):
             shapes = cell.shapes(layer_index)
             
             # Calculate marker position (X from 0 onwards, Y below 0)
-            marker_x = (layer_num - 317) * 5000  # X: 0, 5000, 10000 (0μm, 5μm, 10μm)
+            marker_x = (layer_num - 337) * 5000  # X: 0, 5000, 10000 (0μm, 5μm, 10μm)
             marker_y = -5000  # Y: -5μm (below 0)
             
             # Create a visible marker box (2μm x 2μm)
@@ -333,6 +333,95 @@ def create_practical_layer_markers(current_view, layout):
         
     except Exception as e:
         print(f"[Layer Manager] Error creating practical markers: {e}")
+        import traceback
+        traceback.print_exc()
+
+
+def set_layer_colors(current_view):
+    """
+    Set colors for FIB layers in the Layer Panel.
+    
+    Uses the correct KLayout API: set_layer_properties() to apply changes.
+    
+    Colors:
+    - 337 (FIB_CUT): Pink 0xFF69B4
+    - 338 (FIB_CONNECT): Yellow 0xFFFF00
+    - 339 (FIB_PROBE): White 0xFFFFFF
+    """
+    try:
+        print("[Layer Manager] Setting FIB layer colors...")
+        
+        # Layer colors and names
+        layer_config = {
+            337: {'color': 0xFF69B4, 'name': 'FIB_CUT'},      # Pink
+            338: {'color': 0xFFFF00, 'name': 'FIB_CONNECT'},  # Yellow
+            339: {'color': 0xFFFFFF, 'name': 'FIB_PROBE'}     # White
+        }
+        
+        # First, ensure all layers are visible in the panel
+        current_view.add_missing_layers()
+        
+        # Iterate through all layers in the panel
+        for node in current_view.each_layer():
+            if not node.valid:
+                continue
+            
+            # Parse layer number from source string
+            if not hasattr(node, 'source'):
+                continue
+            
+            source = node.source
+            if not isinstance(source, str):
+                continue
+            
+            try:
+                # Remove mask part if present (e.g., "86/0@1" -> "86/0")
+                if '@' in source:
+                    source = source.split('@')[0]
+                
+                # Handle format like "FIB_CUT 337/0" - extract the numeric part
+                # Split by space and take the last part which should be "337/0"
+                if ' ' in source:
+                    source = source.split()[-1]  # Take last part: "337/0"
+                
+                # Parse layer/datatype
+                parts = source.split('/')
+                if len(parts) < 2:
+                    continue
+                
+                layer_num = int(parts[0])
+                datatype = int(parts[1])
+            except (ValueError, IndexError):
+                continue
+            
+            # Check if this is one of our FIB layers
+            if layer_num in layer_config and datatype == 0:
+                config = layer_config[layer_num]
+                color = config['color']
+                name = config['name']
+                
+                # Set color and properties
+                node.fill_color = color
+                node.frame_color = color
+                node.dither_pattern = 0  # Solid fill
+                node.visible = True
+                
+                # Set name if not already set
+                if not node.name or node.name == f"{layer_num}/{datatype}":
+                    node.name = name
+                
+                # Apply changes using set_layer_properties
+                current_view.set_layer_properties(node)
+                
+                print(f"[Layer Manager] ✓ Set color for layer {layer_num}/0 ({name}): 0x{color:06X}")
+        
+        # Update the view to show changes
+        current_view.update_content()
+        
+        print("[Layer Manager] Layer colors applied successfully")
+        
+    except Exception as e:
+        print(f"[Layer Manager] Error setting layer colors: {e}")
         import traceback
         traceback.print_exc()
 
@@ -367,7 +456,7 @@ def create_layer_identification_markers(current_view, layout):
             layer_name = layer_names.get(layer_key, f'FIB_{layer_key.upper()}')
             
             # Calculate marker position (X from 0 onwards, Y below 0)
-            marker_x = (layer_num - 317) * 3000  # X: 0, 3000, 6000 (0μm, 3μm, 6μm)
+            marker_x = (layer_num - 337) * 3000  # X: 0, 3000, 6000 (0μm, 3μm, 6μm)
             marker_y = -8000  # Y: -8μm (below the main markers)
             
             # Get the layer index
@@ -386,6 +475,9 @@ def create_layer_identification_markers(current_view, layout):
             shapes.insert(text_obj)
             
             print(f"[Layer Manager] ✓ Created identification marker for layer {layer_num}/0 ({layer_name}) at ({marker_x/1000:.1f}, {marker_y/1000:.1f})")
+        
+        # Set layer colors in Layer Panel
+        set_layer_colors(current_view)
         
         # Force layer panel refresh by triggering a layout change event
         force_layer_panel_refresh(current_view, layout)

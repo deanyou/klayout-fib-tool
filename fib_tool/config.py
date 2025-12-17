@@ -6,10 +6,10 @@ Simple dictionary-based config. No classes, no over-engineering.
 
 # Layer mapping - dead simple
 LAYERS = {
-    'cut': 317,
-    'connect': 318,
-    'probe': 319,
-    'coordinates': 319,  # Layer for coordinate text labels (same as probe)
+    'cut': 337,
+    'connect': 338,
+    'probe': 339,
+    'coordinates': 339,  # Layer for coordinate text labels (same as probe)
 }
 
 # Symbol sizes in micrometers

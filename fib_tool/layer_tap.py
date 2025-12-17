@@ -52,14 +52,70 @@ class LayerInfo:
         return hash((self.layer, self.datatype))
 
 
+def get_visible_layers():
+    """
+    Get all visible (non-hidden) layers from the Layer Panel.
+    
+    Returns:
+        set of (layer, datatype) tuples that are visible in Layer Panel
+    """
+    try:
+        main_window = pya.Application.instance().main_window()
+        view = main_window.current_view()
+        
+        if view is None:
+            return set()
+        
+        visible = set()
+        
+        # Iterate through all layers in the Layer Panel
+        for node in view.each_layer():
+            if node.valid and node.visible:  # Only include valid and visible layers
+                # Parse layer info from source string
+                if hasattr(node, 'source'):
+                    source = node.source
+                    
+                    # source is a string like "86/0@1" or "86/0" or "FIB_CUT 337/0"
+                    if isinstance(source, str):
+                        try:
+                            # Remove mask part if present
+                            if '@' in source:
+                                source = source.split('@')[0]
+                            
+                            # Handle format like "FIB_CUT 337/0" - extract the numeric part
+                            if ' ' in source:
+                                source = source.split()[-1]  # Take last part: "337/0"
+                            
+                            # Parse layer/datatype
+                            parts = source.split('/')
+                            if len(parts) >= 2:
+                                layer_num = int(parts[0])
+                                datatype = int(parts[1])
+                                visible.add((layer_num, datatype))
+                        except Exception as parse_error:
+                            print(f"[Layer Tap] Error parsing layer source '{source}': {parse_error}")
+                            continue
+        
+        print(f"[Layer Tap] Visible layers in panel: {len(visible)} layers - {visible}")
+        return visible
+        
+    except Exception as e:
+        print(f"[Layer Tap] Error getting visible layers: {e}")
+        import traceback
+        traceback.print_exc()
+        return set()
+
+
 def get_layers_at_point(x, y, search_radius=None):
     """
-    Get all layers that have shapes at the given coordinate.
+    Get all visible layers that have shapes at the given coordinate.
+    
+    Only searches layers that are visible (not hidden) in the Layer Panel.
     
     Args:
         x: X coordinate in microns
         y: Y coordinate in microns
-        search_radius: Search radius in microns (default: 0.01)
+        search_radius: Search radius in microns (default: 1.0)
     
     Returns:
         list of LayerInfo objects found at the position
@@ -80,6 +136,9 @@ def get_layers_at_point(x, y, search_radius=None):
         layout = cellview.layout()
         cell = cellview.cell
         dbu = layout.dbu
+        
+        # Get visible layers from Layer Panel
+        visible_layers = get_visible_layers()
         
         # Convert to database units
         db_x = int(x / dbu)
@@ -113,6 +172,10 @@ def get_layers_at_point(x, y, search_radius=None):
             if layer_info.layer in FIB_LAYERS:
                 continue
             
+            # Skip hidden layers (not visible in Layer Panel)
+            if (layer_info.layer, layer_info.datatype) not in visible_layers:
+                continue
+            
             # Check if any shapes touch the search box
             shapes = cell.shapes(layer_index)
             if shapes.size() == 0:
@@ -131,7 +194,7 @@ def get_layers_at_point(x, y, search_radius=None):
                 found_layers.append(found_layer)
                 print(f"[Layer Tap] Found layer: {found_layer}")
         
-        print(f"[Layer Tap] Total layers found: {len(found_layers)}")
+        print(f"[Layer Tap] Total visible layers found: {len(found_layers)}")
         return found_layers
         
     except Exception as e:
@@ -182,12 +245,16 @@ def get_selected_layer_from_panel():
             
             # Check if source is a string (layer/datatype@mask format) or an object
             if isinstance(source, str):
-                # Parse string format like "86/0@1" or "86/0"
+                # Parse string format like "86/0@1" or "86/0" or "FIB_CUT 337/0"
                 print(f"[Layer Tap] source is string, parsing: {source}")
                 try:
                     # Remove mask part if present (e.g., "86/0@1" -> "86/0")
                     if '@' in source:
                         source = source.split('@')[0]
+                    
+                    # Handle format like "FIB_CUT 337/0" - extract the numeric part
+                    if ' ' in source:
+                        source = source.split()[-1]  # Take last part: "337/0"
                     
                     # Parse layer/datatype
                     parts = source.split('/')
