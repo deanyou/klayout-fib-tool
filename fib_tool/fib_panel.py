@@ -301,12 +301,25 @@ class FIBPanel(pya.QDockWidget):
             self.marker_list.setDragDropMode(pya.QAbstractItemView.InternalMove)
             self.marker_list.setDefaultDropAction(pya.Qt.MoveAction)
 
-            # Connect reorder signal (with fallback)
+            # Connect reorder signal (with fallback for different Qt versions)
             try:
-                self.marker_list.model().rowsMoved.connect(self.on_markers_reordered)
-            except AttributeError:
+                # Try to get model - it might be a method or a property
+                list_model = None
+                if callable(self.marker_list.model):
+                    list_model = self.marker_list.model()
+                else:
+                    list_model = self.marker_list.model
+                
+                # Try to connect rowsMoved signal
+                if list_model and hasattr(list_model, 'rowsMoved'):
+                    list_model.rowsMoved.connect(self.on_markers_reordered)
+                    print("[FIB Panel] Connected to rowsMoved signal")
+                else:
+                    raise AttributeError("rowsMoved not available")
+                    
+            except (AttributeError, TypeError) as e:
                 # Fallback: use selection change detection
-                print("[FIB Panel] rowsMoved signal not available, using fallback")
+                print(f"[FIB Panel] rowsMoved signal not available ({e}), using fallback")
                 self.marker_list.itemSelectionChanged.connect(self._check_reorder_needed)
             
             # Add list with stretch factor so it expands
@@ -619,33 +632,27 @@ class FIBPanel(pya.QDockWidget):
         self.activate_mode('probe')
 
     def on_cut_mode_changed(self, index):
-        """Handle Cut mode dropdown change"""
+        """Handle Cut mode dropdown change - auto-switch to Cut mode"""
         try:
             print(f"[FIB Panel] Cut dropdown changed to index {index}")
 
-            # Only re-activate if Cut operation is currently active
-            if self.active_mode and self.active_mode.startswith('cut'):
-                print("[FIB Panel] Cut active, re-activating with new mode")
-
-                # Determine new mode
-                current_text = self.cut_mode_combo.currentText
-                if callable(current_text):
-                    is_multipoint = current_text() == "Multi Points"
-                else:
-                    is_multipoint = current_text == "Multi Points"
-
-                new_mode = 'cut_multi' if is_multipoint else 'cut'
-
-                # Clear pending points
-                self.clear_pending_points()
-
-                # Activate new mode
-                self.activate_toolbar_plugin(new_mode)
-                self.activate_mode(new_mode)
-
-                print(f"[FIB Panel] Auto-activated {new_mode}")
+            # Determine new mode
+            current_text = self.cut_mode_combo.currentText
+            if callable(current_text):
+                is_multipoint = current_text() == "Multi Points"
             else:
-                print("[FIB Panel] Cut not active, stored for next activation")
+                is_multipoint = current_text == "Multi Points"
+
+            new_mode = 'cut_multi' if is_multipoint else 'cut'
+
+            # Clear pending points from all modes
+            self.clear_pending_points()
+
+            # Always activate the new Cut mode (auto-switch)
+            self.activate_toolbar_plugin(new_mode)
+            self.activate_mode(new_mode)
+
+            print(f"[FIB Panel] Auto-switched to {new_mode}")
 
         except Exception as e:
             print(f"[FIB Panel] Error in on_cut_mode_changed: {e}")
@@ -653,33 +660,27 @@ class FIBPanel(pya.QDockWidget):
             traceback.print_exc()
 
     def on_connect_mode_changed(self, index):
-        """Handle Connect mode dropdown change"""
+        """Handle Connect mode dropdown change - auto-switch to Connect mode"""
         try:
             print(f"[FIB Panel] Connect dropdown changed to index {index}")
 
-            # Only re-activate if Connect operation is currently active
-            if self.active_mode and self.active_mode.startswith('connect'):
-                print("[FIB Panel] Connect active, re-activating with new mode")
-
-                # Determine new mode
-                current_text = self.connect_mode_combo.currentText
-                if callable(current_text):
-                    is_multipoint = current_text() == "Multi Points"
-                else:
-                    is_multipoint = current_text == "Multi Points"
-
-                new_mode = 'connect_multi' if is_multipoint else 'connect'
-
-                # Clear pending points
-                self.clear_pending_points()
-
-                # Activate new mode
-                self.activate_toolbar_plugin(new_mode)
-                self.activate_mode(new_mode)
-
-                print(f"[FIB Panel] Auto-activated {new_mode}")
+            # Determine new mode
+            current_text = self.connect_mode_combo.currentText
+            if callable(current_text):
+                is_multipoint = current_text() == "Multi Points"
             else:
-                print("[FIB Panel] Connect not active, stored for next activation")
+                is_multipoint = current_text == "Multi Points"
+
+            new_mode = 'connect_multi' if is_multipoint else 'connect'
+
+            # Clear pending points from all modes
+            self.clear_pending_points()
+
+            # Always activate the new Connect mode (auto-switch)
+            self.activate_toolbar_plugin(new_mode)
+            self.activate_mode(new_mode)
+
+            print(f"[FIB Panel] Auto-switched to {new_mode}")
 
         except Exception as e:
             print(f"[FIB Panel] Error in on_connect_mode_changed: {e}")
