@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<klayout-macro>
+ <description>Open FIB Tool Panel</description>
+ <version>1.0</version>
+ <category>fib_tool</category>
+ <prolog/>
+ <epilog/>
+ <interpreter>python</interpreter>
+ <dsl-interpreter-name/>
+ <menu-path>tools_menu.fib_tool</menu-path>
+ <shortcut>Ctrl+Shift+F</shortcut>
+ <show-in-menu>true</show-in-menu>
+ <group-name/>
+ <text>import sys
+import os
+
+# Add current directory to Python path
+script_dir = os.path.dirname(os.path.abspath(__file__))
+if script_dir not in sys.path:
+    sys.path.insert(0, script_dir)
+
+import pya
+from fib_panel import create_fib_panel, get_fib_panel
+
+def open_fib_tool():
+    """Open or show the FIB Tool panel"""
+    try:
+        # Check if panel already exists
+        panel = get_fib_panel()
+
+        if panel is None:
+            # Create new panel
+            print("[FIB Menu] Creating new FIB Panel...")
+            panel = create_fib_panel()
+
+        if panel:
+            # Show and raise the panel
+            panel.show()
+            panel.raise_()
+            pya.MainWindow.instance().message("FIB Tool panel opened", 2000)
+            print("[FIB Menu] FIB Panel opened successfully")
+        else:
+            pya.MessageBox.warning("Error", "Failed to create FIB Tool panel", pya.MessageBox.Ok)
+            print("[FIB Menu] Failed to create FIB Panel")
+
+    except Exception as e:
+        error_msg = f"Error opening FIB Tool: {str(e)}"
+        pya.MessageBox.warning("Error", error_msg, pya.MessageBox.Ok)
+        print(f"[FIB Menu] {error_msg}")
+        import traceback
+        traceback.print_exc()
+
+# Execute
+open_fib_tool()
+</text>
+</klayout-macro>

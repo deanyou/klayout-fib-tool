@@ -1,6 +1,14 @@
-# KLayout FIB Tool --> development stage (Not ready for production)
+# KLayout FIB Tool
+
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![KLayout](https://img.shields.io/badge/KLayout-%3E%3D0.28-green.svg)
+![Version](https://img.shields.io/badge/version-1.0.0-orange.svg)
+![Python](https://img.shields.io/badge/python-3.8%2B-blue.svg)
+![Status](https://img.shields.io/badge/status-MVP%20Complete-brightgreen.svg)
 
 **简单、实用的 FIB 标注工具。遵循 Linus Torvalds 编程哲学：零废话，直接能用。**
+
+> **开发阶段说明**: MVP 已完成，功能完整。正在准备发布到 KLayout SALT Mine。
 
 ## 项目状态
 
@@ -17,23 +25,64 @@ Tools → Manage Packages → Install from URL
 ```
 
 **方式 2: 手动安装**
+
+Linux/Mac:
 ```bash
 cp -r fib_tool ~/.klayout/salt/
 ```
 
+Windows:
+
+> **说明**：Windows 版 KLayout 默认没有 `~/.klayout/salt/` 路径（因为 Windows 没有"家目录"符号 `~`），对应位置是 `%USERPROFILE%\KLayout\salt\`
+
+1. 打开资源管理器，在地址栏输入以下路径并回车：
+   ```
+   %USERPROFILE%\KLayout\salt\
+   ```
+   如果 `salt` 子目录不存在，请手动新建一个。
+
+2. 把解压后的 `fib_tool` 整个文件夹复制到该目录下，最终形成：
+   ```
+   %USERPROFILE%\KLayout\salt\fib_tool\
+   ```
+
+3. 重启 KLayout，菜单 **Tools → Salt** 里就能看到 `fib_tool`，或者直接出现在 **Tools** 菜单里。
+
+**注意事项**：
+- 不要把 `fib_tool` 再套一层文件夹，KLayout 只认 `salt\xxx\xxx.lym` 这种结构
+- 如果装的是"便携版"（绿色 zip），则路径是 `<KLayout 解压目录>\salt\` 而不是用户目录
+- 安装后重启 KLayout 生效
+
 **方式 3: 开发调试**
+
+Linux/Mac:
 ```python
 # 在 KLayout Macro Development (F5) 中执行
 import sys; sys.path.insert(0, '/path/to/klayout-fib-tool/fib_tool')
 exec(open('/path/to/klayout-fib-tool/fib_tool/fib_plugin.py', encoding='utf-8').read())
 ```
 
+Windows:
+```python
+# 在 KLayout Macro Development (F5) 中执行
+import sys; sys.path.insert(0, r'C:\path\to\klayout-fib-tool\fib_tool')
+exec(open(r'C:\path\to\klayout-fib-tool\fib_tool\fib_plugin.py', encoding='utf-8').read())
+```
+
+> **注意**：Windows 路径使用 `r'C:\...'` 格式（原始字符串），避免反斜杠转义问题
+
 详细安装说明：[INSTALL.md](INSTALL.md) | [SALT 安装指南](docs/SALT_INSTALLATION.md)
 
 ### 使用
 
+**启动方式：**
+- **方式 1**：点击菜单 **Tools → FIB Tool**
+- **方式 2**：按快捷键 `Ctrl+Shift+F`
+- **方式 3**：点击工具栏按钮（Cut/Connect/Probe）
+
+**基本流程：**
 1. 打开 GDS 文件
-2. 按 `Ctrl+Shift+F` 启动 FIB Tool
+2. 启动 FIB Tool（使用上述任一方式）
 3. 点击 Cut/Connect/Probe 按钮
 4. 在版图上点击创建标记
 5. 保存为 XML 或生成 HTML 报告

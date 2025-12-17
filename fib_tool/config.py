@@ -17,22 +17,54 @@ SYMBOL_SIZES = {
     'cut': {
         'size': 2.0,           # X symbol size
         'arrow_length': 3.0,   # Direction arrow length
-        'line_width': 0.1,     # Line width
+        'line_width': 0.2,     # Line width (updated to match actual usage)
     },
     'connect': {
         'endpoint_radius': 0.5,  # Endpoint circle radius
-        'line_width': 0.1,       # Connection line width
+        'line_width': 0.2,       # Connection line width (updated to match actual usage)
     },
     'probe': {
         'height': 3.0,         # Arrow height
         'width': 1.5,          # Arrow width
         'line_width': 0.1,     # Line width
+        'circle_radius': 0.5,  # Circle radius for probe marker
+    },
+    'multipoint': {
+        'line_width': 0.2,        # Multi-point line width
+        'vertex_radius': 0.1,     # Vertex circle radius
+        'junction_radius': 0.3,   # Junction circle radius
+        'circle_segments': 16,    # Number of segments for circles
     },
 }
 
 # Screenshot settings
 SCREENSHOT_DPI = 150
 SCREENSHOT_MARGIN = 5.0  # μm
+
+# Geometric parameters (search, zoom, precision)
+GEOMETRIC_PARAMS = {
+    'search_radius': 5.0,              # Search radius for markers (μm)
+    'zoom_padding': 10.0,              # Padding when zooming to markers (μm)
+    'coordinate_jump_padding': 10.0,   # Padding when jumping to coordinates (μm)
+    'double_click_distance': 5.0,      # Maximum distance for double-click detection (μm)
+    'coordinate_precision': 0.001,     # Coordinate precision (μm)
+    'min_ruler_delta': 0.01,           # Minimum delta to show rulers (μm)
+}
+
+# UI timeout settings (milliseconds)
+UI_TIMEOUTS = {
+    'message_short': 2000,    # Short status messages (2 seconds)
+    'message_medium': 3000,   # Medium status messages (3 seconds)
+    'message_long': 10000,    # Long status messages (10 seconds)
+    'double_click': 500,      # Double-click time threshold (500ms)
+}
+
+# Default marker notes (Chinese)
+DEFAULT_MARKER_NOTES = {
+    'cut': '切断',
+    'connect': '连接',
+    'probe': '点测',
+}
 
 # Report settings
 REPORT_TEMPLATE = """<!DOCTYPE html>

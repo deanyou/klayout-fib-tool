@@ -7,6 +7,7 @@ Handles zoom, copy, rename, and delete operations
 import sys
 import os
 import pya
+from config import GEOMETRIC_PARAMS, UI_TIMEOUTS, DEFAULT_MARKER_NOTES
 
 class MarkerContextMenu:
     """Context menu handler for FIB markers"""
@@ -118,15 +119,15 @@ class MarkerContextMenu:
                 max_x = max(marker.x1, marker.x2)
                 min_y = min(marker.y1, marker.y2)
                 max_y = max(marker.y1, marker.y2)
-                
+
                 # Add some padding
-                padding = 5.0  # microns
+                padding = GEOMETRIC_PARAMS['zoom_padding']
                 min_x -= padding
                 max_x += padding
                 min_y -= padding
                 max_y += padding
             else:  # PROBE
-                padding = 5.0  # microns
+                padding = GEOMETRIC_PARAMS['zoom_padding']
                 min_x = marker.x - padding
                 max_x = marker.x + padding
                 min_y = marker.y - padding
@@ -142,10 +143,10 @@ class MarkerContextMenu:
                 current_view.zoom_box(box)
                 
                 print(f"[Marker Menu] Zoomed to marker {marker_id}")
-                
+
                 # Show brief message
                 try:
-                    pya.MainWindow.instance().message(f"Zoomed to {marker_id}", 2000)
+                    pya.MainWindow.instance().message(f"Zoomed to {marker_id}", UI_TIMEOUTS['message_short'])
                 except:
                     pass
             
@@ -205,11 +206,11 @@ class MarkerContextMenu:
             if not current_notes:
                 marker_class = marker.__class__.__name__
                 if 'Cut' in marker_class:
-                    current_notes = "切断"
+                    current_notes = DEFAULT_MARKER_NOTES['cut']
                 elif 'Connect' in marker_class:
-                    current_notes = "连接"
+                    current_notes = DEFAULT_MARKER_NOTES['connect']
                 elif 'Probe' in marker_class:
-                    current_notes = "点测"
+                    current_notes = DEFAULT_MARKER_NOTES['probe']
             
             # Show input dialog for notes
             try:
@@ -257,9 +258,9 @@ class MarkerContextMenu:
                 # Show success message
                 try:
                     if new_notes:
-                        pya.MainWindow.instance().message(f"Notes added to {marker_id}", 2000)
+                        pya.MainWindow.instance().message(f"Notes added to {marker_id}", UI_TIMEOUTS['message_short'])
                     else:
-                        pya.MainWindow.instance().message(f"Notes cleared for {marker_id}", 2000)
+                        pya.MainWindow.instance().message(f"Notes cleared for {marker_id}", UI_TIMEOUTS['message_short'])
                 except:
                     pass
                 
@@ -310,6 +311,31 @@ class MarkerContextMenu:
                 ok = True
             
             if ok and new_name and new_name != marker_id:
+                # Trim whitespace
+                new_name = new_name.strip()
+
+                # Check for empty name after trimming
+                if not new_name:
+                    pya.MessageBox.warning(
+                        "Rename Marker",
+                        "Marker name cannot be empty.",
+                        pya.MessageBox.Ok
+                    )
+                    return
+
+                # Check for duplicate names (case-insensitive)
+                existing_ids = [m.id.lower() for m in self.panel.markers_list]
+
+                if new_name.lower() in existing_ids:
+                    pya.MessageBox.warning(
+                        "Rename Marker",
+                        f"Marker name '{new_name}' already exists.\n\n"
+                        f"Please choose a different name.",
+                        pya.MessageBox.Ok
+                    )
+                    print(f"[Marker Menu] Rename rejected: duplicate name '{new_name}'")
+                    return
+
                 # Update marker object
                 marker = self.find_marker_by_id(marker_id)
                 if marker:
@@ -327,10 +353,10 @@ class MarkerContextMenu:
                         self.panel.smart_counter.reset_counters()
                     
                     print(f"[Marker Menu] Renamed: {old_id} -> {new_name}")
-                    
+
                     # Show success message
                     try:
-                        pya.MainWindow.instance().message(f"Renamed to {new_name}", 2000)
+                        pya.MainWindow.instance().message(f"Renamed to {new_name}", UI_TIMEOUTS['message_short'])
                     except:
                         pass
                 
@@ -378,10 +404,10 @@ class MarkerContextMenu:
                         self.panel.smart_counter.reset_counters()
                     
                     print(f"[Marker Menu] Successfully deleted marker: {marker_id}")
-                    
+
                     # Show success message
                     try:
-                        pya.MainWindow.instance().message(f"Deleted {marker_id} from layout", 2000)
+                        pya.MainWindow.instance().message(f"Deleted {marker_id} from layout", UI_TIMEOUTS['message_short'])
                     except:
                         pass
                 else:
@@ -501,7 +527,7 @@ class MarkerContextMenu:
             shapes_to_remove = []
             
             # Create search regions around marker coordinates
-            search_radius = int(5.0 / dbu)  # 5 micron search radius
+            search_radius = int(GEOMETRIC_PARAMS['search_radius'] / dbu)
             
             for db_x, db_y in db_coords:
                 search_box = pya.Box(
@@ -623,7 +649,7 @@ class MarkerContextMenu:
             # Show success message if any updates were made
             if total_updated > 0:
                 try:
-                    pya.MainWindow.instance().message(f"Updated {total_updated} texts", 2000)
+                    pya.MainWindow.instance().message(f"Updated {total_updated} texts", UI_TIMEOUTS['message_short'])
                 except:
                     pass
             else:
