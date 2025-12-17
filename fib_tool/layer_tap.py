@@ -15,8 +15,8 @@ import pya
 from config import LAYERS, GEOMETRIC_PARAMS
 
 # Default search radius for layer detection (in microns)
-# Increased to 1.0 for more reliable detection
-DEFAULT_SEARCH_RADIUS = GEOMETRIC_PARAMS.get('layer_tap_radius', 1.0)
+# Set to 0.5 for precise detection in 0.5μm × 0.5μm area
+DEFAULT_SEARCH_RADIUS = GEOMETRIC_PARAMS.get('layer_tap_radius', 0.5)
 
 # FIB layers to exclude from detection
 FIB_LAYERS = [LAYERS['cut'], LAYERS['connect'], LAYERS['probe']]
@@ -208,11 +208,13 @@ def get_selected_layer_from_panel():
     """
     Get the currently selected layer from KLayout's Layer Panel.
     
+    Only returns the layer if it is visible (not hidden).
+    
     Uses view.current_layer which returns a LayerPropertiesIterator.
     We need to call current() to get the actual LayerPropertiesNode.
     
     Returns:
-        LayerInfo or None if no layer is selected
+        LayerInfo or None if no layer is selected or if the layer is hidden
     """
     try:
         main_window = pya.Application.instance().main_window()
@@ -236,7 +238,16 @@ def get_selected_layer_from_panel():
         node = layer_iter.current()
         
         print(f"[Layer Tap] layer node: {node}, type: {type(node)}")
-        print(f"[Layer Tap] node attributes: {dir(node)}")
+        
+        # Check if the layer is visible
+        if hasattr(node, 'visible') and not node.visible:
+            print(f"[Layer Tap] Selected layer is hidden (not visible), ignoring")
+            return None
+        
+        # Check if the layer is valid
+        if hasattr(node, 'valid') and not node.valid:
+            print(f"[Layer Tap] Selected layer is not valid, ignoring")
+            return None
         
         # Extract layer information from the node's source
         if hasattr(node, 'source'):
@@ -277,7 +288,7 @@ def get_selected_layer_from_panel():
             
             layer_name = node.name if hasattr(node, 'name') and node.name else None
             
-            print(f"[Layer Tap] Layer Panel selection: layer={layer_num}, datatype={datatype}, name={layer_name}")
+            print(f"[Layer Tap] Layer Panel selection: layer={layer_num}, datatype={datatype}, name={layer_name}, visible=True")
             
             # Skip FIB layers
             if layer_num in FIB_LAYERS:

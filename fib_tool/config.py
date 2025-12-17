@@ -50,7 +50,7 @@ GEOMETRIC_PARAMS = {
     'double_click_distance': 5.0,      # Maximum distance for double-click detection (μm)
     'coordinate_precision': 0.001,     # Coordinate precision (μm)
     'min_ruler_delta': 0.01,           # Minimum delta to show rulers (μm)
-    'layer_tap_radius': 1.0,           # Search radius for layer detection at click position (μm)
+    'layer_tap_radius': 0.5,           # Search radius for layer detection at click position (μm)
 }
 
 # UI timeout settings (milliseconds)

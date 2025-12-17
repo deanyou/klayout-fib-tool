@@ -87,7 +87,14 @@ exec(open(r'C:\path\to\klayout-fib-tool\fib_tool\fib_plugin.py', encoding='utf-8
 4. 在版图上点击创建标记
 5. 保存为 XML 或生成 HTML 报告
 
-详细使用说明：[src/README.md](src/README.md)
+**图层颜色设置（推荐）：**
+- Layer 337 (FIB_CUT): 粉色 RGB(255, 105, 180)
+- Layer 338 (FIB_CONNECT): 黄色 RGB(255, 255, 0)
+- Layer 339 (FIB_PROBE): 白色 RGB(255, 255, 255)
+
+设置方法：View → Layer Toolbox → 右键图层 → Properties → 设置颜色
+
+详细说明：[图层颜色设置指南](docs/LAYER_COLOR_SETUP.md) | [使用说明](src/README.md)
 
 ## 项目结构
 

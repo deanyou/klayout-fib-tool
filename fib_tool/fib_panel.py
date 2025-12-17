@@ -982,6 +982,40 @@ class FIBPanel(pya.QDockWidget):
         except Exception as e:
             print(f"[FIB Panel] Error clearing coordinate texts: {e}")
     
+    def _recreate_coordinate_texts(self, marker, cell, layout):
+        """Recreate coordinate text labels for a loaded marker"""
+        try:
+            dbu = layout.dbu
+            coord_layer_num = LAYERS['coordinates']
+            coord_layer = layout.layer(coord_layer_num, 0)
+            
+            # Get coordinates based on marker type
+            coordinates = []
+            
+            if hasattr(marker, 'points'):
+                # Multi-point marker
+                coordinates = marker.points
+            elif hasattr(marker, 'x1'):
+                # Two-point marker (cut, connect)
+                coordinates = [(marker.x1, marker.y1), (marker.x2, marker.y2)]
+            elif hasattr(marker, 'x'):
+                # Single-point marker (probe)
+                coordinates = [(marker.x, marker.y)]
+            
+            # Create coordinate texts
+            for x, y in coordinates:
+                coord_text = f"{marker.id}:({x:.3f},{y:.3f})"
+                text_x = int(x / dbu)
+                text_y = int(y / dbu)
+                
+                text_obj = pya.Text(coord_text, pya.Trans(pya.Point(text_x, text_y)))
+                cell.shapes(coord_layer).insert(text_obj)
+            
+            print(f"[FIB Panel] Recreated {len(coordinates)} coordinate texts for {marker.id}")
+            
+        except Exception as e:
+            print(f"[FIB Panel] Error recreating coordinate texts: {e}")
+    
     def reset_marker_counters(self):
         """Reset marker counters to start from 0"""
         try:
@@ -1202,6 +1236,9 @@ class FIBPanel(pya.QDockWidget):
                         fib_layer = layout.layer(LAYERS[marker_type], 0)
                     
                     marker.to_gds(cell, fib_layer)
+                    
+                    # Recreate coordinate texts for this marker
+                    self._recreate_coordinate_texts(marker, cell, layout)
                     
                     # Add to panel
                     self.add_marker(marker)

@@ -88,11 +88,11 @@ def insert_fib_layer_views_to_panel(current_view, layout):
     try:
         print("[Layer Manager] Inserting FIB layer views to Layer Panel...")
         
-        # FIB layer definitions with colors
+        # FIB layer definitions with colors - FINAL COLORS
         fib_layers = {
             337: {'name': 'FIB_CUT', 'color': 0xFF69B4},      # Pink (粉色)
             338: {'name': 'FIB_CONNECT', 'color': 0xFFFF00},  # Yellow (黄色)
-            339: {'name': 'FIB_PROBE', 'color': 0xFFFFFF}     # White (白色)
+            339: {'name': 'FIB_PROBE', 'color': 0xFFFFFF}     # White (白色) - 修复：6个F
         }
         
         # Try to get layer list from view
@@ -339,9 +339,9 @@ def create_practical_layer_markers(current_view, layout):
 
 def set_layer_colors(current_view):
     """
-    Set colors for FIB layers in the Layer Panel.
+    Set colors for FIB layers using direct layer/datatype matching.
     
-    Uses the correct KLayout API: set_layer_properties() to apply changes.
+    Uses n.layer and n.datatype properties for reliable matching.
     
     Colors:
     - 337 (FIB_CUT): Pink 0xFF69B4
@@ -349,81 +349,72 @@ def set_layer_colors(current_view):
     - 339 (FIB_PROBE): White 0xFFFFFF
     """
     try:
-        print("[Layer Manager] Setting FIB layer colors...")
+        print("[Layer Manager] Setting FIB layer colors (DIRECT METHOD)...")
         
-        # Layer colors and names
-        layer_config = {
+        # Layer colors configuration
+        layer_colors = {
             337: {'color': 0xFF69B4, 'name': 'FIB_CUT'},      # Pink
             338: {'color': 0xFFFF00, 'name': 'FIB_CONNECT'},  # Yellow
             339: {'color': 0xFFFFFF, 'name': 'FIB_PROBE'}     # White
         }
         
-        # First, ensure all layers are visible in the panel
+        # Ensure all layers are visible in the panel
+        print("[Layer Manager] Calling add_missing_layers()...")
         current_view.add_missing_layers()
         
-        # Iterate through all layers in the panel
-        for node in current_view.each_layer():
-            if not node.valid:
-                continue
-            
-            # Parse layer number from source string
-            if not hasattr(node, 'source'):
-                continue
-            
-            source = node.source
-            if not isinstance(source, str):
-                continue
-            
-            try:
-                # Remove mask part if present (e.g., "86/0@1" -> "86/0")
-                if '@' in source:
-                    source = source.split('@')[0]
-                
-                # Handle format like "FIB_CUT 337/0" - extract the numeric part
-                # Split by space and take the last part which should be "337/0"
-                if ' ' in source:
-                    source = source.split()[-1]  # Take last part: "337/0"
-                
-                # Parse layer/datatype
-                parts = source.split('/')
-                if len(parts) < 2:
-                    continue
-                
-                layer_num = int(parts[0])
-                datatype = int(parts[1])
-            except (ValueError, IndexError):
-                continue
-            
-            # Check if this is one of our FIB layers
-            if layer_num in layer_config and datatype == 0:
-                config = layer_config[layer_num]
-                color = config['color']
-                name = config['name']
-                
-                # Set color and properties
-                node.fill_color = color
-                node.frame_color = color
-                node.dither_pattern = 0  # Solid fill
-                node.visible = True
-                
-                # Set name if not already set
-                if not node.name or node.name == f"{layer_num}/{datatype}":
-                    node.name = name
-                
-                # Apply changes using set_layer_properties
-                current_view.set_layer_properties(node)
-                
-                print(f"[Layer Manager] ✓ Set color for layer {layer_num}/0 ({name}): 0x{color:06X}")
+        colors_set = 0
         
-        # Update the view to show changes
+        # Iterate through all layers
+        for target_layer, config in layer_colors.items():
+            target_datatype = 0
+            color = config['color']
+            name = config['name']
+            
+            print(f"[Layer Manager] Looking for layer {target_layer}/{target_datatype}...")
+            
+            found = False
+            for n in current_view.each_layer():
+                # Check if this node is valid and matches our target layer
+                if n.valid and hasattr(n, 'layer') and hasattr(n, 'datatype'):
+                    if n.layer == target_layer and n.datatype == target_datatype:
+                        found = True
+                        print(f"[Layer Manager]   Found! Current: fill=0x{n.fill_color:06X}, frame=0x{n.frame_color:06X}")
+                        
+                        # Set the colors
+                        n.fill_color = color
+                        n.frame_color = color
+                        n.dither_pattern = 0  # Solid fill
+                        n.visible = True
+                        
+                        # Set name if needed
+                        if not n.name or n.name == f"{target_layer}/{target_datatype}":
+                            n.name = name
+                        
+                        # Apply the changes
+                        current_view.set_layer_properties(n)
+                        
+                        print(f"[Layer Manager]   ✓ Set to 0x{color:06X} ({name})")
+                        print(f"[Layer Manager]   After: fill=0x{n.fill_color:06X}, frame=0x{n.frame_color:06X}")
+                        
+                        colors_set += 1
+                        break
+            
+            if not found:
+                print(f"[Layer Manager]   ✗ Not found in panel")
+        
+        # Force view update
+        print("[Layer Manager] Calling update_content()...")
         current_view.update_content()
         
-        print("[Layer Manager] Layer colors applied successfully")
+        print(f"[Layer Manager] ✓ Complete: {colors_set}/3 layers updated")
+        
+        return colors_set == 3
         
     except Exception as e:
-        print(f"[Layer Manager] Error setting layer colors: {e}")
+        print(f"[Layer Manager] ✗ Error: {e}")
         import traceback
         traceback.print_exc()
+        return False
 
 
 def create_layer_identification_markers(current_view, layout):
@@ -476,10 +467,11 @@ def create_layer_identification_markers(current_view, layout):
             
             print(f"[Layer Manager] ✓ Created identification marker for layer {layer_num}/0 ({layer_name}) at ({marker_x/1000:.1f}, {marker_y/1000:.1f})")
         
-        # Set layer colors in Layer Panel
+        # Set layer colors using direct layer/datatype matching
+        print("[Layer Manager] Setting layer colors...")
         set_layer_colors(current_view)
         
-        # Force layer panel refresh by triggering a layout change event
+        # Force layer panel refresh
         force_layer_panel_refresh(current_view, layout)
         
         print("[Layer Manager] Layer identification markers created")
@@ -573,6 +565,32 @@ def force_layer_panel_refresh(current_view, layout):
         traceback.print_exc()
 
 
+def show_color_instructions():
+    """
+    Show instructions for layer colors (if automatic setting fails).
+    """
+    message = """FIB Tool - Layer Colors
+
+Layers created with recommended colors:
+- Layer 337 (FIB_CUT): Pink (RGB: 255, 105, 180)
+- Layer 338 (FIB_CONNECT): Yellow (RGB: 255, 255, 0)
+- Layer 339 (FIB_PROBE): White (RGB: 255, 255, 255)
+
+To set colors manually:
+1. View → Layer Toolbox (enable if not visible)
+2. In Layer Toolbox, find the layer (337/338/339)
+3. Select layer → Set Frame Color
+4. Enter RGB values or use color picker
+
+Note: If layers don't appear in Layer Toolbox:
+- Right-click in Layers panel → Add Other Layer Entries"""
+    
+    try:
+        pya.MessageBox.info("FIB Layer Colors", message, pya.MessageBox.Ok)
+    except:
+        print(message)
+
+
 def ensure_fib_layers():
     """
     Ensure FIB layers exist in the current layout.
@@ -627,6 +645,11 @@ def ensure_fib_layers():
             if failed_count > 0:
                 message += f", {failed_count} failed"
             print(f"[Layer Manager] {message}")
+            
+            # Show color setup instructions
+            print("[Layer Manager] Showing color setup instructions...")
+            show_color_instructions()
+            
             try:
                 pya.MainWindow.instance().message(message, 3000)
             except:
