@@ -982,6 +982,102 @@ class FIBPanel(pya.QDockWidget):
         except Exception as e:
             print(f"[FIB Panel] Error clearing coordinate texts: {e}")
     
+    def _ask_to_open_html(self, html_filename):
+        """Ask user if they want to open the HTML file in browser"""
+        try:
+            result = pya.MessageBox.question(
+                "HTML Report Generated",
+                f"HTML report saved successfully!\n\n{html_filename}\n\nWould you like to open it in your browser?",
+                pya.MessageBox.Yes | pya.MessageBox.No
+            )
+            
+            if result == pya.MessageBox.Yes:
+                self._open_html_in_browser(html_filename)
+                
+        except Exception as e:
+            print(f"[FIB Panel] Error asking to open HTML: {e}")
+    
+    def _open_html_in_browser(self, html_filename):
+        """Open HTML file in browser with priority: Edge > Chrome > IE"""
+        try:
+            import subprocess
+            import os
+            import platform
+            
+            system = platform.system().lower()
+            
+            if system == "windows":
+                # Windows: Try Edge > Chrome > IE
+                browsers = [
+                    # Microsoft Edge
+                    r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+                    r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+                    # Google Chrome
+                    r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+                    r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+                    # Internet Explorer
+                    r"C:\Program Files\Internet Explorer\iexplore.exe",
+                    r"C:\Program Files (x86)\Internet Explorer\iexplore.exe"
+                ]
+                
+                for browser_path in browsers:
+                    if os.path.exists(browser_path):
+                        print(f"[FIB Panel] Opening HTML with: {os.path.basename(browser_path)}")
+                        subprocess.Popen([browser_path, html_filename])
+                        return
+                
+                # Fallback: Use default browser
+                print("[FIB Panel] Using default browser")
+                os.startfile(html_filename)
+                
+            elif system == "darwin":  # macOS
+                # macOS: Try Edge > Chrome > Safari
+                browsers = [
+                    "Microsoft Edge",
+                    "Google Chrome", 
+                    "Safari"
+                ]
+                
+                for browser in browsers:
+                    try:
+                        subprocess.run(["open", "-a", browser, html_filename], check=True)
+                        print(f"[FIB Panel] Opened HTML with: {browser}")
+                        return
+                    except subprocess.CalledProcessError:
+                        continue
+                
+                # Fallback: Use default browser
+                print("[FIB Panel] Using default browser")
+                subprocess.run(["open", html_filename])
+                
+            else:  # Linux
+                # Linux: Try Edge > Chrome > Firefox
+                browsers = [
+                    "microsoft-edge",
+                    "google-chrome",
+                    "chromium-browser",
+                    "firefox"
+                ]
+                
+                for browser in browsers:
+                    try:
+                        subprocess.Popen([browser, html_filename])
+                        print(f"[FIB Panel] Opened HTML with: {browser}")
+                        return
+                    except FileNotFoundError:
+                        continue
+                
+                # Fallback: Use xdg-open
+                print("[FIB Panel] Using default browser")
+                subprocess.Popen(["xdg-open", html_filename])
+                
+        except Exception as e:
+            print(f"[FIB Panel] Error opening HTML in browser: {e}")
+            # Final fallback: Show message with file path
+            pya.MessageBox.info("FIB Panel", 
+                f"Could not open browser automatically.\n\nPlease open this file manually:\n{html_filename}",
+                pya.MessageBox.Ok)
+    
     def _recreate_coordinate_texts(self, marker, cell, layout):
         """Recreate coordinate text labels for a loaded marker"""
         try:
@@ -1074,7 +1170,8 @@ class FIBPanel(pya.QDockWidget):
                         'points': marker.points if hasattr(marker, 'points') else [],
                         'notes': getattr(marker, 'notes', ''),
                         'screenshots': getattr(marker, 'screenshots', []),
-                        'target_layers': getattr(marker, 'target_layers', [])
+                        'target_layers': getattr(marker, 'target_layers', []),
+                        'point_layers': getattr(marker, 'point_layers', [])  # Save multi-point layer info
                     }
                 else:
                     # Regular markers
@@ -1092,9 +1189,14 @@ class FIBPanel(pya.QDockWidget):
                         marker_dict['y1'] = marker.y1
                         marker_dict['x2'] = marker.x2
                         marker_dict['y2'] = marker.y2
+                        # Save layer info for two-point markers
+                        marker_dict['layer1'] = getattr(marker, 'layer1', None)
+                        marker_dict['layer2'] = getattr(marker, 'layer2', None)
                     else:  # PROBE
                         marker_dict['x'] = marker.x
                         marker_dict['y'] = marker.y
+                        # Save layer info for probe markers
+                        marker_dict['target_layer'] = getattr(marker, 'target_layer', None)
                 
                 markers_data.append(marker_dict)
             
@@ -1227,6 +1329,21 @@ class FIBPanel(pya.QDockWidget):
                     marker.screenshots = marker_data.get('screenshots', [])
                     marker.target_layers = marker_data.get('target_layers', [])
                     
+                    # Restore layer information
+                    if marker_type == 'multipoint_cut' or marker_type == 'multipoint_connect':
+                        # Multi-point markers
+                        marker.point_layers = marker_data.get('point_layers', [])
+                        print(f"[FIB Panel] Restored point_layers for {marker_id}: {marker.point_layers}")
+                    elif marker_type == 'cut' or marker_type == 'connect':
+                        # Two-point markers
+                        marker.layer1 = marker_data.get('layer1', None)
+                        marker.layer2 = marker_data.get('layer2', None)
+                        print(f"[FIB Panel] Restored layer info for {marker_id}: layer1={marker.layer1}, layer2={marker.layer2}")
+                    elif marker_type == 'probe':
+                        # Probe markers
+                        marker.target_layer = marker_data.get('target_layer', None)
+                        print(f"[FIB Panel] Restored target_layer for {marker_id}: {marker.target_layer}")
+                    
                     # Draw marker to GDS
                     from config import LAYERS
                     if marker_type.startswith('multipoint_'):
@@ -1335,9 +1452,17 @@ class FIBPanel(pya.QDockWidget):
                     f"  pip install weasyprint\n"
                     f"or install wkhtmltopdf",
                     pya.MessageBox.Ok)
+                
+                # Ask user if they want to open the HTML file
+                self._ask_to_open_html(html_filename)
+                
                 return True
             
             print(f"[FIB Panel] PDF report created: {filename}")
+            
+            # Ask user if they want to open the HTML file
+            self._ask_to_open_html(html_filename)
+            
             return True
             
         except Exception as e:
@@ -1376,16 +1501,34 @@ class FIBPanel(pya.QDockWidget):
                         else:
                             marker_type = "MULTI"
                         
-                        # Show complete point coordinates for multi-point markers
+                        # Show complete point coordinates for multi-point markers with layer info
                         if hasattr(marker, 'points') and len(marker.points) > 0:
                             if len(marker.points) <= 3:
-                                # For 3 or fewer points, show all coordinates in panel
-                                point_strs = [f"({p[0]:.3f},{p[1]:.3f})" for p in marker.points]
+                                # For 3 or fewer points, show all coordinates with layer info in panel
+                                point_strs = []
+                                for i, p in enumerate(marker.points):
+                                    layer_info = ""
+                                    if hasattr(marker, 'point_layers') and i < len(marker.point_layers) and marker.point_layers[i]:
+                                        layer_info = f" [{marker.point_layers[i]}]"
+                                    point_strs.append(f"({p[0]:.3f},{p[1]:.3f}){layer_info}")
                                 coords = f"{len(marker.points)} pts: " + " → ".join(point_strs)
                             else:
-                                # For more than 3 points, show first 2, ..., last 1 (shorter for panel)
-                                first_points = [f"({p[0]:.3f},{p[1]:.3f})" for p in marker.points[:2]]
-                                last_point = f"({marker.points[-1][0]:.3f},{marker.points[-1][1]:.3f})"
+                                # For more than 3 points, show first 2, ..., last 1 with layer info (shorter for panel)
+                                first_points = []
+                                for i in range(2):
+                                    p = marker.points[i]
+                                    layer_info = ""
+                                    if hasattr(marker, 'point_layers') and i < len(marker.point_layers) and marker.point_layers[i]:
+                                        layer_info = f" [{marker.point_layers[i]}]"
+                                    first_points.append(f"({p[0]:.3f},{p[1]:.3f}){layer_info}")
+                                
+                                # Last point
+                                last_p = marker.points[-1]
+                                last_layer_info = ""
+                                if hasattr(marker, 'point_layers') and len(marker.point_layers) > 0 and marker.point_layers[-1]:
+                                    last_layer_info = f" [{marker.point_layers[-1]}]"
+                                last_point = f"({last_p[0]:.3f},{last_p[1]:.3f}){last_layer_info}"
+                                
                                 coords = f"{len(marker.points)} pts: " + " → ".join(first_points) + " → ... → " + last_point
                         else:
                             coords = "No points"

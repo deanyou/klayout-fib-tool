@@ -52,6 +52,63 @@ class LayerInfo:
         return hash((self.layer, self.datatype))
 
 
+def get_layer_name_from_panel(view, layer_num, datatype):
+    """
+    Try to get layer name from Layer Panel.
+    
+    Args:
+        view: Current layout view
+        layer_num: Layer number
+        datatype: Datatype
+    
+    Returns:
+        Layer name string or None
+    """
+    try:
+        for node in view.each_layer():
+            if node.valid and hasattr(node, 'source'):
+                source = node.source
+                
+                if isinstance(source, str):
+                    # Parse string format
+                    if '@' in source:
+                        source = source.split('@')[0]
+                    if ' ' in source:
+                        # Format like "M1 86/0" - extract name and layer/datatype
+                        parts = source.split()
+                        if len(parts) >= 2:
+                            name_part = parts[0]
+                            layer_part = parts[-1]
+                            try:
+                                layer_parts = layer_part.split('/')
+                                if len(layer_parts) >= 2:
+                                    src_layer = int(layer_parts[0])
+                                    src_datatype = int(layer_parts[1])
+                                    if src_layer == layer_num and src_datatype == datatype:
+                                        return name_part
+                            except:
+                                pass
+                    else:
+                        # Simple format "86/0"
+                        try:
+                            parts = source.split('/')
+                            if len(parts) >= 2:
+                                src_layer = int(parts[0])
+                                src_datatype = int(parts[1])
+                                if src_layer == layer_num and src_datatype == datatype:
+                                    # Check if node has a name
+                                    if hasattr(node, 'name') and node.name and node.name != f"{layer_num}/{datatype}":
+                                        return node.name
+                        except:
+                            pass
+        
+        return None
+        
+    except Exception as e:
+        print(f"[Layer Tap] Error getting layer name from panel: {e}")
+        return None
+
+
 def get_visible_layers():
     """
     Get all visible (non-hidden) layers from the Layer Panel.
@@ -190,6 +247,14 @@ def get_layers_at_point(x, y, search_radius=None):
             if has_shape:
                 # Get layer name if available
                 layer_name = layer_info.name if layer_info.name else None
+                print(f"[Layer Tap] Layer {layer_info.layer}/{layer_info.datatype}: name='{layer_info.name}', type={type(layer_info.name)}")
+                
+                # Try to get layer name from Layer Panel if not available in layout
+                if not layer_name:
+                    layer_name = get_layer_name_from_panel(current_view, layer_info.layer, layer_info.datatype)
+                    if layer_name:
+                        print(f"[Layer Tap] Got name from panel: '{layer_name}'")
+                
                 found_layer = LayerInfo(layer_info.layer, layer_info.datatype, layer_name)
                 found_layers.append(found_layer)
                 print(f"[Layer Tap] Found layer: {found_layer}")
@@ -287,6 +352,12 @@ def get_selected_layer_from_panel():
                 return None
             
             layer_name = node.name if hasattr(node, 'name') and node.name else None
+            
+            # Try to get better layer name if current name is just the layer/datatype
+            if not layer_name or layer_name == f"{layer_num}/{datatype}":
+                better_name = get_layer_name_from_panel(view, layer_num, datatype)
+                if better_name:
+                    layer_name = better_name
             
             print(f"[Layer Tap] Layer Panel selection: layer={layer_num}, datatype={datatype}, name={layer_name}, visible=True")
             

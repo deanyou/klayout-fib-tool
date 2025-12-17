@@ -740,15 +740,34 @@ def generate_html_report_with_screenshots(markers, screenshots_dict, output_path
             length_str = ""
             
             if hasattr(marker, 'points') and len(marker.points) > 0:
-                # Display all points for multi-point markers
+                # Display all points for multi-point markers with layer info
                 if len(marker.points) <= 5:
-                    # For 5 or fewer points, show all coordinates
-                    point_strs = [f"({p[0]:.3f},{p[1]:.3f})" for p in marker.points]
+                    # For 5 or fewer points, show all coordinates with layer info
+                    point_strs = []
+                    for i, p in enumerate(marker.points):
+                        layer_info = ""
+                        if hasattr(marker, 'point_layers') and i < len(marker.point_layers) and marker.point_layers[i]:
+                            layer_info = f" [{marker.point_layers[i]}]"
+                        point_strs.append(f"({p[0]:.3f},{p[1]:.3f}){layer_info}")
                     coords = f"{len(marker.points)} points: " + " → ".join(point_strs)
                 else:
-                    # For more than 5 points, show first 3, ..., last 2
-                    first_points = [f"({p[0]:.3f},{p[1]:.3f})" for p in marker.points[:3]]
-                    last_points = [f"({p[0]:.3f},{p[1]:.3f})" for p in marker.points[-2:]]
+                    # For more than 5 points, show first 3, ..., last 2 with layer info
+                    first_points = []
+                    for i in range(3):
+                        p = marker.points[i]
+                        layer_info = ""
+                        if hasattr(marker, 'point_layers') and i < len(marker.point_layers) and marker.point_layers[i]:
+                            layer_info = f" [{marker.point_layers[i]}]"
+                        first_points.append(f"({p[0]:.3f},{p[1]:.3f}){layer_info}")
+                    
+                    last_points = []
+                    for i in range(-2, 0):
+                        p = marker.points[i]
+                        layer_info = ""
+                        if hasattr(marker, 'point_layers') and len(marker.points) + i < len(marker.point_layers) and marker.point_layers[len(marker.points) + i]:
+                            layer_info = f" [{marker.point_layers[len(marker.points) + i]}]"
+                        last_points.append(f"({p[0]:.3f},{p[1]:.3f}){layer_info}")
+                    
                     coords = f"{len(marker.points)} points: " + " → ".join(first_points) + " → ... → " + " → ".join(last_points)
                 
                 # Calculate dimensions (first to last point)
@@ -769,7 +788,10 @@ def generate_html_report_with_screenshots(markers, screenshots_dict, output_path
                 dimensions_str = f"ΔX = {delta_x:.2f} μm, ΔY = {delta_y:.2f} μm"
                 length_str = f"Path Length = {total_length:.2f} μm"
             elif hasattr(marker, 'x1'):
-                coords = f"({marker.x1:.3f},{marker.y1:.3f}) to ({marker.x2:.3f},{marker.y2:.3f})"
+                # Include layer information if available
+                layer1_info = f" [{marker.layer1}]" if hasattr(marker, 'layer1') and marker.layer1 else ""
+                layer2_info = f" [{marker.layer2}]" if hasattr(marker, 'layer2') and marker.layer2 else ""
+                coords = f"({marker.x1:.3f},{marker.y1:.3f}){layer1_info} to ({marker.x2:.3f},{marker.y2:.3f}){layer2_info}"
                 # Calculate dimensions
                 delta_x = abs(marker.x2 - marker.x1)
                 delta_y = abs(marker.y2 - marker.y1)
@@ -779,7 +801,9 @@ def generate_html_report_with_screenshots(markers, screenshots_dict, output_path
                 dimensions_str = f"ΔX = {delta_x:.2f} μm, ΔY = {delta_y:.2f} μm"
                 length_str = f"Length = {length:.2f} μm"
             else:
-                coords = f"({marker.x:.3f},{marker.y:.3f})"
+                # Include layer information if available (for probe markers)
+                layer_info = f" [{marker.target_layer}]" if hasattr(marker, 'target_layer') and marker.target_layer else ""
+                coords = f"({marker.x:.3f},{marker.y:.3f}){layer_info}"
                 dimensions_str = "Single point marker"
                 length_str = "-"
             
