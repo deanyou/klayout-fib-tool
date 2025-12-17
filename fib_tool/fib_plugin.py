@@ -491,7 +491,8 @@ class FIBToolPlugin(pya.Plugin):
         if LAYER_TAP_AVAILABLE:
             try:
                 point_label = f"Point {len(self.temp_points) + 1}"
-                detected_layer = get_layer_at_point_with_selection(x, y, search_radius=0.01, position_label=point_label)
+                # Use default search radius from config (don't override it)
+                detected_layer = get_layer_at_point_with_selection(x, y, position_label=point_label)
                 if detected_layer:
                     layer_str = format_layer_for_display(detected_layer)
                     print(f"[DEBUG] Position ({x:.3f}, {y:.3f}) - Detected layer: {layer_str}")
@@ -499,6 +500,8 @@ class FIBToolPlugin(pya.Plugin):
                     print(f"[DEBUG] Position ({x:.3f}, {y:.3f}) - No layer detected (N/A)")
             except Exception as tap_error:
                 print(f"[DEBUG] Layer tap error: {tap_error}")
+                import traceback
+                traceback.print_exc()
         else:
             print(f"[DEBUG] Position ({x:.3f}, {y:.3f}) - Layer tap not available")
         

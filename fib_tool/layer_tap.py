@@ -4,14 +4,19 @@ Layer Tap - Detect layers at click position
 
 This module provides functionality to detect which layers contain shapes
 at a given coordinate position, similar to KLayout's tap functionality.
+
+Strategy:
+- Single layer at position: Use that layer directly
+- Multiple layers overlapping: Use the layer selected in Layer Panel
+- No layer found: Return None (displays as "N/A")
 """
 
 import pya
 from config import LAYERS, GEOMETRIC_PARAMS
 
 # Default search radius for layer detection (in microns)
-# Can be overridden by GEOMETRIC_PARAMS['layer_tap_radius'] in config.py
-DEFAULT_SEARCH_RADIUS = GEOMETRIC_PARAMS.get('layer_tap_radius', 0.01)  # 0.01 μm as requested by user
+# Increased to 1.0 for more reliable detection
+DEFAULT_SEARCH_RADIUS = GEOMETRIC_PARAMS.get('layer_tap_radius', 1.0)
 
 # FIB layers to exclude from detection
 FIB_LAYERS = [LAYERS['cut'], LAYERS['connect'], LAYERS['probe']]
@@ -94,6 +99,7 @@ def get_layers_at_point(x, y, search_radius=None):
         )
         
         print(f"[Layer Tap] Searching at ({x:.3f}, {y:.3f}) μm, radius={search_radius} μm")
+        print(f"[Layer Tap] DB units: point=({db_x}, {db_y}), radius={db_radius}, box={search_box}")
         
         found_layers = []
         
@@ -135,67 +141,105 @@ def get_layers_at_point(x, y, search_radius=None):
         return []
 
 
-def select_layer_dialog(layers, position_label=""):
+def get_selected_layer_from_panel():
     """
-    Show a dialog for user to select a layer from multiple options.
+    Get the currently selected layer from KLayout's Layer Panel.
     
-    Args:
-        layers: List of LayerInfo objects
-        position_label: Optional label for the position (e.g., "Point 1")
+    Uses view.current_layer which returns a LayerPropertiesIterator.
+    We need to call current() to get the actual LayerPropertiesNode.
     
     Returns:
-        Selected LayerInfo or None if cancelled
+        LayerInfo or None if no layer is selected
     """
-    if not layers:
-        return None
-    
-    if len(layers) == 1:
-        return layers[0]
-    
     try:
-        # Build selection list
-        items = [layer.to_string() for layer in layers]
+        main_window = pya.Application.instance().main_window()
+        view = main_window.current_view()
         
-        # Show selection dialog
-        title = "Select Layer"
-        if position_label:
-            title = f"Select Layer - {position_label}"
+        if view is None:
+            print("[Layer Tap] No current view")
+            return None
         
-        result = pya.QInputDialog.getItem(
-            None,
-            title,
-            f"Multiple layers found at this position.\nPlease select one:",
-            items,
-            0,  # Default selection
-            False  # Not editable
-        )
+        # Get the currently selected layer iterator from Layer Panel
+        layer_iter = view.current_layer
         
-        # Handle different return formats
-        if isinstance(result, tuple) and len(result) >= 2:
-            selected_text, ok = result[0], result[1]
+        print(f"[Layer Tap] current_layer: {layer_iter}, type: {type(layer_iter)}")
+        
+        # Check if a layer is selected
+        if layer_iter.is_null():
+            print("[Layer Tap] No layer selected in Layer Panel (is_null)")
+            return None
+        
+        # Get the actual layer properties node
+        node = layer_iter.current()
+        
+        print(f"[Layer Tap] layer node: {node}, type: {type(node)}")
+        print(f"[Layer Tap] node attributes: {dir(node)}")
+        
+        # Extract layer information from the node's source
+        if hasattr(node, 'source'):
+            source = node.source
+            print(f"[Layer Tap] source: {source}, type: {type(source)}")
+            
+            # Check if source is a string (layer/datatype@mask format) or an object
+            if isinstance(source, str):
+                # Parse string format like "86/0@1" or "86/0"
+                print(f"[Layer Tap] source is string, parsing: {source}")
+                try:
+                    # Remove mask part if present (e.g., "86/0@1" -> "86/0")
+                    if '@' in source:
+                        source = source.split('@')[0]
+                    
+                    # Parse layer/datatype
+                    parts = source.split('/')
+                    if len(parts) >= 2:
+                        layer_num = int(parts[0])
+                        datatype = int(parts[1])
+                    else:
+                        print(f"[Layer Tap] Cannot parse source string: {source}")
+                        return None
+                except Exception as parse_error:
+                    print(f"[Layer Tap] Error parsing source string '{source}': {parse_error}")
+                    return None
+            elif hasattr(source, 'layer') and hasattr(source, 'datatype'):
+                # source is a LayerInfo object
+                layer_num = source.layer
+                datatype = source.datatype
+            else:
+                print(f"[Layer Tap] Unknown source type: {type(source)}")
+                return None
+            
+            layer_name = node.name if hasattr(node, 'name') and node.name else None
+            
+            print(f"[Layer Tap] Layer Panel selection: layer={layer_num}, datatype={datatype}, name={layer_name}")
+            
+            # Skip FIB layers
+            if layer_num in FIB_LAYERS:
+                print(f"[Layer Tap] Skipping FIB layer {layer_num}")
+                return None
+            
+            layer_info = LayerInfo(layer_num, datatype, layer_name)
+            print(f"[Layer Tap] Successfully got Layer Panel selection: {layer_info}")
+            return layer_info
         else:
-            selected_text = str(result) if result else ""
-            ok = bool(selected_text)
-        
-        if ok and selected_text:
-            # Find the matching layer
-            for layer in layers:
-                if layer.to_string() == selected_text:
-                    print(f"[Layer Tap] User selected: {layer}")
-                    return layer
-        
-        print("[Layer Tap] User cancelled selection")
-        return None
+            print("[Layer Tap] Node has no source attribute")
+            return None
         
     except Exception as e:
-        print(f"[Layer Tap] Error in selection dialog: {e}")
-        # Fallback: return first layer
-        return layers[0] if layers else None
+        print(f"[Layer Tap] Error getting selected layer from panel: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
 
 
 def get_layer_at_point_with_selection(x, y, search_radius=None, position_label=""):
     """
-    Get layer at point, showing selection dialog if multiple layers found.
+    Get layer at point with smart selection strategy.
+    
+    Strategy:
+    1. Search for layers at the click position
+    2. If single layer found: use it directly
+    3. If multiple layers found: use the layer selected in Layer Panel
+    4. If no layers found: try to use Layer Panel selection as fallback
     
     Args:
         x: X coordinate in microns
@@ -206,17 +250,48 @@ def get_layer_at_point_with_selection(x, y, search_radius=None, position_label="
     Returns:
         LayerInfo or None
     """
+    # Step 1: Search for layers at the position
     layers = get_layers_at_point(x, y, search_radius)
     
+    # Case 1: No layers found at position - try Layer Panel as fallback
     if not layers:
         print(f"[Layer Tap] No layers found at ({x:.3f}, {y:.3f})")
+        print(f"[Layer Tap] Trying Layer Panel selection as fallback...")
+        selected_layer = get_selected_layer_from_panel()
+        if selected_layer:
+            print(f"[Layer Tap] Using Layer Panel selection: {selected_layer}")
+            return selected_layer
+        print(f"[Layer Tap] No Layer Panel selection either, returning None")
         return None
     
+    # Case 2: Single layer found - use it directly
     if len(layers) == 1:
+        print(f"[Layer Tap] Single layer at ({x:.3f}, {y:.3f}): {layers[0]}")
         return layers[0]
     
-    # Multiple layers - let user select
-    return select_layer_dialog(layers, position_label)
+    # Case 3: Multiple layers found - use Layer Panel selection
+    print(f"[Layer Tap] Multiple layers ({len(layers)}) at ({x:.3f}, {y:.3f})")
+    layer_names = [l.to_string() for l in layers]
+    print(f"[Layer Tap] Overlapping layers: {layer_names}")
+    
+    # Try to get the selected layer from Layer Panel
+    selected_layer = get_selected_layer_from_panel()
+    
+    if selected_layer:
+        # Check if the selected layer is among the found layers
+        for layer in layers:
+            if layer.layer == selected_layer.layer and layer.datatype == selected_layer.datatype:
+                print(f"[Layer Tap] Using Layer Panel selection (matched): {selected_layer}")
+                return selected_layer
+        
+        # Selected layer is not at this position, but still use it
+        # (user explicitly selected it, so respect their choice)
+        print(f"[Layer Tap] Layer Panel selection {selected_layer} not at position, but using it anyway")
+        return selected_layer
+    
+    # No layer selected in panel - use the first found layer as fallback
+    print(f"[Layer Tap] No Layer Panel selection, using first found: {layers[0]}")
+    return layers[0]
 
 
 def format_layer_for_display(layer_info):
@@ -227,7 +302,7 @@ def format_layer_for_display(layer_info):
         layer_info: LayerInfo object or None
     
     Returns:
-        String for display (e.g., "M1" or "1/0" or "N/A")
+        String for display (e.g., "M1:86/0" or "N/A")
     """
     if layer_info is None:
         return "N/A"
