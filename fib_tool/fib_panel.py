@@ -294,12 +294,16 @@ class FIBPanel(pya.QDockWidget):
             self.marker_list.itemDoubleClicked.connect(self.on_marker_double_clicked)
             # Remove maximum height constraint to allow expansion
 
-            # Enable drag-drop reordering
-            self.marker_list.setDragEnabled(True)
-            self.marker_list.setAcceptDrops(True)
-            self.marker_list.setDropIndicatorShown(True)
-            self.marker_list.setDragDropMode(pya.QAbstractItemView.InternalMove)
-            self.marker_list.setDefaultDropAction(pya.Qt.MoveAction)
+            # Try to enable drag-drop reordering (may not work in all KLayout versions)
+            try:
+                self.marker_list.setDragEnabled(True)
+                self.marker_list.setAcceptDrops(True)
+                self.marker_list.setDropIndicatorShown(True)
+                self.marker_list.setDragDropMode(pya.QAbstractItemView.InternalMove)
+                self.marker_list.setDefaultDropAction(pya.Qt.MoveAction)
+                print("[FIB Panel] Drag-drop enabled (may not work in all KLayout versions)")
+            except Exception as drag_error:
+                print(f"[FIB Panel] Drag-drop not available: {drag_error}")
 
             # Connect reorder signal (with fallback for different Qt versions)
             try:
@@ -324,6 +328,24 @@ class FIBPanel(pya.QDockWidget):
             
             # Add list with stretch factor so it expands
             group_layout.addWidget(self.marker_list, 1)  # Stretch factor = 1
+            
+            # Add move up/down buttons for reordering (more reliable than drag-drop)
+            reorder_layout = pya.QHBoxLayout()
+            reorder_layout.setSpacing(2)
+            reorder_layout.setContentsMargins(0, 2, 0, 2)
+            
+            btn_move_up = pya.QPushButton("↑ Move Up")
+            btn_move_up.setFixedHeight(24)
+            btn_move_up.clicked.connect(self.on_move_marker_up)
+            
+            btn_move_down = pya.QPushButton("↓ Move Down")
+            btn_move_down.setFixedHeight(24)
+            btn_move_down.clicked.connect(self.on_move_marker_down)
+            
+            reorder_layout.addWidget(btn_move_up)
+            reorder_layout.addWidget(btn_move_down)
+            
+            group_layout.addLayout(reorder_layout)
             
             # Clear button with compact height - always at bottom
             btn_clear = pya.QPushButton("Clear All")
@@ -454,7 +476,7 @@ class FIBPanel(pya.QDockWidget):
 
             # Clear panel data
             self.markers_list.clear()
-            self.marker_list.clear()
+            self._safe_call(self.marker_list, 'clear')
 
             # Clear notes dictionary
             if hasattr(self, 'marker_notes_dict'):
@@ -890,7 +912,7 @@ class FIBPanel(pya.QDockWidget):
                 
                 # Clear panel data
                 self.markers_list.clear()
-                self.marker_list.clear()
+                self._safe_call(self.marker_list, 'clear')
                 
                 # Reset smart counters
                 if hasattr(self, 'smart_counter'):
@@ -1336,7 +1358,7 @@ class FIBPanel(pya.QDockWidget):
                             coords = f"({marker.x:.3f},{marker.y:.3f})"
                     
                     item_text = f"{marker.id} - {marker_type} - {coords}"
-                    self.marker_list.addItem(item_text)
+                    self._safe_call(self.marker_list, 'addItem', item_text)
                     print(f"[FIB Panel] Added marker: {marker.id}")
                     
                 except Exception as ui_error:
@@ -1355,10 +1377,18 @@ class FIBPanel(pya.QDockWidget):
         try:
             print(f"[FIB Panel] Markers reordered: {start}-{end} to {row}")
 
+            # Get count - handle both method and property safely
+            try:
+                # Try as method first
+                list_count = self.marker_list.count()
+            except TypeError:
+                # It's a property, not a method
+                list_count = self.marker_list.count
+
             # Rebuild markers_list from current UI order
             new_markers_list = []
-            for i in range(self.marker_list.count()):
-                item = self.marker_list.item(i)
+            for i in range(list_count):
+                item = self._safe_call(self.marker_list, 'item', i)
                 marker_id = self._extract_marker_id_from_item(item)
                 marker = self._find_marker_by_id_in_list(marker_id)
                 if marker:
@@ -1378,13 +1408,38 @@ class FIBPanel(pya.QDockWidget):
     def _extract_marker_id_from_item(self, item):
         """Extract marker ID from list item text"""
         try:
-            text = item.text() if callable(item.text) else item.text
+            # Try to get text from item
+            if hasattr(item, 'text'):
+                text_attr = item.text
+                if callable(text_attr):
+                    text = text_attr()
+                else:
+                    text = text_attr
+            else:
+                print(f"[FIB Panel] ERROR: item has no 'text' attribute")
+                return "Unknown"
+            
+            # Ensure text is a string
             if callable(text):
                 text = text()
+            text = str(text)
+            
+            print(f"[FIB Panel] Extracting ID from text: '{text}'")
+            
             # Format: "MARKER_ID - TYPE - (coords)"
             parts = text.split(' - ')
-            return parts[0].strip() if parts else "Unknown"
-        except:
+            if parts:
+                marker_id = parts[0].strip()
+                print(f"[FIB Panel] Extracted marker_id: '{marker_id}'")
+                return marker_id
+            else:
+                print(f"[FIB Panel] ERROR: Could not split text")
+                return "Unknown"
+                
+        except Exception as e:
+            print(f"[FIB Panel] ERROR in _extract_marker_id_from_item: {e}")
+            import traceback
+            traceback.print_exc()
             return "Unknown"
 
     def _find_marker_by_id_in_list(self, marker_id):
@@ -1397,9 +1452,15 @@ class FIBPanel(pya.QDockWidget):
     def _check_reorder_needed(self):
         """Fallback: detect if markers were reordered"""
         try:
+            # Get count - handle both method and property safely
+            try:
+                list_count = self.marker_list.count()
+            except TypeError:
+                list_count = self.marker_list.count
+            
             ui_order = [self._extract_marker_id_from_item(
-                self.marker_list.item(i)
-            ) for i in range(self.marker_list.count())]
+                self._safe_call(self.marker_list, 'item', i)
+            ) for i in range(list_count)]
 
             data_order = [m.id for m in self.markers_list]
 
@@ -1408,22 +1469,237 @@ class FIBPanel(pya.QDockWidget):
         except Exception as e:
             print(f"[FIB Panel] Reorder detection error: {e}")
 
+    def _rebuild_marker_list_ui(self):
+        """Rebuild the UI list from markers_list
+        
+        This is more reliable than takeItem/insertItem in KLayout's Qt bindings.
+        """
+        try:
+            print(f"[FIB Panel] Rebuilding UI list from {len(self.markers_list)} markers")
+            
+            # Clear the UI list
+            self.marker_list.clear()
+            
+            # Re-add all markers in the current order
+            for marker in self.markers_list:
+                marker_class_name = marker.__class__.__name__
+                
+                # Handle multi-point markers
+                if 'MultiPoint' in marker_class_name:
+                    if 'Cut' in marker_class_name:
+                        marker_type = "CUT (MULTI)"
+                    elif 'Connect' in marker_class_name:
+                        marker_type = "CONNECT (MULTI)"
+                    else:
+                        marker_type = "MULTI"
+                    
+                    # Show point coordinates for multi-point markers
+                    if hasattr(marker, 'points') and len(marker.points) > 0:
+                        if len(marker.points) <= 3:
+                            point_strs = [f"({p[0]:.3f},{p[1]:.3f})" for p in marker.points]
+                            coords = " -> ".join(point_strs)
+                        else:
+                            first = marker.points[0]
+                            last = marker.points[-1]
+                            coords = f"({first[0]:.3f},{first[1]:.3f}) -> ... -> ({last[0]:.3f},{last[1]:.3f}) [{len(marker.points)} pts]"
+                    else:
+                        coords = "(no points)"
+                else:
+                    # Regular markers
+                    marker_type = marker_class_name.replace('Marker', '').upper()
+                    
+                    if hasattr(marker, 'x1'):  # CUT or CONNECT
+                        coords = f"({marker.x1:.3f},{marker.y1:.3f}) to ({marker.x2:.3f},{marker.y2:.3f})"
+                    else:  # PROBE
+                        coords = f"({marker.x:.3f},{marker.y:.3f})"
+                
+                item_text = f"{marker.id} - {marker_type} - {coords}"
+                self.marker_list.addItem(item_text)
+                print(f"[FIB Panel] Added to UI: {item_text}")
+            
+            print(f"[FIB Panel] UI list rebuilt with {self.marker_list.count()} items")
+            
+        except Exception as e:
+            print(f"[FIB Panel] Error rebuilding UI list: {e}")
+            import traceback
+            traceback.print_exc()
+    
     def _sync_markers_to_ui_order(self):
         """Sync markers_list to match UI order"""
         try:
+            # Get count - handle both method and property safely
+            try:
+                list_count = self.marker_list.count()
+            except TypeError:
+                list_count = self.marker_list.count
+            
+            print(f"[FIB Panel] Syncing {list_count} items from UI to markers_list")
+            print(f"[FIB Panel] Current markers_list has {len(self.markers_list)} markers")
+            
             new_list = []
-            for i in range(self.marker_list.count()):
-                marker_id = self._extract_marker_id_from_item(
-                    self.marker_list.item(i)
-                )
+            for i in range(list_count):
+                # Access item directly without _safe_call
+                # In KLayout's Qt bindings, item() should be a method
+                try:
+                    item = self.marker_list.item(i)
+                except TypeError as te:
+                    # If item is a property, try accessing it differently
+                    print(f"[FIB Panel] ERROR: item({i}) not callable: {te}")
+                    # Don't continue - this would lose the marker!
+                    # Instead, keep the original order for this item
+                    if i < len(self.markers_list):
+                        new_list.append(self.markers_list[i])
+                        print(f"[FIB Panel] Kept original marker at index {i}: {self.markers_list[i].id}")
+                    continue
+                
+                if item is None:
+                    print(f"[FIB Panel] ERROR: item at index {i} is None")
+                    # Don't continue - this would lose the marker!
+                    if i < len(self.markers_list):
+                        new_list.append(self.markers_list[i])
+                        print(f"[FIB Panel] Kept original marker at index {i}: {self.markers_list[i].id}")
+                    continue
+                    
+                marker_id = self._extract_marker_id_from_item(item)
+                print(f"[FIB Panel] Item {i}: extracted marker_id = '{marker_id}'")
+                
                 marker = self._find_marker_by_id_in_list(marker_id)
                 if marker:
                     new_list.append(marker)
+                    print(f"[FIB Panel] Item {i}: found and added marker '{marker.id}'")
+                else:
+                    print(f"[FIB Panel] ERROR: Item {i}: marker '{marker_id}' not found in markers_list!")
+                    # This is a serious error - marker ID doesn't match any marker
 
-            self.markers_list = new_list
-            print(f"[FIB Panel] Synced to UI order")
+            print(f"[FIB Panel] Sync complete: {len(new_list)} markers in new_list")
+            print(f"[FIB Panel] New order: {[m.id for m in new_list]}")
+            
+            # Only update if we didn't lose any markers
+            if len(new_list) == len(self.markers_list):
+                self.markers_list = new_list
+                print(f"[FIB Panel] markers_list updated successfully")
+            else:
+                print(f"[FIB Panel] ERROR: Sync would lose markers! Keeping original order.")
+                print(f"[FIB Panel] Original: {len(self.markers_list)}, New: {len(new_list)}")
+                
         except Exception as e:
             print(f"[FIB Panel] Sync error: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    def _safe_call(self, obj, method_name, *args):
+        """Safely call a method that might be a property in some Qt versions
+        
+        This handles KLayout's Qt bindings where some methods might be properties.
+        """
+        try:
+            attr = getattr(obj, method_name)
+            
+            # Check if it's callable
+            if callable(attr):
+                # It's a method, call it with args
+                return attr(*args)
+            else:
+                # It's a property, return its value (should have no args)
+                if len(args) > 0:
+                    print(f"[FIB Panel] Warning: {method_name} is a property but args were provided: {args}")
+                return attr
+                
+        except Exception as e:
+            print(f"[FIB Panel] Error in _safe_call({method_name}, {args}): {e}")
+            import traceback
+            traceback.print_exc()
+            raise
+    
+    def on_move_marker_up(self):
+        """Move selected marker up in the list"""
+        try:
+            # Get current row
+            try:
+                current_row = self.marker_list.currentRow()
+            except TypeError:
+                current_row = self.marker_list.currentRow
+            
+            print(f"[FIB Panel] Move up: current_row = {current_row}")
+            
+            if current_row <= 0:
+                # Already at top or no selection
+                print(f"[FIB Panel] Cannot move up: already at top or no selection")
+                return
+            
+            # Instead of using takeItem/insertItem, rebuild the entire list
+            # This avoids potential Qt binding issues
+            
+            # Step 1: Swap markers in the internal list
+            self.markers_list[current_row], self.markers_list[current_row - 1] = \
+                self.markers_list[current_row - 1], self.markers_list[current_row]
+            
+            print(f"[FIB Panel] Swapped markers in internal list")
+            print(f"[FIB Panel] New order: {[m.id for m in self.markers_list]}")
+            
+            # Step 2: Rebuild the UI list from markers_list
+            self._rebuild_marker_list_ui()
+            
+            # Step 3: Set selection to the new position
+            try:
+                self.marker_list.setCurrentRow(current_row - 1)
+            except:
+                pass
+            
+            print(f"[FIB Panel] Moved marker up from row {current_row} to {current_row - 1}")
+            
+        except Exception as e:
+            print(f"[FIB Panel] Error moving marker up: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    def on_move_marker_down(self):
+        """Move selected marker down in the list"""
+        try:
+            # Get current row
+            try:
+                current_row = self.marker_list.currentRow()
+            except TypeError:
+                current_row = self.marker_list.currentRow
+            
+            # Get count
+            try:
+                list_count = self.marker_list.count()
+            except TypeError:
+                list_count = self.marker_list.count
+            
+            print(f"[FIB Panel] Move down: current_row = {current_row}, list_count = {list_count}")
+            
+            if current_row < 0 or current_row >= list_count - 1:
+                # Already at bottom or no selection
+                print(f"[FIB Panel] Cannot move down: already at bottom or no selection")
+                return
+            
+            # Instead of using takeItem/insertItem, rebuild the entire list
+            # This avoids potential Qt binding issues
+            
+            # Step 1: Swap markers in the internal list
+            self.markers_list[current_row], self.markers_list[current_row + 1] = \
+                self.markers_list[current_row + 1], self.markers_list[current_row]
+            
+            print(f"[FIB Panel] Swapped markers in internal list")
+            print(f"[FIB Panel] New order: {[m.id for m in self.markers_list]}")
+            
+            # Step 2: Rebuild the UI list from markers_list
+            self._rebuild_marker_list_ui()
+            
+            # Step 3: Set selection to the new position
+            try:
+                self.marker_list.setCurrentRow(current_row + 1)
+            except:
+                pass
+            
+            print(f"[FIB Panel] Moved marker down from row {current_row} to {current_row + 1}")
+            
+        except Exception as e:
+            print(f"[FIB Panel] Error moving marker down: {e}")
+            import traceback
+            traceback.print_exc()
 
 
 # Global panel instance

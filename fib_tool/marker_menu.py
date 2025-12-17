@@ -33,6 +33,17 @@ class MarkerContextMenu:
             action_fit = menu.addAction("Zoom to Fit")
             action_copy = menu.addAction("Copy Coordinates")
             action_rename = menu.addAction("Rename Marker")
+            
+            # Add separator
+            menu.addSeparator()
+            
+            # Add move up/down actions
+            action_move_up = menu.addAction("↑ Move Up")
+            action_move_down = menu.addAction("↓ Move Down")
+            
+            # Add separator
+            menu.addSeparator()
+            
             action_delete = menu.addAction("Delete Marker")
             
             # Execute menu and get selected action
@@ -48,6 +59,10 @@ class MarkerContextMenu:
                 self.add_notes()
             elif selected_action == action_rename:
                 self.rename_marker()
+            elif selected_action == action_move_up:
+                self.move_marker_up()
+            elif selected_action == action_move_down:
+                self.move_marker_down()
             elif selected_action == action_delete:
                 self.delete_marker()
                 
@@ -362,6 +377,106 @@ class MarkerContextMenu:
                 
         except Exception as e:
             print(f"[Marker Menu] Error renaming marker: {e}")
+    
+    def _safe_call(self, obj, method_name, *args):
+        """Safely call a method that might be a property in some Qt versions
+        
+        This handles KLayout's Qt bindings where some methods might be properties.
+        """
+        try:
+            attr = getattr(obj, method_name)
+            
+            # Check if it's callable
+            if callable(attr):
+                # It's a method, call it with args
+                return attr(*args)
+            else:
+                # It's a property, return its value (should have no args)
+                if len(args) > 0:
+                    print(f"[Marker Menu] Warning: {method_name} is a property but args were provided: {args}")
+                return attr
+                
+        except Exception as e:
+            print(f"[Marker Menu] Error in _safe_call({method_name}, {args}): {e}")
+            import traceback
+            traceback.print_exc()
+            raise
+    
+    def move_marker_up(self):
+        """Move the selected marker up in the list"""
+        if not self.current_item:
+            return
+        
+        try:
+            # Get row of current item
+            try:
+                current_row = self.panel.marker_list.row(self.current_item)
+            except TypeError:
+                print(f"[Marker Menu] row() not callable")
+                return
+            
+            if current_row <= 0:
+                # Already at top
+                pya.MessageBox.info("Move Marker", "Marker is already at the top of the list", pya.MessageBox.Ok)
+                return
+            
+            # Use the panel's move method instead of duplicating logic
+            if hasattr(self.panel, 'on_move_marker_up'):
+                # Set the current row first
+                try:
+                    self.panel.marker_list.setCurrentRow(current_row)
+                except:
+                    pass
+                # Call the panel's move method
+                self.panel.on_move_marker_up()
+            else:
+                print(f"[Marker Menu] Panel doesn't have on_move_marker_up method")
+            
+        except Exception as e:
+            print(f"[Marker Menu] Error moving marker up: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    def move_marker_down(self):
+        """Move the selected marker down in the list"""
+        if not self.current_item:
+            return
+        
+        try:
+            # Get row of current item
+            try:
+                current_row = self.panel.marker_list.row(self.current_item)
+            except TypeError:
+                print(f"[Marker Menu] row() not callable")
+                return
+            
+            # Get count
+            try:
+                list_count = self.panel.marker_list.count()
+            except TypeError:
+                list_count = self.panel.marker_list.count
+            
+            if current_row < 0 or current_row >= list_count - 1:
+                # Already at bottom
+                pya.MessageBox.info("Move Marker", "Marker is already at the bottom of the list", pya.MessageBox.Ok)
+                return
+            
+            # Use the panel's move method instead of duplicating logic
+            if hasattr(self.panel, 'on_move_marker_down'):
+                # Set the current row first
+                try:
+                    self.panel.marker_list.setCurrentRow(current_row)
+                except:
+                    pass
+                # Call the panel's move method
+                self.panel.on_move_marker_down()
+            else:
+                print(f"[Marker Menu] Panel doesn't have on_move_marker_down method")
+            
+        except Exception as e:
+            print(f"[Marker Menu] Error moving marker down: {e}")
+            import traceback
+            traceback.print_exc()
     
     def delete_marker(self):
         """Delete the selected marker from both panel and GDS layout"""
