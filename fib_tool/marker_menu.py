@@ -26,44 +26,69 @@ class MarkerContextMenu:
             
             self.current_item = item
             
+            # Get all selected items to determine menu options
+            selected_items = self.panel.marker_list.selectedItems()
+            selected_count = len(selected_items)
+            
             # Create menu
             menu = pya.QMenu()
             
-            action_notes = menu.addAction("Add Notes")
-            action_fit = menu.addAction("Zoom to Fit")
-            action_copy = menu.addAction("Copy Coordinates")
-            action_rename = menu.addAction("Rename Marker")
+            # Single-selection actions (only available when one item is selected)
+            if selected_count == 1:
+                action_notes = menu.addAction("Add Notes")
+                action_fit = menu.addAction("Zoom to Fit")
+                action_copy = menu.addAction("Copy Coordinates")
+                action_rename = menu.addAction("Rename Marker")
+                
+                # Add separator
+                menu.addSeparator()
+                
+                # Add move up/down actions
+                action_move_up = menu.addAction("↑ Move Up")
+                action_move_down = menu.addAction("↓ Move Down")
+            else:
+                # Multi-selection: disable single-item actions
+                action_notes = None
+                action_fit = None
+                action_copy = None
+                action_rename = None
+                action_move_up = None
+                action_move_down = None
+                
+                # Add info about selection
+                info_action = menu.addAction(f"{selected_count} markers selected")
+                info_action.setEnabled(False)  # Make it non-clickable
             
             # Add separator
             menu.addSeparator()
             
-            # Add move up/down actions
-            action_move_up = menu.addAction("↑ Move Up")
-            action_move_down = menu.addAction("↓ Move Down")
-            
-            # Add separator
-            menu.addSeparator()
-            
-            action_delete = menu.addAction("Delete Marker")
+            # Delete action (available for both single and multi-selection)
+            if selected_count == 1:
+                action_delete = menu.addAction("Delete Marker")
+            else:
+                action_delete = menu.addAction(f"Delete {selected_count} Markers")
             
             # Execute menu and get selected action
             global_pos = self.panel.marker_list.mapToGlobal(position)
             selected_action = menu.exec_(global_pos)
             
             # Handle the selected action
-            if selected_action == action_fit:
-                self.zoom_to_marker()
-            elif selected_action == action_copy:
-                self.copy_coordinates()
-            elif selected_action == action_notes:
-                self.add_notes()
-            elif selected_action == action_rename:
-                self.rename_marker()
-            elif selected_action == action_move_up:
-                self.move_marker_up()
-            elif selected_action == action_move_down:
-                self.move_marker_down()
-            elif selected_action == action_delete:
+            if selected_count == 1:
+                if selected_action == action_fit:
+                    self.zoom_to_marker()
+                elif selected_action == action_copy:
+                    self.copy_coordinates()
+                elif selected_action == action_notes:
+                    self.add_notes()
+                elif selected_action == action_rename:
+                    self.rename_marker()
+                elif selected_action == action_move_up:
+                    self.move_marker_up()
+                elif selected_action == action_move_down:
+                    self.move_marker_down()
+            
+            # Delete action works for both single and multi-selection
+            if selected_action == action_delete:
                 self.delete_marker()
                 
         except Exception as e:
@@ -107,8 +132,12 @@ class MarkerContextMenu:
                 return marker
         return None
     
-    def zoom_to_marker(self):
-        """Zoom view to fit the selected marker"""
+    def zoom_to_marker(self, detail_zoom=False):
+        """Zoom view to fit the selected marker
+        
+        Args:
+            detail_zoom (bool): If True, use minimal padding for maximum detail (double-click)
+        """
         if not self.current_item:
             return
         
@@ -128,6 +157,14 @@ class MarkerContextMenu:
                 pya.MessageBox.warning("Marker Menu", "No active layout view", pya.MessageBox.Ok)
                 return
             
+            # Choose padding based on zoom type
+            if detail_zoom:
+                padding = GEOMETRIC_PARAMS['zoom_padding_detail']  # Very close zoom for detail
+                zoom_type = "detail"
+            else:
+                padding = GEOMETRIC_PARAMS['zoom_padding']  # Normal zoom
+                zoom_type = "normal"
+            
             # Calculate marker bounds
             if hasattr(marker, 'x1'):  # CUT or CONNECT
                 min_x = min(marker.x1, marker.x2)
@@ -135,14 +172,12 @@ class MarkerContextMenu:
                 min_y = min(marker.y1, marker.y2)
                 max_y = max(marker.y1, marker.y2)
 
-                # Add some padding
-                padding = GEOMETRIC_PARAMS['zoom_padding']
+                # Add padding
                 min_x -= padding
                 max_x += padding
                 min_y -= padding
                 max_y += padding
             else:  # PROBE
-                padding = GEOMETRIC_PARAMS['zoom_padding']
                 min_x = marker.x - padding
                 max_x = marker.x + padding
                 min_y = marker.y - padding
@@ -157,11 +192,14 @@ class MarkerContextMenu:
                 # Fit view to box
                 current_view.zoom_box(box)
                 
-                print(f"[Marker Menu] Zoomed to marker {marker_id}")
+                print(f"[Marker Menu] Zoomed to marker {marker_id} ({zoom_type} zoom, padding={padding}μm)")
 
                 # Show brief message
                 try:
-                    pya.MainWindow.instance().message(f"Zoomed to {marker_id}", UI_TIMEOUTS['message_short'])
+                    if detail_zoom:
+                        pya.MainWindow.instance().message(f"Detail zoom: {marker_id}", UI_TIMEOUTS['message_short'])
+                    else:
+                        pya.MainWindow.instance().message(f"Zoomed to {marker_id}", UI_TIMEOUTS['message_short'])
                 except:
                     pass
             
@@ -479,57 +517,100 @@ class MarkerContextMenu:
             traceback.print_exc()
     
     def delete_marker(self):
-        """Delete the selected marker from both panel and GDS layout"""
-        if not self.current_item:
-            return
-        
+        """Delete the selected marker(s) from both panel and GDS layout"""
         try:
-            marker_id = self.get_marker_id_from_item(self.current_item)
+            # Get all selected items
+            selected_items = self.panel.marker_list.selectedItems()
             
-            # Find the marker object
-            marker_to_delete = self.find_marker_by_id(marker_id)
-            if not marker_to_delete:
-                print(f"[Marker Menu] Marker {marker_id} not found in markers list")
+            if not selected_items:
+                print(f"[Marker Menu] No markers selected for deletion")
+                return
+            
+            # Extract marker IDs from selected items
+            markers_to_delete = []
+            marker_ids = []
+            
+            for item in selected_items:
+                marker_id = self.get_marker_id_from_item(item)
+                marker_obj = self.find_marker_by_id(marker_id)
+                
+                if marker_obj:
+                    markers_to_delete.append((item, marker_id, marker_obj))
+                    marker_ids.append(marker_id)
+                else:
+                    print(f"[Marker Menu] Marker {marker_id} not found in markers list")
+            
+            if not markers_to_delete:
+                print(f"[Marker Menu] No valid markers found for deletion")
                 return
             
             # Confirm deletion
-            result = pya.MessageBox.question(
-                "Delete Marker",
-                f"Are you sure you want to delete {marker_id}?\n\nThis will remove it from both the panel and the GDS layout.",
-                pya.MessageBox.Yes | pya.MessageBox.No
-            )
+            if len(markers_to_delete) == 1:
+                message = f"Are you sure you want to delete {marker_ids[0]}?\n\nThis will remove it from both the panel and the GDS layout."
+                title = "Delete Marker"
+            else:
+                marker_list = "\n".join([f"  • {mid}" for mid in marker_ids])
+                message = f"Are you sure you want to delete {len(markers_to_delete)} markers?\n\n{marker_list}\n\nThis will remove them from both the panel and the GDS layout."
+                title = "Delete Multiple Markers"
+            
+            result = pya.MessageBox.question(title, message, pya.MessageBox.Yes | pya.MessageBox.No)
             
             if result == pya.MessageBox.Yes:
-                # Delete from GDS layout first
-                success = self.delete_marker_from_gds(marker_to_delete)
+                deleted_count = 0
+                failed_count = 0
                 
-                if success:
-                    # Remove from list widget
+                # Delete each marker
+                for item, marker_id, marker_obj in markers_to_delete:
                     try:
-                        row = self.panel.marker_list.row(self.current_item)
-                        self.panel.marker_list.takeItem(row)
-                    except Exception as remove_error:
-                        print(f"[Marker Menu] Error removing from list: {remove_error}")
+                        # Delete from GDS layout first
+                        success = self.delete_marker_from_gds(marker_obj)
+                        
+                        if success:
+                            # Remove from list widget
+                            try:
+                                row = self.panel.marker_list.row(item)
+                                self.panel.marker_list.takeItem(row)
+                            except Exception as remove_error:
+                                print(f"[Marker Menu] Error removing {marker_id} from list: {remove_error}")
+                            
+                            # Remove from markers list
+                            self.panel.markers_list = [m for m in self.panel.markers_list if m.id != marker_id]
+                            
+                            deleted_count += 1
+                            print(f"[Marker Menu] Successfully deleted marker: {marker_id}")
+                        else:
+                            failed_count += 1
+                            print(f"[Marker Menu] Failed to delete {marker_id} from GDS layout")
+                            
+                    except Exception as delete_error:
+                        failed_count += 1
+                        print(f"[Marker Menu] Error deleting {marker_id}: {delete_error}")
+                
+                # Reset smart counters after deletion
+                if hasattr(self.panel, 'smart_counter'):
+                    self.panel.smart_counter.reset_counters()
+                
+                # Show summary message
+                if deleted_count > 0:
+                    if failed_count == 0:
+                        if deleted_count == 1:
+                            message = f"Deleted {marker_ids[0]} from layout"
+                        else:
+                            message = f"Deleted {deleted_count} markers from layout"
+                    else:
+                        message = f"Deleted {deleted_count} markers, {failed_count} failed"
                     
-                    # Remove from markers list
-                    self.panel.markers_list = [m for m in self.panel.markers_list if m.id != marker_id]
-                    
-                    # Reset smart counters after deletion
-                    if hasattr(self.panel, 'smart_counter'):
-                        self.panel.smart_counter.reset_counters()
-                    
-                    print(f"[Marker Menu] Successfully deleted marker: {marker_id}")
-
-                    # Show success message
                     try:
-                        pya.MainWindow.instance().message(f"Deleted {marker_id} from layout", UI_TIMEOUTS['message_short'])
+                        pya.MainWindow.instance().message(message, UI_TIMEOUTS['message_short'])
                     except:
                         pass
+                    
+                    print(f"[Marker Menu] Deletion complete: {deleted_count} deleted, {failed_count} failed")
                 else:
-                    pya.MessageBox.warning("Delete Marker", f"Failed to delete {marker_id} from GDS layout", pya.MessageBox.Ok)
+                    pya.MessageBox.warning("Delete Markers", "Failed to delete any markers from GDS layout", pya.MessageBox.Ok)
                 
         except Exception as e:
-            print(f"[Marker Menu] Error deleting marker: {e}")
+            print(f"[Marker Menu] Error deleting markers: {e}")
             import traceback
             traceback.print_exc()
     
@@ -674,9 +755,9 @@ class MarkerContextMenu:
             return 0
     
     def handle_double_click(self, item):
-        """Handle double-click on marker (zoom to fit)"""
+        """Handle double-click on marker (zoom to maximum detail)"""
         self.current_item = item
-        self.zoom_to_marker()
+        self.zoom_to_marker(detail_zoom=True)  # Use detail zoom for double-click
     
     def refresh_marker_list(self):
         """Refresh the marker list display"""
