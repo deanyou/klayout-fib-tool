@@ -14,7 +14,7 @@ if script_dir not in sys.path:
 
 import pya
 from markers import CutMarker, ConnectMarker, ProbeMarker
-from config import LAYERS
+from config import LAYERS, GEOMETRIC_PARAMS, UI_TIMEOUTS, DEFAULT_MARKER_NOTES
 from marker_menu import MarkerContextMenu
 from smart_counter import SmartCounter
 from file_dialog_helper import FileDialogHelper
@@ -161,7 +161,11 @@ class FIBPanel(pya.QDockWidget):
             self.connect_mode_combo.setMinimumWidth(widget_min_width)
             self.connect_mode_combo.setFixedHeight(widget_height)
             self.connect_mode_combo.setContentsMargins(0, 0, 0, 0)  # Remove internal margins
-            
+
+            # Connect dropdown change signals for auto-activation
+            self.cut_mode_combo.currentIndexChanged.connect(self.on_cut_mode_changed)
+            self.connect_mode_combo.currentIndexChanged.connect(self.on_connect_mode_changed)
+
             # Probe button with identical styling
             self.btn_probe = pya.QPushButton("Probe")
             self.btn_probe.setMinimumWidth(widget_min_width)
@@ -286,6 +290,21 @@ class FIBPanel(pya.QDockWidget):
             self.marker_list.customContextMenuRequested.connect(self.on_marker_context_menu)
             self.marker_list.itemDoubleClicked.connect(self.on_marker_double_clicked)
             # Remove maximum height constraint to allow expansion
+
+            # Enable drag-drop reordering
+            self.marker_list.setDragEnabled(True)
+            self.marker_list.setAcceptDrops(True)
+            self.marker_list.setDropIndicatorShown(True)
+            self.marker_list.setDragDropMode(pya.QAbstractItemView.InternalMove)
+            self.marker_list.setDefaultDropAction(pya.Qt.MoveAction)
+
+            # Connect reorder signal (with fallback)
+            try:
+                self.marker_list.model().rowsMoved.connect(self.on_markers_reordered)
+            except AttributeError:
+                # Fallback: use selection change detection
+                print("[FIB Panel] rowsMoved signal not available, using fallback")
+                self.marker_list.itemSelectionChanged.connect(self._check_reorder_needed)
             
             # Add list with stretch factor so it expands
             group_layout.addWidget(self.marker_list, 1)  # Stretch factor = 1
@@ -306,10 +325,142 @@ class FIBPanel(pya.QDockWidget):
     
     # Event handlers
     def on_new_project(self):
-        """Handle New project"""
-        self.markers_list.clear()
-        self.marker_list.clear()
-        pya.MessageBox.info("FIB Panel", "New project created", pya.MessageBox.Ok)
+        """Handle New project with save prompt"""
+        try:
+            # Check if there are existing markers
+            if not self.markers_list or len(self.markers_list) == 0:
+                # No markers, just clear
+                self._clear_project_internal()
+                pya.MessageBox.info("FIB Panel", "New project created", pya.MessageBox.Ok)
+                return
+
+            # Show confirmation dialog with save option
+            marker_count = len(self.markers_list)
+
+            # Create custom dialog with three buttons
+            result = pya.MessageBox.warning(
+                "New Project",
+                f"You have {marker_count} marker(s) in the current project.\n\n"
+                f"Do you want to save before clearing?",
+                pya.MessageBox.Yes | pya.MessageBox.No | pya.MessageBox.Cancel
+            )
+
+            if result == pya.MessageBox.Cancel:
+                print("[FIB Panel] New project cancelled by user")
+                return
+
+            if result == pya.MessageBox.Yes:
+                # User wants to save first
+                print("[FIB Panel] User chose to save before clearing")
+
+                # Trigger save dialog
+                try:
+                    from file_dialog_helper import FileDialogHelper
+                    filename = FileDialogHelper.get_save_filename(self)
+
+                    if filename:
+                        # Save markers
+                        success = self.save_markers_to_json(filename)
+
+                        if not success:
+                            # Save failed, ask if user wants to continue anyway
+                            retry_result = pya.MessageBox.warning(
+                                "Save Failed",
+                                f"Failed to save markers.\n\n"
+                                f"Do you still want to clear the project?",
+                                pya.MessageBox.Yes | pya.MessageBox.No
+                            )
+
+                            if retry_result == pya.MessageBox.No:
+                                print("[FIB Panel] New project cancelled after save failure")
+                                return
+                        else:
+                            import os
+                            basename = os.path.basename(filename)
+                            print(f"[FIB Panel] Markers saved to {basename} before clearing")
+
+                            # Show brief success message
+                            try:
+                                pya.MainWindow.instance().message(f"Saved to {basename}", 2000)
+                            except:
+                                pass
+                    else:
+                        # User cancelled save dialog, ask if want to continue
+                        retry_result = pya.MessageBox.warning(
+                            "Save Cancelled",
+                            f"Save cancelled.\n\n"
+                            f"Do you still want to clear the project without saving?",
+                            pya.MessageBox.Yes | pya.MessageBox.No
+                        )
+
+                        if retry_result == pya.MessageBox.No:
+                            print("[FIB Panel] New project cancelled after save cancellation")
+                            return
+
+                except Exception as save_error:
+                    print(f"[FIB Panel] Error during save: {save_error}")
+
+                    # Ask if user wants to continue despite error
+                    retry_result = pya.MessageBox.warning(
+                        "Save Error",
+                        f"Error during save: {save_error}\n\n"
+                        f"Do you still want to clear the project?",
+                        pya.MessageBox.Yes | pya.MessageBox.No
+                    )
+
+                    if retry_result == pya.MessageBox.No:
+                        print("[FIB Panel] New project cancelled after save error")
+                        return
+
+            # Clear project (both "No" and "Yes after save" paths reach here)
+            self._clear_project_internal()
+
+            pya.MessageBox.info("FIB Panel", "New project created", pya.MessageBox.Ok)
+            print(f"[FIB Panel] New project created, cleared {marker_count} markers")
+
+        except Exception as e:
+            print(f"[FIB Panel] Error in on_new_project: {e}")
+            import traceback
+            traceback.print_exc()
+            pya.MessageBox.warning("FIB Panel", f"Error creating new project: {e}", pya.MessageBox.Ok)
+
+    def _clear_project_internal(self):
+        """Internal method to clear all project data (called after confirmation)"""
+        try:
+            # Clear markers from GDS layout
+            self.clear_markers_from_gds()
+
+            # Clear coordinate texts
+            self.clear_coordinate_texts()
+
+            # Reset marker counters
+            self.reset_marker_counters()
+
+            # Clear panel data
+            self.markers_list.clear()
+            self.marker_list.clear()
+
+            # Clear notes dictionary
+            if hasattr(self, 'marker_notes_dict'):
+                self.marker_notes_dict.clear()
+
+            # Reset smart counters
+            if hasattr(self, 'smart_counter'):
+                self.smart_counter.reset_counters()
+
+            # Deactivate any active mode
+            self.active_mode = None
+            if hasattr(self, 'mode_buttons'):
+                for btn in self.mode_buttons.values():
+                    btn.setStyleSheet("")
+            self.status_label.setText("Ready")
+
+            print("[FIB Panel] Project cleared successfully")
+
+        except Exception as e:
+            print(f"[FIB Panel] Error in _clear_project_internal: {e}")
+            import traceback
+            traceback.print_exc()
     
     def on_close_project(self):
         """Handle Close project"""
@@ -463,7 +614,75 @@ class FIBPanel(pya.QDockWidget):
         """Handle Probe button - activate toolbar plugin"""
         self.activate_toolbar_plugin('probe')
         self.activate_mode('probe')
-    
+
+    def on_cut_mode_changed(self, index):
+        """Handle Cut mode dropdown change"""
+        try:
+            print(f"[FIB Panel] Cut dropdown changed to index {index}")
+
+            # Only re-activate if Cut operation is currently active
+            if self.active_mode and self.active_mode.startswith('cut'):
+                print("[FIB Panel] Cut active, re-activating with new mode")
+
+                # Determine new mode
+                current_text = self.cut_mode_combo.currentText
+                if callable(current_text):
+                    is_multipoint = current_text() == "Multi Points"
+                else:
+                    is_multipoint = current_text == "Multi Points"
+
+                new_mode = 'cut_multi' if is_multipoint else 'cut'
+
+                # Clear pending points
+                self.clear_pending_points()
+
+                # Activate new mode
+                self.activate_toolbar_plugin(new_mode)
+                self.activate_mode(new_mode)
+
+                print(f"[FIB Panel] Auto-activated {new_mode}")
+            else:
+                print("[FIB Panel] Cut not active, stored for next activation")
+
+        except Exception as e:
+            print(f"[FIB Panel] Error in on_cut_mode_changed: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def on_connect_mode_changed(self, index):
+        """Handle Connect mode dropdown change"""
+        try:
+            print(f"[FIB Panel] Connect dropdown changed to index {index}")
+
+            # Only re-activate if Connect operation is currently active
+            if self.active_mode and self.active_mode.startswith('connect'):
+                print("[FIB Panel] Connect active, re-activating with new mode")
+
+                # Determine new mode
+                current_text = self.connect_mode_combo.currentText
+                if callable(current_text):
+                    is_multipoint = current_text() == "Multi Points"
+                else:
+                    is_multipoint = current_text == "Multi Points"
+
+                new_mode = 'connect_multi' if is_multipoint else 'connect'
+
+                # Clear pending points
+                self.clear_pending_points()
+
+                # Activate new mode
+                self.activate_toolbar_plugin(new_mode)
+                self.activate_mode(new_mode)
+
+                print(f"[FIB Panel] Auto-activated {new_mode}")
+            else:
+                print("[FIB Panel] Connect not active, stored for next activation")
+
+        except Exception as e:
+            print(f"[FIB Panel] Error in on_connect_mode_changed: {e}")
+            import traceback
+            traceback.print_exc()
+
     def activate_toolbar_plugin(self, mode):
         """Activate the corresponding plugin mode"""
         try:
@@ -628,7 +847,7 @@ class FIBPanel(pya.QDockWidget):
                 return
             
             # Zoom to coordinate with some padding
-            padding = 10.0  # 10 microns padding around the point
+            padding = GEOMETRIC_PARAMS['coordinate_jump_padding']
             zoom_box = pya.DBox(x - padding, y - padding, x + padding, y + padding)
             
             current_view.zoom_box(zoom_box)
@@ -637,7 +856,7 @@ class FIBPanel(pya.QDockWidget):
             
             # Show brief message
             try:
-                pya.MainWindow.instance().message(f"Jumped to ({x:.3f}, {y:.3f})", 2000)
+                pya.MainWindow.instance().message(f"Jumped to ({x:.3f}, {y:.3f})", UI_TIMEOUTS['message_short'])
             except:
                 pass
                 
@@ -934,11 +1153,11 @@ class FIBPanel(pya.QDockWidget):
                         # If no notes in file, set default based on marker type
                         if not loaded_notes:
                             if marker_type == 'cut' or marker_type == 'multipoint_cut':
-                                loaded_notes = "切断"
+                                loaded_notes = DEFAULT_MARKER_NOTES['cut']
                             elif marker_type == 'connect' or marker_type == 'multipoint_connect':
-                                loaded_notes = "连接"
+                                loaded_notes = DEFAULT_MARKER_NOTES['connect']
                             elif marker_type == 'probe':
-                                loaded_notes = "点测"
+                                loaded_notes = DEFAULT_MARKER_NOTES['probe']
                         marker.notes = loaded_notes
                     
                     marker.screenshots = marker_data.get('screenshots', [])
@@ -1122,6 +1341,81 @@ class FIBPanel(pya.QDockWidget):
             print(f"[FIB Panel] Error adding marker {getattr(marker, 'id', 'unknown')}: {e}")
             import traceback
             traceback.print_exc()
+
+    def on_markers_reordered(self, parent, start, end, destination, row):
+        """Handle marker list drag-drop reordering"""
+        try:
+            print(f"[FIB Panel] Markers reordered: {start}-{end} to {row}")
+
+            # Rebuild markers_list from current UI order
+            new_markers_list = []
+            for i in range(self.marker_list.count()):
+                item = self.marker_list.item(i)
+                marker_id = self._extract_marker_id_from_item(item)
+                marker = self._find_marker_by_id_in_list(marker_id)
+                if marker:
+                    new_markers_list.append(marker)
+
+            self.markers_list = new_markers_list
+            print(f"[FIB Panel] List reordered: {[m.id for m in self.markers_list]}")
+
+            try:
+                pya.MainWindow.instance().message("Markers reordered", 2000)
+            except:
+                pass
+
+        except Exception as e:
+            print(f"[FIB Panel] Error in reorder: {e}")
+
+    def _extract_marker_id_from_item(self, item):
+        """Extract marker ID from list item text"""
+        try:
+            text = item.text() if callable(item.text) else item.text
+            if callable(text):
+                text = text()
+            # Format: "MARKER_ID - TYPE - (coords)"
+            parts = text.split(' - ')
+            return parts[0].strip() if parts else "Unknown"
+        except:
+            return "Unknown"
+
+    def _find_marker_by_id_in_list(self, marker_id):
+        """Find marker in markers_list by ID"""
+        for marker in self.markers_list:
+            if marker.id == marker_id:
+                return marker
+        return None
+
+    def _check_reorder_needed(self):
+        """Fallback: detect if markers were reordered"""
+        try:
+            ui_order = [self._extract_marker_id_from_item(
+                self.marker_list.item(i)
+            ) for i in range(self.marker_list.count())]
+
+            data_order = [m.id for m in self.markers_list]
+
+            if ui_order != data_order:
+                self._sync_markers_to_ui_order()
+        except Exception as e:
+            print(f"[FIB Panel] Reorder detection error: {e}")
+
+    def _sync_markers_to_ui_order(self):
+        """Sync markers_list to match UI order"""
+        try:
+            new_list = []
+            for i in range(self.marker_list.count()):
+                marker_id = self._extract_marker_id_from_item(
+                    self.marker_list.item(i)
+                )
+                marker = self._find_marker_by_id_in_list(marker_id)
+                if marker:
+                    new_list.append(marker)
+
+            self.markers_list = new_list
+            print(f"[FIB Panel] Synced to UI order")
+        except Exception as e:
+            print(f"[FIB Panel] Sync error: {e}")
 
 
 # Global panel instance

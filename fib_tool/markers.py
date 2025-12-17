@@ -24,7 +24,7 @@ class CutMarker:
     def to_gds(self, cell, fib_layer):
         """Draw line connecting the two click points with fixed width"""
         dbu = cell.layout().dbu
-        fixed_width = 0.2  # Fixed line width in microns
+        fixed_width = SYMBOL_SIZES['cut']['line_width']
         width = int(fixed_width / dbu)  # Convert to database units
         
         # Convert coordinates to database units
@@ -75,7 +75,7 @@ class ConnectMarker:
         """Draw connection line + endpoints + label on GDS using fixed width path"""
         dbu = cell.layout().dbu
         radius = SYMBOL_SIZES['connect']['endpoint_radius']
-        fixed_width = 0.2  # Fixed line width in microns
+        fixed_width = SYMBOL_SIZES['connect']['line_width']
         width = int(fixed_width / dbu)  # Convert to database units
         
         # Convert to database units
@@ -142,7 +142,7 @@ class ProbeMarker:
         cy = int(self.y / dbu)
         
         # Draw circle instead of arrow
-        circle_radius = 0.5  # Circle radius in microns
+        circle_radius = SYMBOL_SIZES['probe']['circle_radius']
         r = int(circle_radius / dbu)  # Convert to database units
         circle = pya.Polygon.ellipse(pya.Box(cx - r, cy - r, cx + r, cy + r), 32)
         cell.shapes(fib_layer).insert(circle)

@@ -8,7 +8,7 @@ Maintains backward compatibility with existing 2-point markers.
 from dataclasses import dataclass, field
 from typing import List, Tuple
 import pya
-from config import LAYERS, SYMBOL_SIZES
+from config import LAYERS, SYMBOL_SIZES, DEFAULT_MARKER_NOTES
 
 
 @dataclass
@@ -47,9 +47,9 @@ class MultiPointCutMarker:
         """Draw multi-point path with fixed width"""
         if len(self.points) < 2:
             return
-        
+
         dbu = cell.layout().dbu
-        fixed_width = 0.2  # Fixed line width in microns
+        fixed_width = SYMBOL_SIZES['multipoint']['line_width']
         width = int(fixed_width / dbu)  # Convert to database units
         
         # Convert all points to database units
@@ -62,13 +62,13 @@ class MultiPointCutMarker:
         # Draw path connecting all points
         path = pya.Path(db_points, width)
         cell.shapes(fib_layer).insert(path)
-        
+
         # Draw small circles at each point to show vertices
-        vertex_radius = int(0.1 / dbu)  # 0.1 micron radius
+        vertex_radius = int(SYMBOL_SIZES['multipoint']['vertex_radius'] / dbu)
         for point in db_points:
             vertex_circle = pya.Polygon.ellipse(
                 pya.Box(point.x - vertex_radius, point.y - vertex_radius,
-                       point.x + vertex_radius, point.y + vertex_radius), 16)
+                       point.x + vertex_radius, point.y + vertex_radius), SYMBOL_SIZES['multipoint']['circle_segments'])
             cell.shapes(fib_layer).insert(vertex_circle)
         
         # Draw label at the center of the path
@@ -140,10 +140,10 @@ class MultiPointConnectMarker:
             return
         
         dbu = cell.layout().dbu
-        fixed_width = 0.2  # Fixed line width in microns
+        fixed_width = SYMBOL_SIZES['multipoint']['line_width']
         width = int(fixed_width / dbu)  # Convert to database units
         endpoint_radius = SYMBOL_SIZES['connect']['endpoint_radius']
-        junction_radius = 0.3  # Slightly smaller than endpoints
+        junction_radius = SYMBOL_SIZES['multipoint']['junction_radius']
         
         # Convert all points to database units
         db_points = []
@@ -170,8 +170,8 @@ class MultiPointConnectMarker:
                 # Junction points - smaller circles
                 circle = pya.Polygon.ellipse(
                     pya.Box(point.x - junction_r, point.y - junction_r,
-                           point.x + junction_r, point.y + junction_r), 16)
-            
+                           point.x + junction_r, point.y + junction_r), SYMBOL_SIZES['multipoint']['circle_segments'])
+
             cell.shapes(fib_layer).insert(circle)
         
         # Draw label at the center of the path
@@ -211,7 +211,7 @@ def create_multipoint_cut_marker(marker_id: str, points: List[Tuple[float, float
     """Create a multi-point cut marker with additional metadata"""
     marker = MultiPointCutMarker(marker_id, points, LAYERS['cut'])
     marker.target_layers = target_layers or []
-    marker.notes = "切断"  # Default notes for multi-point CUT markers
+    marker.notes = DEFAULT_MARKER_NOTES['cut']
     marker.screenshots = []
     
     # Notify panel if available
@@ -232,7 +232,7 @@ def create_multipoint_connect_marker(marker_id: str, points: List[Tuple[float, f
     """Create a multi-point connect marker with additional metadata"""
     marker = MultiPointConnectMarker(marker_id, points, LAYERS['connect'])
     marker.target_layers = target_layers or []
-    marker.notes = "连接"  # Default notes for multi-point CONNECT markers
+    marker.notes = DEFAULT_MARKER_NOTES['connect']
     marker.screenshots = []
     
     # Notify panel if available

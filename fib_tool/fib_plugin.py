@@ -25,7 +25,7 @@ if script_dir not in sys.path:
 
 import pya
 from markers import CutMarker, ConnectMarker, ProbeMarker
-from config import LAYERS
+from config import LAYERS, GEOMETRIC_PARAMS, UI_TIMEOUTS, DEFAULT_MARKER_NOTES
 from layer_manager import ensure_fib_layers, get_layer_info_summary, verify_layers_exist
 
 # Global flag to prevent double initialization
@@ -138,7 +138,7 @@ def create_cut_marker(x1, y1, x2, y2, target_layers=None):
     
     marker = CutMarker(marker_id, x1, y1, x2, y2, 6)
     marker.target_layers = target_layers or []  # Store layer info in marker
-    marker.notes = "切断"  # Default notes for CUT markers
+    marker.notes = DEFAULT_MARKER_NOTES['cut']
     marker.screenshots = []  # Initialize screenshots
     print(f"[DEBUG] Created marker: {marker_id} from ({x1}, {y1}) to ({x2}, {y2}) on layers {target_layers}")
     
@@ -186,7 +186,7 @@ def create_connect_marker(x1, y1, x2, y2, target_layers=None):
     
     marker = ConnectMarker(marker_id, x1, y1, x2, y2, 6)
     marker.target_layers = target_layers or []
-    marker.notes = "连接"  # Default notes for CONNECT markers
+    marker.notes = DEFAULT_MARKER_NOTES['connect']
     marker.screenshots = []  # Initialize screenshots
     
     # Notify panel if available
@@ -233,7 +233,7 @@ def create_probe_marker(x, y, target_layers=None):
     
     marker = ProbeMarker(marker_id, x, y, 6)
     marker.target_layers = target_layers or []
-    marker.notes = "点测"  # Default notes for PROBE markers
+    marker.notes = DEFAULT_MARKER_NOTES['probe']
     marker.screenshots = []  # Initialize screenshots
     
     # Notify panel if available
@@ -279,9 +279,9 @@ def draw_marker(marker, cell, layout):
     # Show message
     try:
         if hasattr(marker, 'points') and len(marker.points) > 2:
-            pya.MainWindow.instance().message(f"Created {marker.id} ({len(marker.points)} points)", 2000)
+            pya.MainWindow.instance().message(f"Created {marker.id} ({len(marker.points)} points)", UI_TIMEOUTS['message_short'])
         else:
-            pya.MainWindow.instance().message(f"Created {marker.id}", 2000)
+            pya.MainWindow.instance().message(f"Created {marker.id}", UI_TIMEOUTS['message_short'])
     except Exception as msg_error:
         print(f"[FIB] Message error: {msg_error}")
         print(f"[FIB] Created {marker.id}")
@@ -313,7 +313,7 @@ def update_coordinate_texts_with_marker_id(marker, cell, layout):
             search_y = int(coord_y / dbu)
             
             # Create search region - larger radius to ensure we find the text
-            search_radius = int(5.0 / dbu)  # 5 micron search radius (increased for better matching)
+            search_radius = int(GEOMETRIC_PARAMS['search_radius'] / dbu)
             search_box = pya.Box(
                 search_x - search_radius, search_y - search_radius,
                 search_x + search_radius, search_y + search_radius
@@ -342,8 +342,8 @@ def update_coordinate_texts_with_marker_id(marker, cell, layout):
                         try:
                             text_x = float(match.group(1))
                             text_y = float(match.group(2))
-                            # Check if coordinates are close (within 0.001 micron for high precision)
-                            if abs(text_x - coord_x) < 0.001 and abs(text_y - coord_y) < 0.001:
+                            # Check if coordinates are close
+                            if abs(text_x - coord_x) < GEOMETRIC_PARAMS['coordinate_precision'] and abs(text_y - coord_y) < GEOMETRIC_PARAMS['coordinate_precision']:
                                 is_matching_coord = True
                         except ValueError:
                             pass
@@ -391,8 +391,8 @@ class FIBToolPlugin(pya.Plugin):
         self.is_multipoint_mode = False
         self.last_click_time = 0
         self.last_click_pos = None
-        self.double_click_threshold = 500  # milliseconds
-        self.double_click_distance = 5.0  # microns (increased for easier detection)
+        self.double_click_threshold = UI_TIMEOUTS['double_click']
+        self.double_click_distance = GEOMETRIC_PARAMS['double_click_distance']
         print(f"[FIB Plugin] Initialized")
     
     def activated(self):
@@ -410,15 +410,15 @@ class FIBToolPlugin(pya.Plugin):
         
         try:
             if self.mode == 'cut':
-                pya.MainWindow.instance().message("CUT mode: Click twice (position + direction)", 10000)
+                pya.MainWindow.instance().message("CUT mode: Click twice (position + direction)", UI_TIMEOUTS['message_long'])
             elif self.mode == 'cut_multi':
-                pya.MainWindow.instance().message("CUT multi-point mode: Left-click to add points, right-click to finish", 10000)
+                pya.MainWindow.instance().message("CUT multi-point mode: Left-click to add points, right-click to finish", UI_TIMEOUTS['message_long'])
             elif self.mode == 'connect':
-                pya.MainWindow.instance().message("CONNECT mode: Click twice (start + end)", 10000)
+                pya.MainWindow.instance().message("CONNECT mode: Click twice (start + end)", UI_TIMEOUTS['message_long'])
             elif self.mode == 'connect_multi':
-                pya.MainWindow.instance().message("CONNECT multi-point mode: Left-click to add points, right-click to finish", 10000)
+                pya.MainWindow.instance().message("CONNECT multi-point mode: Left-click to add points, right-click to finish", UI_TIMEOUTS['message_long'])
             elif self.mode == 'probe':
-                pya.MainWindow.instance().message("PROBE mode: Click once", 10000)
+                pya.MainWindow.instance().message("PROBE mode: Click once", UI_TIMEOUTS['message_long'])
         except Exception as msg_error:
             print(f"[FIB Plugin] Message error in activated(): {msg_error}")
     
@@ -519,7 +519,7 @@ class FIBToolPlugin(pya.Plugin):
             # Multi-point cut mode - collect points until right-click
             if len(self.temp_points) >= 2:
                 try:
-                    pya.MainWindow.instance().message(f"Cut path: {len(self.temp_points)} points. Right-click to finish.", 3000)
+                    pya.MainWindow.instance().message(f"Cut path: {len(self.temp_points)} points. Right-click to finish.", UI_TIMEOUTS['message_medium'])
                 except:
                     pass
         elif working_mode == 'connect':
@@ -536,7 +536,7 @@ class FIBToolPlugin(pya.Plugin):
             # Multi-point connect mode - collect points until right-click
             if len(self.temp_points) >= 2:
                 try:
-                    pya.MainWindow.instance().message(f"Connect path: {len(self.temp_points)} points. Right-click to finish.", 3000)
+                    pya.MainWindow.instance().message(f"Connect path: {len(self.temp_points)} points. Right-click to finish.", UI_TIMEOUTS['message_medium'])
                 except:
                     pass
         elif working_mode == 'probe':
@@ -586,7 +586,7 @@ class FIBToolPlugin(pya.Plugin):
         if len(self.temp_points) < 2:
             print(f"[DEBUG] Not enough points: {len(self.temp_points)} < 2")
             try:
-                pya.MainWindow.instance().message("Need at least 2 points. Continue clicking with left button.", 3000)
+                pya.MainWindow.instance().message("Need at least 2 points. Continue clicking with left button.", UI_TIMEOUTS['message_medium'])
             except:
                 pass
             return True
@@ -987,7 +987,7 @@ def clear_coordinate_texts():
         cell.shapes(coord_layer).clear()
         
         print("[DEBUG] Cleared all coordinate texts")
-        pya.Application.instance().main_window().message("Coordinate texts cleared", 2000)
+        pya.Application.instance().main_window().message("Coordinate texts cleared", UI_TIMEOUTS['message_short'])
         
     except Exception as e:
         print(f"[DEBUG] Error clearing coordinate texts: {e}")
@@ -1041,15 +1041,15 @@ def activate_fib_mode(mode):
         # Show activation message
         try:
             if mode == 'cut':
-                pya.MainWindow.instance().message("CUT mode: Click twice (position + direction)", 10000)
+                pya.MainWindow.instance().message("CUT mode: Click twice (position + direction)", UI_TIMEOUTS['message_long'])
             elif mode == 'cut_multi':
-                pya.MainWindow.instance().message("CUT multi-point mode: Left-click to add points, right-click to finish", 10000)
+                pya.MainWindow.instance().message("CUT multi-point mode: Left-click to add points, right-click to finish", UI_TIMEOUTS['message_long'])
             elif mode == 'connect':
-                pya.MainWindow.instance().message("CONNECT mode: Click twice (start + end)", 10000)
+                pya.MainWindow.instance().message("CONNECT mode: Click twice (start + end)", UI_TIMEOUTS['message_long'])
             elif mode == 'connect_multi':
-                pya.MainWindow.instance().message("CONNECT multi-point mode: Left-click to add points, right-click to finish", 10000)
+                pya.MainWindow.instance().message("CONNECT multi-point mode: Left-click to add points, right-click to finish", UI_TIMEOUTS['message_long'])
             elif mode == 'probe':
-                pya.MainWindow.instance().message("PROBE mode: Click once", 10000)
+                pya.MainWindow.instance().message("PROBE mode: Click once", UI_TIMEOUTS['message_long'])
         except Exception as msg_error:
             print(f"[FIB Plugin] Message error: {msg_error}")
         
