@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-Load FIB Tool in KLayout Macro Development (F5) - Configured Version
+Load FIB Tool in KLayout Macro Development (F5) - Auto-detect Version
 
-IMPORTANT: Edit the FIB_TOOL_PATH below to match your installation!
+This script automatically detects the FIB Tool directory based on the script location.
 
 Usage in KLayout Macro Development:
-    exec(open('/Users/dean/Documents/git/klayout-fib-tool/load_fib_tool_configured.py', encoding='utf-8').read())
+    exec(open('/path/to/klayout-fib-tool/load_fib_tool.py', encoding='utf-8').read())
 """
 
 import sys
@@ -13,17 +13,42 @@ import os
 import pya
 
 # ============================================================================
-# CONFIGURATION - EDIT THIS PATH!
+# AUTO-DETECT FIB_TOOL_PATH
 # ============================================================================
-FIB_TOOL_PATH = '/Users/dean/Documents/git/klayout-fib-tool'
+# Try to detect the script directory
+try:
+    # When using exec(), __file__ may not be available
+    # Try to get it from the current working directory or script path
+    if '__file__' in globals():
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+    else:
+        # Fallback: use current working directory
+        script_dir = os.getcwd()
+    
+    FIB_TOOL_PATH = script_dir
+except:
+    # Last resort: ask user to set it manually
+    FIB_TOOL_PATH = None
 # ============================================================================
 
 print("=" * 70)
-print("FIB Tool - Development Loader (Configured)")
+print("FIB Tool - Development Loader (Auto-detect)")
 print("=" * 70)
 print("")
 
-# Use configured path
+# Validate and use detected path
+if FIB_TOOL_PATH is None:
+    print("[X] Error: Could not auto-detect FIB Tool directory")
+    print("")
+    print("Please use load_fib_tool_configured.py instead and set the path manually.")
+    pya.MessageBox.warning(
+        "FIB Tool Loader",
+        "Could not auto-detect FIB Tool directory.\n\n"
+        "Please use load_fib_tool_configured.py and set FIB_TOOL_PATH manually.",
+        pya.MessageBox.Ok
+    )
+    sys.exit(1)
+
 script_dir = FIB_TOOL_PATH
 python_dir = os.path.join(script_dir, 'python')
 
@@ -33,10 +58,10 @@ print("")
 
 # Check if python directory exists
 if not os.path.exists(python_dir):
-    print(f"✗ Error: {python_dir} not found")
+    print(f"[X] Error: {python_dir} not found")
     print("")
     print("Please check:")
-    print(f"1. Is FIB_TOOL_PATH correct? Currently: {FIB_TOOL_PATH}")
+    print(f"1. Is the detected path correct? Currently: {FIB_TOOL_PATH}")
     print("2. Has the project been refactored? Run: ./refactor.sh")
     print("3. Does python/fib_tool/ directory exist?")
     print("")
@@ -44,8 +69,8 @@ if not os.path.exists(python_dir):
     pya.MessageBox.warning(
         "FIB Tool Loader",
         f"Python directory not found:\n{python_dir}\n\n"
-        f"Please edit FIB_TOOL_PATH in load_fib_tool_configured.py\n"
-        f"Current path: {FIB_TOOL_PATH}",
+        f"Detected path: {FIB_TOOL_PATH}\n\n"
+        f"Please check the installation or use load_fib_tool_configured.py",
         pya.MessageBox.Ok
     )
     sys.exit(1)
@@ -53,9 +78,9 @@ if not os.path.exists(python_dir):
 # Add to sys.path if not already there
 if python_dir not in sys.path:
     sys.path.insert(0, python_dir)
-    print(f"✓ Added to sys.path: {python_dir}")
+    print(f"[OK] Added to sys.path: {python_dir}")
 else:
-    print(f"✓ Already in sys.path: {python_dir}")
+    print(f"[OK] Already in sys.path: {python_dir}")
 
 print("")
 
@@ -63,10 +88,10 @@ print("")
 print("Checking fib_tool package...")
 try:
     import fib_tool
-    print(f"✓ fib_tool module found")
+    print(f"[OK] fib_tool module found")
     print(f"  Location: {fib_tool.__file__}")
 except ImportError as e:
-    print(f"✗ Cannot import fib_tool: {e}")
+    print(f"[X] Cannot import fib_tool: {e}")
     print("")
     print("Troubleshooting:")
     print("1. Check if python/fib_tool/ directory exists")
@@ -87,7 +112,7 @@ print("")
 
 # Check if already initialized
 if hasattr(sys.modules['__main__'], '_FIB_TOOL_LOADED'):
-    print("⚠ FIB Tool already loaded in this session")
+    print("[!] FIB Tool already loaded in this session")
     print("")
     
     # Try to show existing panel
@@ -96,14 +121,14 @@ if hasattr(sys.modules['__main__'], '_FIB_TOOL_LOADED'):
         panel = get_fib_panel()
         if panel:
             panel.show()
-            print("✓ Showed existing FIB Panel")
+            print("[OK] Showed existing FIB Panel")
         else:
-            print("⚠ No existing panel found, creating new one...")
+            print("[!] No existing panel found, creating new one...")
             from fib_tool.fib_panel import create_fib_panel
             panel = create_fib_panel()
-            print("✓ New panel created")
+            print("[OK] New panel created")
     except Exception as e:
-        print(f"✗ Error showing panel: {e}")
+        print(f"[X] Error showing panel: {e}")
         import traceback
         traceback.print_exc()
     
@@ -117,7 +142,7 @@ main_window = pya.Application.instance().main_window()
 current_view = main_window.current_view()
 
 if not current_view or not current_view.active_cellview().is_valid():
-    print("⚠ No GDS file is currently open")
+    print("[!] No GDS file is currently open")
     print("")
     
     response = pya.MessageBox.warning(
@@ -138,7 +163,7 @@ if not current_view or not current_view.active_cellview().is_valid():
 else:
     cellview = current_view.active_cellview()
     cell_name = cellview.cell.name if cellview.cell else "Unknown"
-    print(f"✓ Active layout found: {cell_name}")
+    print(f"[OK] Active layout found: {cell_name}")
     print("")
 
 # Initialize FIB Tool
@@ -150,7 +175,7 @@ try:
     
     # Check if already initialized by __init__.py
     if hasattr(klayout_package, '_FIB_TOOL_INITIALIZED') and klayout_package._FIB_TOOL_INITIALIZED:
-        print("✓ FIB Tool already initialized by package import")
+        print("[OK] FIB Tool already initialized by package import")
     else:
         # Call the correct function name
         klayout_package.init_fib_tool()
@@ -159,12 +184,12 @@ try:
     sys.modules['__main__']._FIB_TOOL_LOADED = True
     
     print("-" * 70)
-    print("✓ FIB Tool initialized successfully")
+    print("[OK] FIB Tool initialized successfully")
     print("")
     
 except Exception as e:
     print("-" * 70)
-    print(f"✗ Error initializing FIB Tool: {e}")
+    print(f"[X] Error initializing FIB Tool: {e}")
     print("")
     import traceback
     traceback.print_exc()
@@ -180,12 +205,12 @@ if current_view and current_view.active_cellview().is_valid():
         layer_success = ensure_fib_layers()
         
         if layer_success:
-            print("✓ FIB layers verified/created (337, 338, 339)")
+            print("[OK] FIB layers verified/created (337, 338, 339)")
         else:
-            print("⚠ Some layers may not have been created properly")
+            print("[!] Some layers may not have been created properly")
         print("")
     except Exception as e:
-        print(f"⚠ Error ensuring layers: {e}")
+        print(f"[!] Error ensuring layers: {e}")
         print("")
 
 # Show the panel
@@ -199,11 +224,11 @@ try:
     else:
         panel.show()
     
-    print("✓ FIB Panel is now visible")
+    print("[OK] FIB Panel is now visible")
     print("")
     
 except Exception as e:
-    print(f"✗ Error showing panel: {e}")
+    print(f"[X] Error showing panel: {e}")
     print("")
     import traceback
     traceback.print_exc()
@@ -213,7 +238,7 @@ except Exception as e:
 
 # Success!
 print("=" * 70)
-print("✓ FIB Tool Loaded Successfully!")
+print("[OK] FIB Tool Loaded Successfully!")
 print("=" * 70)
 print("")
 print("Panel should be visible on the right side of KLayout")
