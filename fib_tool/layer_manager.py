@@ -583,7 +583,7 @@ Layers created with recommended colors:
 To set colors manually:
 1. View → Layer Toolbox (enable if not visible)
 2. In Layer Toolbox, find the layer (337/338/339)
-3. Select layer → Set Frame Color
+3. Select layer → Set Color / Frame Color
 4. Enter RGB values or use color picker
 
 Note: If layers don't appear in Layer Toolbox:
