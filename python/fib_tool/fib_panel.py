@@ -893,53 +893,105 @@ class FIBPanel(pya.QDockWidget):
 
     def activate_toolbar_plugin(self, mode):
         """Activate the corresponding plugin mode"""
+        print("=" * 80)
+        print(f"[FIB Panel] DEBUG: activate_toolbar_plugin called with mode='{mode}'")
+        print("=" * 80)
+        
         try:
-            # Try to use the global function from fib_plugin
-            if 'activate_fib_mode' in sys.modules['__main__'].__dict__:
-                activate_fib_mode = sys.modules['__main__'].__dict__['activate_fib_mode']
-                result = activate_fib_mode(mode)
-                print(f"[FIB Panel] Activation result for {mode}: {result}")
-                if result:
-                    return True
-            
-            # If global function failed, try direct approach
-            print(f"[FIB Panel] Trying direct plugin activation for {mode}")
-            
-            # Get current view
-            main_window = pya.Application.instance().main_window()
-            current_view = main_window.current_view()
-            
-            if not current_view:
-                pya.MessageBox.warning("FIB Panel", "No active layout view found", pya.MessageBox.Ok)
-                return False
-            
-            # Import the plugin module to access plugin classes
+            # PRIORITY 1: Import directly from fib_plugin module (most reliable for SALT packages)
+            print(f"[FIB Panel] Step 1: Attempting to import fib_plugin module...")
             try:
                 from . import fib_plugin
+                print(f"[FIB Panel] [OK] fib_plugin module imported successfully")
+                print(f"[FIB Panel] fib_plugin module location: {fib_plugin.__file__ if hasattr(fib_plugin, '__file__') else 'unknown'}")
                 
-                # Create a plugin instance
-                plugin = fib_plugin.FIBToolPlugin(None)
-                plugin.mode = mode
+                # Check if activate_fib_mode exists
+                has_function = hasattr(fib_plugin, 'activate_fib_mode')
+                print(f"[FIB Panel] Has activate_fib_mode: {has_function}")
                 
-                # Activate the plugin
-                plugin.activated()
+                if has_function:
+                    print(f"[FIB Panel] Step 2: Calling fib_plugin.activate_fib_mode('{mode}')...")
+                    
+                    # Get the function
+                    activate_func = getattr(fib_plugin, 'activate_fib_mode')
+                    print(f"[FIB Panel] Function object: {activate_func}")
+                    print(f"[FIB Panel] Function type: {type(activate_func)}")
+                    
+                    # Call it
+                    result = activate_func(mode)
+                    
+                    print(f"[FIB Panel] Step 3: Function returned: {result} (type: {type(result)})")
+                    
+                    if result:
+                        print(f"[FIB Panel] [OK] SUCCESS: {mode} mode activated")
+                        print("=" * 80)
+                        return True
+                    else:
+                        print(f"[FIB Panel] [X] FAILED: activate_fib_mode returned False")
+                else:
+                    print(f"[FIB Panel] [X] FAILED: fib_plugin has no activate_fib_mode attribute")
+                    print(f"[FIB Panel] Available attributes in fib_plugin:")
+                    attrs = [attr for attr in dir(fib_plugin) if not attr.startswith('_')]
+                    for i, attr in enumerate(attrs[:20]):  # Show first 20
+                        print(f"[FIB Panel]   {i+1}. {attr}")
+                    if len(attrs) > 20:
+                        print(f"[FIB Panel]   ... and {len(attrs)-20} more")
                 
-                print(f"[FIB Panel] Successfully activated {mode} mode directly")
-                return True
-                
+            except ImportError as import_error:
+                print(f"[FIB Panel] [X] ImportError: {import_error}")
+                import traceback
+                traceback.print_exc()
             except Exception as direct_error:
-                print(f"[FIB Panel] Direct activation failed: {direct_error}")
-                
-                # Last resort: show helpful message
-                pya.MessageBox.info("FIB Panel", 
-                    f"Panel button activated {mode.upper()} mode.\n"
-                    f"Now click on the layout to create {mode} markers.\n\n"
-                    f"If this doesn't work, try clicking the '{mode.upper()}' button in the toolbar.",
-                    pya.MessageBox.Ok)
-                return True  # Return True since we showed the instruction
+                print(f"[FIB Panel] [X] Exception during import/call: {direct_error}")
+                import traceback
+                traceback.print_exc()
+            
+            # PRIORITY 2: Try __main__ namespace (fallback for exec() loading)
+            print(f"[FIB Panel] Step 4: Checking __main__ namespace...")
+            if 'activate_fib_mode' in sys.modules['__main__'].__dict__:
+                print(f"[FIB Panel] [OK] Found activate_fib_mode in __main__")
+                activate_fib_mode = sys.modules['__main__'].__dict__['activate_fib_mode']
+                print(f"[FIB Panel] Calling __main__.activate_fib_mode('{mode}')...")
+                result = activate_fib_mode(mode)
+                print(f"[FIB Panel] __main__ result: {result}")
+                if result:
+                    print(f"[FIB Panel] [OK] SUCCESS via __main__")
+                    print("=" * 80)
+                    return True
+            else:
+                print(f"[FIB Panel] [X] activate_fib_mode not found in __main__")
+            
+            # If everything failed, show error
+            print(f"[FIB Panel] [X] ALL METHODS FAILED")
+            print("=" * 80)
+            
+            pya.MessageBox.warning(
+                "FIB Panel", 
+                f"无法激活 {mode.upper()} 模式。\n\n"
+                f"Failed to activate {mode.upper()} mode.\n\n"
+                f"请尝试：\n"
+                f"1. 使用工具栏上的 FIB 按钮\n"
+                f"2. 重新加载 FIB Tool\n"
+                f"3. 查看 Macro Development 控制台的错误信息\n\n"
+                f"Please try:\n"
+                f"1. Use the FIB buttons in the toolbar\n"
+                f"2. Reload FIB Tool\n"
+                f"3. Check Macro Development console for errors",
+                pya.MessageBox.Ok
+            )
+            return False
                 
         except Exception as e:
-            print(f"[FIB Panel] Error activating plugin {mode}: {e}")
+            print(f"[FIB Panel] [X] FATAL ERROR: {e}")
+            import traceback
+            traceback.print_exc()
+            print("=" * 80)
+            
+            pya.MessageBox.warning(
+                "FIB Panel Error",
+                f"激活模式时出错 / Error activating mode:\n\n{str(e)}",
+                pya.MessageBox.Ok
+            )
             return False
     
     def activate_mode(self, mode):
@@ -1609,30 +1661,43 @@ class FIBPanel(pya.QDockWidget):
             print(f"[FIB Panel] Output directory: {output_dir}")
 
             # Generate screenshots for all markers
-            screenshots_dict = export_markers_with_screenshots(
-                self.markers_list,
-                view,
-                output_dir
-            )
-
-            print(f"[FIB Panel] Screenshots generated: {len(screenshots_dict)} markers")
+            print(f"[FIB Panel] Calling export_markers_with_screenshots with {len(self.markers_list)} markers...")
+            try:
+                screenshots_dict = export_markers_with_screenshots(
+                    self.markers_list,
+                    view,
+                    output_dir
+                )
+                print(f"[FIB Panel] Screenshots generated: {len(screenshots_dict)} markers")
+            except Exception as screenshot_error:
+                print(f"[FIB Panel] ERROR in export_markers_with_screenshots: {screenshot_error}")
+                import traceback
+                traceback.print_exc()
+                return False
 
             # Define output filenames
             pdf_filename = os.path.join(output_dir, "fib_markers_report.pdf")
             html_filename = os.path.join(output_dir, "fib_markers_report.html")
 
             # Generate HTML report with screenshots
-            success = generate_html_report_with_screenshots(
-                self.markers_list,
-                screenshots_dict,
-                html_filename
-            )
-            
-            if not success:
-                print(f"[FIB Panel] Failed to generate HTML report")
+            print(f"[FIB Panel] Calling generate_html_report_with_screenshots...")
+            try:
+                success = generate_html_report_with_screenshots(
+                    self.markers_list,
+                    screenshots_dict,
+                    html_filename
+                )
+                
+                if not success:
+                    print(f"[FIB Panel] Failed to generate HTML report (returned False)")
+                    return False
+                
+                print(f"[FIB Panel] HTML report saved to: {html_filename}")
+            except Exception as html_error:
+                print(f"[FIB Panel] ERROR in generate_html_report_with_screenshots: {html_error}")
+                import traceback
+                traceback.print_exc()
                 return False
-            
-            print(f"[FIB Panel] HTML report saved to: {html_filename}")
             
             # Try to convert to PDF using available tools
             pdf_created = False

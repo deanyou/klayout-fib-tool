@@ -214,7 +214,7 @@ def get_layers_at_point(x, y, search_radius=None):
             db_y + db_radius
         )
         
-        print(f"[Layer Tap] Searching at ({x:.3f}, {y:.3f}) μm, radius={search_radius} μm")
+        print(f"[Layer Tap] Searching at ({x:.3f}, {y:.3f}) um, radius={search_radius} um")
         print(f"[Layer Tap] DB units: point=({db_x}, {db_y}), radius={db_radius}, box={search_box}")
         
         found_layers = []

@@ -51,7 +51,7 @@ def check_and_create_layers(layout):
                 if layer_info.layer == layer_num and layer_info.datatype == 0:
                     layer_exists = True
                     existing_layer_index = layout.layer(layer_info)
-                    print(f"[Layer Manager]   ✓ Layer {layer_num}/0 already exists (name: {layer_info.name}, index: {existing_layer_index})")
+                    print(f"[Layer Manager]   [OK] Layer {layer_num}/0 already exists (name: {layer_info.name}, index: {existing_layer_index})")
                     layer_status[layer_key] = 'existed'
                     break
             
@@ -73,12 +73,12 @@ def check_and_create_layers(layout):
                     for layer_info in layout.layer_infos():
                         if layer_info.layer == layer_num and layer_info.datatype == 0:
                             verified = True
-                            print(f"[Layer Manager]   ✓ VERIFIED: Layer {layer_num}/0 created successfully")
+                            print(f"[Layer Manager]   [OK] VERIFIED: Layer {layer_num}/0 created successfully")
                             layer_status[layer_key] = 'created'
                             break
                     
                     if not verified:
-                        print(f"[Layer Manager]   ⚠ WARNING: insert_layer() succeeded but layer not found!")
+                        print(f"[Layer Manager]   [!] WARNING: insert_layer() succeeded but layer not found!")
                         print(f"[Layer Manager]   Trying alternative method: layout.layer()...")
                         
                         # Method 2: Try layout.layer() as fallback
@@ -90,16 +90,16 @@ def check_and_create_layers(layout):
                         for layer_info in layout.layer_infos():
                             if layer_info.layer == layer_num and layer_info.datatype == 0:
                                 verified2 = True
-                                print(f"[Layer Manager]   ✓ VERIFIED: Layer {layer_num}/0 created with fallback method")
+                                print(f"[Layer Manager]   [OK] VERIFIED: Layer {layer_num}/0 created with fallback method")
                                 layer_status[layer_key] = 'created'
                                 break
                         
                         if not verified2:
-                            print(f"[Layer Manager]   ✗ FAILED: Both methods failed to create layer {layer_num}/0")
+                            print(f"[Layer Manager]   [X] FAILED: Both methods failed to create layer {layer_num}/0")
                             layer_status[layer_key] = 'failed'
                     
                 except Exception as create_error:
-                    print(f"[Layer Manager]   ✗ Exception creating layer {layer_num}/0: {create_error}")
+                    print(f"[Layer Manager]   [X] Exception creating layer {layer_num}/0: {create_error}")
                     import traceback
                     traceback.print_exc()
                     layer_status[layer_key] = 'failed'
@@ -144,7 +144,7 @@ def insert_fib_layer_views_to_panel(current_view, layout):
         if hasattr(current_view, 'layer_list'):
             try:
                 layer_list = current_view.layer_list
-                print("[Layer Manager] ✓ Got layer_list as property")
+                print("[Layer Manager] [OK] Got layer_list as property")
             except Exception as prop_error:
                 print(f"[Layer Manager] layer_list property failed: {prop_error}")
         
@@ -152,12 +152,12 @@ def insert_fib_layer_views_to_panel(current_view, layout):
         if not layer_list and hasattr(current_view, 'layer_list'):
             try:
                 layer_list = current_view.layer_list()
-                print("[Layer Manager] ✓ Got layer_list as method")
+                print("[Layer Manager] [OK] Got layer_list as method")
             except Exception as method_error:
                 print(f"[Layer Manager] layer_list() method failed: {method_error}")
         
         if not layer_list:
-            print("[Layer Manager] ✗ Could not access layer list - using fallback")
+            print("[Layer Manager] [X] Could not access layer list - using fallback")
             return False
         
         # Check existing layers
@@ -204,14 +204,14 @@ def insert_fib_layer_views_to_panel(current_view, layout):
                     # Insert layer view
                     if hasattr(layer_list, 'insert_layer'):
                         layer_list.insert_layer(layer_props)
-                        print(f"[Layer Manager] ✓ Inserted layer view: {layer_info['name']} (Layer {layer_num}/0)")
+                        print(f"[Layer Manager] [OK] Inserted layer view: {layer_info['name']} (Layer {layer_num}/0)")
                         layers_added += 1
                     else:
-                        print(f"[Layer Manager] ✗ layer_list has no insert_layer method")
+                        print(f"[Layer Manager] [X] layer_list has no insert_layer method")
                         return False
                         
                 except Exception as insert_error:
-                    print(f"[Layer Manager] ✗ Failed to insert layer {layer_num}: {insert_error}")
+                    print(f"[Layer Manager] [X] Failed to insert layer {layer_num}: {insert_error}")
         
         print(f"[Layer Manager] Layer views insertion complete: {layers_added} new views added")
         return layers_added > 0 or len(existing_layers) > 0
@@ -286,7 +286,7 @@ def add_layers_to_layer_panel(current_view, layout):
                 tiny_box = pya.Box(0, 0, 1, 1)  # 1 DBU x 1 DBU box
                 shapes.insert(tiny_box)
                 
-                print(f"[Layer Manager] ✓ Registered layer {layer_num}/0 ({layer_name}) with placeholder shape")
+                print(f"[Layer Manager] [OK] Registered layer {layer_num}/0 ({layer_name}) with placeholder shape")
         
         # Method 3: Try to refresh the view to update layer panel
         try:
@@ -361,7 +361,7 @@ def create_practical_layer_markers(current_view, layout):
             text_obj.size = LAYER_MARKER_CONFIG['text_size']  # Readable size
             shapes.insert(text_obj)
             
-            print(f"[Layer Manager] ✓ Created practical marker for {layer_info['name']} at ({marker_x/1000:.1f}, {marker_y/1000:.1f})")
+            print(f"[Layer Manager] [OK] Created practical marker for {layer_info['name']} at ({marker_x/1000:.1f}, {marker_y/1000:.1f})")
         
         # Force refresh
         try:
@@ -437,25 +437,25 @@ def set_layer_colors(current_view):
                         # Apply the changes
                         current_view.set_layer_properties(n)
                         
-                        print(f"[Layer Manager]   ✓ Set to 0x{color:06X} ({name})")
+                        print(f"[Layer Manager]   [OK] Set to 0x{color:06X} ({name})")
                         print(f"[Layer Manager]   After: fill=0x{n.fill_color:06X}, frame=0x{n.frame_color:06X}")
                         
                         colors_set += 1
                         break
             
             if not found:
-                print(f"[Layer Manager]   ✗ Not found in panel")
+                print(f"[Layer Manager]   [X] Not found in panel")
         
         # Force view update
         print("[Layer Manager] Calling update_content()...")
         current_view.update_content()
         
-        print(f"[Layer Manager] ✓ Complete: {colors_set}/3 layers updated")
+        print(f"[Layer Manager] [OK] Complete: {colors_set}/3 layers updated")
         
         return colors_set == 3
         
     except Exception as e:
-        print(f"[Layer Manager] ✗ Error: {e}")
+        print(f"[Layer Manager] [X] Error: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -511,7 +511,7 @@ def create_layer_identification_markers(current_view, layout):
             # Insert the text
             shapes.insert(text_obj)
             
-            print(f"[Layer Manager] ✓ Created identification marker for layer {layer_num}/0 ({layer_name}) at ({marker_x/1000:.1f}, {marker_y/1000:.1f})")
+            print(f"[Layer Manager] [OK] Created identification marker for layer {layer_num}/0 ({layer_name}) at ({marker_x/1000:.1f}, {marker_y/1000:.1f})")
         
         # Set layer colors using direct layer/datatype matching
         print("[Layer Manager] Setting layer colors...")
@@ -552,9 +552,9 @@ def force_layer_panel_refresh(current_view, layout):
         for method_name, method_func in safe_refresh_methods:
             try:
                 method_func()
-                print(f"[Layer Manager] ✓ {method_name}() succeeded")
+                print(f"[Layer Manager] [OK] {method_name}() succeeded")
             except Exception as method_error:
-                print(f"[Layer Manager] ✗ {method_name}() failed: {method_error}")
+                print(f"[Layer Manager] [X] {method_name}() failed: {method_error}")
         
         # Method 2: Advanced refresh (if available)
         advanced_refresh_methods = [
@@ -568,7 +568,7 @@ def force_layer_panel_refresh(current_view, layout):
                 method_func()
                 print(f"[Layer Manager] ○ {method_name}() called")
             except Exception as method_error:
-                print(f"[Layer Manager] ✗ {method_name}() failed: {method_error}")
+                print(f"[Layer Manager] [X] {method_name}() failed: {method_error}")
         
         # Method 3: Force layer recognition with temporary geometry
         try:
@@ -591,7 +591,7 @@ def force_layer_panel_refresh(current_view, layout):
                     temp_shape = shapes.insert(temp_box)
                     shapes.erase(temp_shape)
                 
-                print("[Layer Manager] ✓ Forced layer recognition with temporary shapes")
+                print("[Layer Manager] [OK] Forced layer recognition with temporary shapes")
                 
         except Exception as temp_error:
             print(f"[Layer Manager] Temporary shape method failed: {temp_error}")
@@ -599,7 +599,7 @@ def force_layer_panel_refresh(current_view, layout):
         # Method 4: Final redraw
         try:
             main_window.redraw()
-            print("[Layer Manager] ✓ Final redraw completed")
+            print("[Layer Manager] [OK] Final redraw completed")
         except Exception as final_error:
             print(f"[Layer Manager] Final redraw failed: {final_error}")
         
@@ -684,7 +684,7 @@ def ensure_fib_layers():
         missing_layers = [num for num, exists in verification.items() if not exists]
         
         if missing_layers:
-            print(f"[Layer Manager] ⚠ WARNING: {len(missing_layers)} layer(s) still missing after creation attempt: {missing_layers}")
+            print(f"[Layer Manager] [!] WARNING: {len(missing_layers)} layer(s) still missing after creation attempt: {missing_layers}")
         
         if created_count > 0:
             message = f"FIB Tool: Created {created_count} new layer(s), {existed_count} layer(s) already existed"
@@ -810,12 +810,12 @@ def test_layer_creation():
         current_view = main_window.current_view()
         
         if not current_view:
-            print("✗ No active view found. Please open a GDS file first.")
+            print("[X] No active view found. Please open a GDS file first.")
             return False
         
         cellview = current_view.active_cellview()
         if not cellview.is_valid():
-            print("✗ No valid cellview found. Please open a GDS file first.")
+            print("[X] No valid cellview found. Please open a GDS file first.")
             return False
         
         layout = cellview.layout()
@@ -859,7 +859,7 @@ def test_layer_creation():
                 continue
             
             exists = verification.get(layer_num, False)
-            status = "✓ EXISTS" if exists else "✗ MISSING"
+            status = "[OK] EXISTS" if exists else "[X] MISSING"
             print(f"  {layer_key.upper():12s} (Layer {layer_num}/0): {status}")
             
             if not exists:
@@ -867,16 +867,16 @@ def test_layer_creation():
         
         print("\n" + "=" * 60)
         if all_good:
-            print("✓ ALL FIB LAYERS ARE READY")
-            print("✓ Check the Layer Panel - FIB layers should be visible")
+            print("[OK] ALL FIB LAYERS ARE READY")
+            print("[OK] Check the Layer Panel - FIB layers should be visible")
         else:
-            print("✗ SOME LAYERS FAILED - CHECK ERRORS ABOVE")
+            print("[X] SOME LAYERS FAILED - CHECK ERRORS ABOVE")
         print("=" * 60)
         
         return all_good
         
     except Exception as e:
-        print(f"✗ ERROR in test: {e}")
+        print(f"[X] ERROR in test: {e}")
         import traceback
         traceback.print_exc()
         return False

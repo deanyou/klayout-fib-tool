@@ -192,7 +192,7 @@ class MarkerContextMenu:
                 # Fit view to box
                 current_view.zoom_box(box)
                 
-                print(f"[Marker Menu] Zoomed to marker {marker_id} ({zoom_type} zoom, padding={padding}μm)")
+                print(f"[Marker Menu] Zoomed to marker {marker_id} ({zoom_type} zoom, padding={padding}um)")
 
                 # Show brief message
                 try:

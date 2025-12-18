@@ -91,13 +91,18 @@ current_plugins = {
 active_plugin = None
 current_mode = None
 
-# Import panel functionality
-try:
-    from .fib_panel import get_fib_panel
-    PANEL_AVAILABLE = True
-except ImportError:
-    PANEL_AVAILABLE = False
-    print("[FIB Plugin] Panel not available")
+# Panel availability flag (import delayed to avoid circular dependency)
+PANEL_AVAILABLE = True
+
+def get_fib_panel():
+    """Get FIB panel instance (lazy import to avoid circular dependency)"""
+    try:
+        from .fib_panel import get_fib_panel as _get_fib_panel
+        return _get_fib_panel()
+    except ImportError:
+        global PANEL_AVAILABLE
+        PANEL_AVAILABLE = False
+        return None
 
 # Import multi-point marker classes
 try:
@@ -669,10 +674,10 @@ class FIBToolPlugin(pya.Plugin):
             # Clear temp points
             self.temp_points = []
             
-            print(f"[DEBUG] ✓ Successfully created multi-point cut marker {marker_id} with {len(points)} points")
+            print(f"[DEBUG] [OK] Successfully created multi-point cut marker {marker_id} with {len(points)} points")
             
         except Exception as e:
-            print(f"[DEBUG] ✗ Error creating multi-point cut marker: {e}")
+            print(f"[DEBUG] [X] Error creating multi-point cut marker: {e}")
             import traceback
             traceback.print_exc()
     
@@ -841,7 +846,7 @@ class FIBToolPlugin(pya.Plugin):
             text_x = int(x / dbu)
             text_y = int(y / dbu)
             
-            print(f"[DEBUG] Text placement: x={x:.2f}μm / dbu={dbu} = {text_x} DB units")
+            print(f"[DEBUG] Text placement: x={x:.2f}um / dbu={dbu} = {text_x} DB units")
             
             # Create text object at the click position
             text_obj = pya.Text(coord_text, pya.Trans(pya.Point(text_x, text_y)))
@@ -916,12 +921,12 @@ if not _FIB_PLUGIN_FACTORIES_CREATED:
     try:
         layer_check_result = ensure_fib_layers()
         if layer_check_result:
-            print("✓ FIB layers verified/created successfully")
+            print("[OK] FIB layers verified/created successfully")
             print(get_layer_info_summary())
         else:
-            print("⚠ Layer check completed with warnings (check console for details)")
+            print("[!] Layer check completed with warnings (check console for details)")
     except Exception as layer_error:
-        print(f"⚠ Layer check error: {layer_error}")
+        print(f"[!] Layer check error: {layer_error}")
         print("  Plugin will continue, but layers may need manual creation")
     
     print("\n=== Plugin Registration ===")
@@ -936,15 +941,15 @@ if not _FIB_PLUGIN_FACTORIES_CREATED:
         FIBConnectPluginFactory.instance = connect_factory
         FIBProbePluginFactory.instance = probe_factory
         
-        print("✓ Plugin factories created successfully")
-        print("✓ Three buttons added to toolbar: FIB Cut, FIB Connect, FIB Probe")
-        print("✓ Each button activates a different FIB marker mode")
+        print("[OK] Plugin factories created successfully")
+        print("[OK] Three buttons added to toolbar: FIB Cut, FIB Connect, FIB Probe")
+        print("[OK] Each button activates a different FIB marker mode")
         
         # Mark as created
         _FIB_PLUGIN_FACTORIES_CREATED = True
         
     except Exception as e:
-        print(f"✗ Error initializing plugin factories: {e}")
+        print(f"[X] Error initializing plugin factories: {e}")
 else:
     print("[FIB Plugin] Factories already created, skipping initialization...")
 
@@ -969,15 +974,15 @@ print("4. Each click will also add coordinate text at that position")
 print("5. Click the same button again to deactivate the mode")
 print()
 print("=== Features ===")
-print("- ✓ Fixed 0.2um line width for all markers")
-print("- ✓ PROBE markers are circular (0.5um radius)")
-print("- ✓ Markers use layers: 317 (CUT), 318 (CONNECT), 319 (PROBE)")
-print("- ✓ Coordinate texts on layer 319 (same as PROBE)")
-print("- 🚧 Automatic layer detection (under development)")
-print("- ✓ Sequential marker naming (CUT_0, CONNECT_1, PROBE_2)")
-print("- ✓ Coordinate text at each click position")
-print("- ✓ Clear status messages for each mode")
-print("- ✓ Detailed debug output in Macro Development console")
+print("- [OK] Fixed 0.2um line width for all markers")
+print("- [OK] PROBE markers are circular (0.5um radius)")
+print("- [OK] Markers use layers: 317 (CUT), 318 (CONNECT), 319 (PROBE)")
+print("- [OK] Coordinate texts on layer 319 (same as PROBE)")
+print("- [WIP] Automatic layer detection (under development)")
+print("- [OK] Sequential marker naming (CUT_0, CONNECT_1, PROBE_2)")
+print("- [OK] Coordinate text at each click position")
+print("- [OK] Clear status messages for each mode")
+print("- [OK] Detailed debug output in Macro Development console")
 print()
 print("=== Tips ===")
 print("- Each mode stays active until you click the button again")
@@ -1021,42 +1026,65 @@ def activate_fib_mode(mode):
     """Activate FIB plugin mode from panel"""
     global active_plugin, current_mode
     
+    print("=" * 80)
+    print(f"[FIB Plugin] activate_fib_mode() called with mode='{mode}'")
+    print("=" * 80)
+    
     try:
-        print(f"[FIB Plugin] Panel requesting {mode} mode activation")
+        print(f"[FIB Plugin] Step 1: Getting main window and view...")
         
         # Get the main window and current view
         main_window = pya.Application.instance().main_window()
         current_view = main_window.current_view()
         
+        print(f"[FIB Plugin] main_window: {main_window}")
+        print(f"[FIB Plugin] current_view: {current_view}")
+        
         if not current_view:
+            print(f"[FIB Plugin] [X] No active layout view found")
             pya.MessageBox.warning("FIB Tool", "No active layout view found", pya.MessageBox.Ok)
             return False
         
+        print(f"[FIB Plugin] [OK] Active view found")
+        
+        print(f"[FIB Plugin] Step 2: Clearing temp points from all plugins...")
         # Clear temp_points and double-click state from all plugins when switching modes
         for plugin_mode, plugin in current_plugins.items():
             if plugin and hasattr(plugin, 'temp_points'):
                 plugin.temp_points = []
                 plugin.last_click_time = 0
                 plugin.last_click_pos = None
+                print(f"[FIB Plugin]   Cleared {plugin_mode} plugin state")
         
+        print(f"[FIB Plugin] Step 3: Setting global mode to '{mode}'")
         # Set global mode
         current_mode = mode
         
         # Get base mode for plugin lookup (remove _multi suffix)
         base_mode = mode.replace('_multi', '')
+        print(f"[FIB Plugin] Base mode: '{base_mode}'")
+        
+        print(f"[FIB Plugin] Step 4: Getting or creating plugin for '{base_mode}'...")
+        print(f"[FIB Plugin] current_plugins keys: {list(current_plugins.keys())}")
+        print(f"[FIB Plugin] current_plugins['{base_mode}']: {current_plugins.get(base_mode, 'NOT FOUND')}")
         
         # Get or create the plugin for this base mode
         if base_mode in current_plugins and current_plugins[base_mode]:
             plugin = current_plugins[base_mode]
+            print(f"[FIB Plugin] [OK] Using existing plugin: {plugin}")
         else:
             # Create a new plugin instance if needed
+            print(f"[FIB Plugin] Creating new plugin instance...")
             plugin = FIBToolPlugin(None)
             plugin.mode = base_mode
             current_plugins[base_mode] = plugin
+            print(f"[FIB Plugin] [OK] Created new plugin: {plugin}")
         
         # Set as active plugin
         active_plugin = plugin
+        print(f"[FIB Plugin] [OK] Set active_plugin to: {active_plugin}")
         
+        print(f"[FIB Plugin] Step 5: Showing activation message...")
         # Show activation message
         try:
             if mode == 'cut':
@@ -1069,16 +1097,19 @@ def activate_fib_mode(mode):
                 pya.MainWindow.instance().message("CONNECT multi-point mode: Left-click to add points, right-click to finish", UI_TIMEOUTS['message_long'])
             elif mode == 'probe':
                 pya.MainWindow.instance().message("PROBE mode: Click once", UI_TIMEOUTS['message_long'])
+            print(f"[FIB Plugin] [OK] Message displayed")
         except Exception as msg_error:
-            print(f"[FIB Plugin] Message error: {msg_error}")
+            print(f"[FIB Plugin] [!] Message error: {msg_error}")
         
-        print(f"[FIB Plugin] Successfully activated {mode} mode from panel")
+        print(f"[FIB Plugin] [OK] SUCCESS: {mode} mode activated")
+        print("=" * 80)
         return True
         
     except Exception as e:
-        print(f"[FIB Plugin] Error activating {mode} mode: {e}")
+        print(f"[FIB Plugin] [X] ERROR: {e}")
         import traceback
         traceback.print_exc()
+        print("=" * 80)
         return False
 
 # Add to global namespace
@@ -1087,17 +1118,20 @@ sys.modules['__main__'].activate_fib_mode = activate_fib_mode
 print("\n=== Additional Functions ===")
 print("clear_coordinate_texts() - Clear all coordinate text labels (Layer 319)")
 
-# Create FIB Panel
+# Create FIB Panel (delayed import to avoid circular dependency)
 print("\n=== FIB Panel Integration ===")
 try:
+    # Import here after activate_fib_mode is defined
     from .fib_panel import create_fib_panel
     panel = create_fib_panel()
     if panel:
-        print("✓ FIB Panel created and docked successfully")
-        print("✓ Panel includes: Project management, marker tree view, right-click menus")
-        print("✓ Panel buttons are connected to plugin system")
+        print("[OK] FIB Panel created and docked successfully")
+        print("[OK] Panel includes: Project management, marker tree view, right-click menus")
+        print("[OK] Panel buttons are connected to plugin system")
     else:
-        print("✗ Failed to create FIB Panel")
+        print("[X] Failed to create FIB Panel")
 except Exception as e:
-    print(f"✗ FIB Panel error: {e}")
-    print("✓ Plugin system still works without panel")
+    print(f"[X] FIB Panel error: {e}")
+    import traceback
+    traceback.print_exc()
+    print("[OK] Plugin system still works without panel")

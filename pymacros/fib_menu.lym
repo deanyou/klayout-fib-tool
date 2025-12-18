@@ -1,30 +1,71 @@
 <?xml version="1.0" encoding="utf-8"?>
 <klayout-macro>
- <description>Open FIB Tool Panel</description>
+ <description>FIB Tool</description>
  <version>1.0</version>
  <category>fib_tool</category>
  <prolog/>
  <epilog/>
  <interpreter>python</interpreter>
  <dsl-interpreter-name/>
- <menu-path>tools_menu.fib_tool</menu-path>
+ <menu-path>tools_menu.end</menu-path>
  <shortcut>Ctrl+Shift+F</shortcut>
  <show-in-menu>true</show-in-menu>
  <group-name/>
  <text>import sys
 import os
-
-# Add current directory to Python path
-script_dir = os.path.dirname(os.path.abspath(__file__))
-if script_dir not in sys.path:
-    sys.path.insert(0, script_dir)
-
 import pya
-from fib_panel import create_fib_panel, get_fib_panel
+
+# Import from fib_tool package
+try:
+    # Try SALT package import first
+    from fib_tool.fib_panel import create_fib_panel, get_fib_panel
+    from fib_tool.layer_manager import ensure_fib_layers
+    print("[FIB Menu] Using SALT package imports")
+except ImportError:
+    # Fallback to direct import (for development)
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    parent_dir = os.path.dirname(script_dir)
+    python_dir = os.path.join(parent_dir, 'python')
+    
+    if python_dir not in sys.path:
+        sys.path.insert(0, python_dir)
+    
+    from fib_tool.fib_panel import create_fib_panel, get_fib_panel
+    from fib_tool.layer_manager import ensure_fib_layers
+    print("[FIB Menu] Using development imports")
 
 def open_fib_tool():
     """Open or show the FIB Tool panel"""
     try:
+        # Check if a GDS file is open
+        main_window = pya.Application.instance().main_window()
+        current_view = main_window.current_view()
+        
+        if not current_view or not current_view.active_cellview().is_valid():
+            pya.MessageBox.warning(
+                "FIB Tool",
+                "请先打开一个 GDS 文件！\n\nFIB Tool 需要一个活动的布局文件才能创建标记和图层。\n\nPlease open a GDS file first!\n\nFIB Tool requires an active layout to create markers and layers.",
+                pya.MessageBox.Ok
+            )
+            print("[FIB Menu] No GDS file is open - cannot load FIB Panel")
+            return
+        
+        # Get cell name for logging
+        cellview = current_view.active_cellview()
+        cell_name = cellview.cell.name if cellview.cell else "Unknown"
+        print(f"[FIB Menu] Active layout: {cell_name}")
+        
+        # NOTE: Layer creation is disabled for testing
+        # Uncomment the following lines to enable automatic layer creation:
+        #
+        # print("[FIB Menu] Ensuring FIB layers exist...")
+        # try:
+        #     ensure_fib_layers()
+        # except Exception as layer_error:
+        #     print(f"[FIB Menu] Warning: Could not ensure layers: {layer_error}")
+        
+        print("[FIB Menu] Skipping automatic layer creation (testing mode)")
+        
         # Check if panel already exists
         panel = get_fib_panel()
 
