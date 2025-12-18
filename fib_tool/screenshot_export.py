@@ -688,14 +688,234 @@ def generate_html_report_with_screenshots(markers, screenshots_dict, output_path
             padding-top: 20px;
             border-top: 1px solid #ddd;
         }}
+
+        /* Notes section */
+        .notes-section {{
+            background: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }}
+        .notes-section label {{
+            display: block;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }}
+        .notes-textarea {{
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 14px;
+            resize: vertical;
+            min-height: 60px;
+            box-sizing: border-box;
+        }}
+        .notes-textarea:focus {{
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.1);
+        }}
+
+        /* Global controls */
+        .global-controls {{
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            background: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }}
+        .export-btn, .load-btn, .clear-btn {{
+            padding: 12px 24px;
+            font-size: 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }}
+        .export-btn {{
+            background: #27ae60;
+            color: white;
+        }}
+        .export-btn:hover {{
+            background: #229954;
+            box-shadow: 0 4px 12px rgba(39, 174, 96, 0.3);
+        }}
+        .load-btn {{
+            background: #3498db;
+            color: white;
+        }}
+        .load-btn:hover {{
+            background: #2980b9;
+            box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+        }}
+        .clear-btn {{
+            background: #e74c3c;
+            color: white;
+        }}
+        .clear-btn:hover {{
+            background: #c0392b;
+            box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
+        }}
+        .storage-info {{
+            margin-left: auto;
+            font-size: 14px;
+            color: #7f8c8d;
+        }}
+
+        /* Add image button */
+        .add-image-btn button {{
+            padding: 40px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: 2px dashed white;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            width: 100%;
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }}
+        .add-image-btn button:hover {{
+            transform: scale(1.05);
+            box-shadow: 0 8px 16px rgba(102, 126, 234, 0.4);
+        }}
+        .plus-icon {{
+            font-size: 48px;
+            margin-bottom: 10px;
+        }}
+
+        /* Custom image container - 与原始截图样式一致 */
+        .custom-image {{
+            position: relative;
+            text-align: center;
+            margin-bottom: 20px;
+            /* 确保与 .screenshot 对齐一致 */
+            display: inline-block;
+            width: 100%;
+        }}
+        .custom-image img {{
+            width: 100%;
+            max-width: 800px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }}
+        /* 删除按钮 - 悬浮在图片右上角 */
+        .custom-image .remove-btn {{
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(231, 76, 60, 0.9);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            font-size: 20px;
+            cursor: pointer;
+            line-height: 1;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: 10;
+        }}
+        .custom-image:hover .remove-btn {{
+            opacity: 1;
+        }}
+        .custom-image .remove-btn:hover {{
+            background: rgba(192, 57, 43, 1);
+            transform: scale(1.1);
+        }}
+
+        /* Lightbox 模态框 */
+        .lightbox {{
+            display: none;
+            position: fixed;
+            z-index: 9999;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            cursor: zoom-out;
+        }}
+        .lightbox.active {{
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.3s ease;
+        }}
+        .lightbox img {{
+            max-width: 95%;
+            max-height: 95%;
+            object-fit: contain;
+            box-shadow: 0 0 50px rgba(255, 255, 255, 0.3);
+            cursor: default;
+        }}
+        .lightbox-close {{
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            color: white;
+            font-size: 40px;
+            font-weight: bold;
+            cursor: pointer;
+            background: none;
+            border: none;
+            transition: transform 0.3s ease;
+        }}
+        .lightbox-close:hover {{
+            transform: scale(1.2);
+        }}
+        @keyframes fadeIn {{
+            from {{ opacity: 0; }}
+            to {{ opacity: 1; }}
+        }}
+        /* 图片添加点击提示 */
+        .screenshot img,
+        .custom-image img {{
+            cursor: zoom-in;
+            transition: opacity 0.3s ease;
+        }}
+        .screenshot img:hover,
+        .custom-image img:hover {{
+            opacity: 0.9;
+        }}
+
         @media print {{
             .marker-section {{
                 page-break-inside: avoid;
+            }}
+            .global-controls, .add-image-btn {{
+                display: none;
+            }}
+            .notes-textarea {{
+                border: none;
+                padding: 5px 0;
+                background: transparent;
             }}
         }}
     </style>
 </head>
 <body>
+    <!-- Lightbox 模态框 -->
+    <div id="lightbox" class="lightbox" onclick="closeLightbox()">
+        <button class="lightbox-close" onclick="closeLightbox()" title="关闭 (ESC)">×</button>
+        <img id="lightbox-img" src="" alt="放大图片" onclick="event.stopPropagation()">
+    </div>
+
     <div class="header">
         <h1>FIB Markers Report with Screenshots</h1>
         <p>Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
@@ -714,6 +934,26 @@ def generate_html_report_with_screenshots(markers, screenshots_dict, output_path
         <div class="summary-box">
             <h3>PROBE Markers</h3>
             <div class="number">{len(markers_by_type['PROBE'])}</div>
+        </div>
+    </div>
+
+    <div class="notes-section">
+        <label for="report-notes">Notes:</label>
+        <textarea id="report-notes" class="notes-textarea" rows="3" placeholder="输入备注...">connect resistance &gt; Ω</textarea>
+    </div>
+
+    <div class="global-controls">
+        <button onclick="exportHTMLWithImages()" class="export-btn" title="将当前页面（包括自定义图片）导出为独立 HTML 文件">
+            💾 导出完整报告
+        </button>
+        <button onclick="loadCustomImages()" class="load-btn" title="从浏览器缓存加载之前保存的自定义图片">
+            📥 加载已保存图片
+        </button>
+        <button onclick="clearAllCustomImages()" class="clear-btn">
+            🗑️ 清除所有自定义图片
+        </button>
+        <div class="storage-info">
+            已使用: <span id="storage-used">0 KB</span> / 5 MB
         </div>
     </div>
 """
@@ -837,11 +1077,11 @@ def generate_html_report_with_screenshots(markers, screenshots_dict, output_path
             # Add screenshots
             if marker.id in screenshots_dict:
                 screenshots = screenshots_dict[marker.id]
-                
-                html += """
-        <div class="screenshots">
+
+                html += f"""
+        <div class="screenshots" data-marker-id="{marker.id}">
 """
-                
+
                 for desc, filename, filepath in screenshots:
                     html += f"""
             <div class="screenshot">
@@ -850,7 +1090,25 @@ def generate_html_report_with_screenshots(markers, screenshots_dict, output_path
                 <p>{desc} view of {marker.id}</p>
             </div>
 """
-                
+
+                # Add custom images container
+                html += f"""
+            <div class="screenshot add-custom-images" id="custom-images-{marker.id}">
+                <!-- Custom images will be added here -->
+            </div>
+
+            <div class="screenshot add-image-btn">
+                <button onclick="addImage('{marker.id}')">
+                    <span class="plus-icon">+</span>
+                    <span>添加图片</span>
+                </button>
+                <input type="file" id="file-input-{marker.id}"
+                       accept="image/*" multiple
+                       style="display: none;"
+                       onchange="handleImageUpload('{marker.id}', this.files)">
+            </div>
+"""
+
                 html += """
         </div>
 """
@@ -864,6 +1122,215 @@ def generate_html_report_with_screenshots(markers, screenshots_dict, output_path
         <p>Generated by KLayout FIB Tool</p>
         <p>All measurements in micrometers (μm)</p>
     </div>
+
+    <script>
+    // Custom image upload functionality
+    function addImage(markerId) {
+        document.getElementById('file-input-' + markerId).click();
+    }
+
+    function handleImageUpload(markerId, files) {
+        for (var i = 0; i < files.length; i++) {
+            var file = files[i];
+            if (file.type.startsWith('image/')) {
+                var reader = new FileReader();
+                reader.onload = (function(f) {
+                    return function(e) {
+                        var base64 = e.target.result;
+                        displayCustomImage(markerId, base64, f.name);
+                        saveCustomImage(markerId, base64, f.name);
+                    };
+                })(file);
+                reader.readAsDataURL(file);
+            }
+        }
+    }
+
+    function displayCustomImage(markerId, base64, filename) {
+        var container = document.getElementById('custom-images-' + markerId);
+        var imageId = 'custom-img-' + markerId + '-' + Date.now();
+
+        var imgDiv = document.createElement('div');
+        imgDiv.className = 'custom-image';
+        imgDiv.id = imageId;
+        // 简化结构：只保留图片和删除按钮，去掉文件名
+        imgDiv.innerHTML =
+            '<img src="' + base64 + '" alt="Custom image">' +
+            '<button onclick="removeCustomImage(\\'' + markerId + '\\', \\'' + imageId + '\\')" class="remove-btn" title="删除此图片">×</button>';
+
+        container.appendChild(imgDiv);
+
+        // 为新添加的图片附加 Lightbox 功能
+        var img = imgDiv.querySelector('img');
+        img.addEventListener('click', function() {
+            openLightbox(this.src);
+        });
+    }
+
+    function saveCustomImage(markerId, base64, filename) {
+        var storageKey = 'fib-custom-images-' + markerId;
+        var images = JSON.parse(localStorage.getItem(storageKey) || '[]');
+
+        images.push({
+            id: 'custom-img-' + markerId + '-' + Date.now(),
+            filename: filename,
+            data: base64,
+            timestamp: new Date().toISOString()
+        });
+
+        localStorage.setItem(storageKey, JSON.stringify(images));
+        updateStorageInfo();
+    }
+
+    function loadCustomImages() {
+        var sections = document.querySelectorAll('.screenshots');
+        for (var i = 0; i < sections.length; i++) {
+            var section = sections[i];
+            var markerId = section.getAttribute('data-marker-id');
+            if (markerId) {
+                var storageKey = 'fib-custom-images-' + markerId;
+                var images = JSON.parse(localStorage.getItem(storageKey) || '[]');
+
+                for (var j = 0; j < images.length; j++) {
+                    var img = images[j];
+                    displayCustomImage(markerId, img.data, img.filename);
+                }
+            }
+        }
+    }
+
+    function removeCustomImage(markerId, imageId) {
+        var element = document.getElementById(imageId);
+        if (element) {
+            element.remove();
+        }
+
+        var storageKey = 'fib-custom-images-' + markerId;
+        var images = JSON.parse(localStorage.getItem(storageKey) || '[]');
+        images = images.filter(function(img) {
+            return img.id !== imageId;
+        });
+        localStorage.setItem(storageKey, JSON.stringify(images));
+
+        updateStorageInfo();
+    }
+
+    function clearAllCustomImages() {
+        if (!confirm('确定要清除所有自定义图片吗？此操作不可撤销！')) {
+            return;
+        }
+
+        // Remove from DOM
+        var customImages = document.querySelectorAll('.custom-image');
+        for (var i = 0; i < customImages.length; i++) {
+            customImages[i].remove();
+        }
+
+        // Clear localStorage
+        var keys = Object.keys(localStorage);
+        for (var i = 0; i < keys.length; i++) {
+            if (keys[i].startsWith('fib-custom-images-')) {
+                localStorage.removeItem(keys[i]);
+            }
+        }
+
+        updateStorageInfo();
+        alert('所有自定义图片已清除！');
+    }
+
+    function updateStorageInfo() {
+        var totalSize = 0;
+        var keys = Object.keys(localStorage);
+        for (var i = 0; i < keys.length; i++) {
+            if (keys[i].startsWith('fib-custom-images-')) {
+                totalSize += localStorage[keys[i]].length;
+            }
+        }
+
+        var sizeKB = (totalSize / 1024).toFixed(2);
+        var storageElement = document.getElementById('storage-used');
+        if (storageElement) {
+            storageElement.textContent = sizeKB + ' KB';
+        }
+
+        // Warning if approaching 5MB limit
+        if (totalSize > 5 * 1024 * 1024 * 0.8) {
+            alert('警告：存储空间接近限制（5MB），建议导出报告并清除部分图片。');
+        }
+    }
+
+    function exportHTMLWithImages() {
+        // Clone current document
+        var clone = document.documentElement.cloneNode(true);
+
+        // Remove export buttons and file inputs from clone
+        var elementsToRemove = clone.querySelectorAll('.export-btn, .load-btn, .clear-btn, input[type="file"], .add-image-btn button');
+        for (var i = 0; i < elementsToRemove.length; i++) {
+            elementsToRemove[i].remove();
+        }
+
+        // Generate complete HTML
+        var htmlContent = '<!DOCTYPE html>\\n' + clone.outerHTML;
+
+        // Trigger download
+        var blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = 'FIB_Report_with_Custom_Images_' + getTimestamp() + '.html';
+        a.click();
+        URL.revokeObjectURL(url);
+
+        alert('报告已导出！包含所有自定义图片的 HTML 文件已下载。');
+    }
+
+    function getTimestamp() {
+        return new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    }
+
+    // Lightbox 图片放大功能
+    function openLightbox(imgSrc) {
+        var lightbox = document.getElementById('lightbox');
+        var lightboxImg = document.getElementById('lightbox-img');
+        lightboxImg.src = imgSrc;
+        lightbox.classList.add('active');
+        document.body.style.overflow = 'hidden'; // 禁止页面滚动
+    }
+
+    function closeLightbox() {
+        var lightbox = document.getElementById('lightbox');
+        lightbox.classList.remove('active');
+        document.body.style.overflow = ''; // 恢复页面滚动
+    }
+
+    // ESC 键关闭 Lightbox
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeLightbox();
+        }
+    });
+
+    // 为所有截图图片添加点击放大功能
+    function attachLightboxToImages() {
+        var images = document.querySelectorAll('.screenshot img, .custom-image img');
+        for (var i = 0; i < images.length; i++) {
+            images[i].addEventListener('click', function(e) {
+                // 如果点击的是删除按钮，不触发 lightbox
+                if (e.target.className === 'remove-btn') {
+                    return;
+                }
+                openLightbox(this.src);
+            });
+        }
+    }
+
+    // Load custom images on page load
+    window.addEventListener('DOMContentLoaded', function() {
+        // loadCustomImages(); // 不再自动加载，避免新 HTML 显示旧图片
+        updateStorageInfo();
+        attachLightboxToImages(); // 为所有图片添加点击放大功能
+    });
+    </script>
 </body>
 </html>
 """

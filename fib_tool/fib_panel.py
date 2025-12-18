@@ -561,53 +561,152 @@ class FIBPanel(pya.QDockWidget):
         except Exception as e:
             print(f"[FIB Panel] Error in load project: {e}")
             pya.MessageBox.warning("FIB Panel", f"Error loading project: {e}", pya.MessageBox.Ok)
-    
+
+    def get_gds_filename(self, view):
+        """Get GDS filename from current cellview (basename without extension)"""
+        import os
+
+        cellview = view.active_cellview()
+        if not cellview.is_valid():
+            return "unknown"
+
+        # Try to get filename from cellview
+        try:
+            # Try cellview.filename() method
+            if hasattr(cellview, 'filename') and callable(cellview.filename):
+                gds_path = cellview.filename()
+            else:
+                gds_path = None
+        except:
+            gds_path = None
+
+        # If no filename, try to get from layout handle
+        if not gds_path:
+            try:
+                layout_handle = view.cellview(view.active_cellview_index())
+                if hasattr(layout_handle, 'filename') and callable(layout_handle.filename):
+                    gds_path = layout_handle.filename()
+                else:
+                    gds_path = None
+            except:
+                gds_path = None
+
+        # If still no filename, try cell name
+        if not gds_path:
+            try:
+                cell_name = cellview.cell.name
+                if cell_name:
+                    return cell_name
+            except:
+                pass
+            return "unknown"
+
+        # Extract basename without extension
+        basename = os.path.basename(gds_path)
+        name_without_ext = os.path.splitext(basename)[0]
+        return name_without_ext
+
+    def get_next_export_number(self, parent_dir, gds_basename):
+        """Scan directory for existing numbered exports and return next available number"""
+        import os
+        import re
+
+        # Pattern: {gds_basename}_#数字_日期
+        # Example: chip_v2_#1_20251218, chip_v2_#2_20251218
+        pattern = re.compile(rf"^{re.escape(gds_basename)}_#(\d+)_\d{{8}}$")
+
+        max_number = 0
+
+        if os.path.exists(parent_dir):
+            for item in os.listdir(parent_dir):
+                full_path = os.path.join(parent_dir, item)
+                if os.path.isdir(full_path):
+                    match = pattern.match(item)
+                    if match:
+                        number = int(match.group(1))
+                        max_number = max(max_number, number)
+
+        return max_number + 1
+
+    def generate_export_dirname(self, gds_basename, number):
+        """Generate export directory name: {gds_basename}_#{number}_{YYYYMMDD}"""
+        from datetime import datetime
+        date_str = datetime.now().strftime("%Y%m%d")
+        return f"{gds_basename}_#{number}_{date_str}"
+
     def on_export_pdf(self):
-        """Handle Export PDF"""
+        """Handle Export PDF - with auto-numbered directory creation"""
         try:
             if not self.markers_list:
                 pya.MessageBox.warning("FIB Panel", "No markers to export. Create some markers first.", pya.MessageBox.Ok)
                 return
-            
+
             # Get current view
             main_window = pya.Application.instance().main_window()
             current_view = main_window.current_view()
-            
-            if not current_view or not current_view.active_cellview().is_valid():
-                pya.MessageBox.warning("FIB Panel", "No active layout view found", pya.MessageBox.Ok)
+
+            if not current_view:
+                pya.MessageBox.warning("FIB Panel", "No active view", pya.MessageBox.Ok)
                 return
-            
-            # Ask for filename
+
+            # Get GDS filename
+            gds_basename = self.get_gds_filename(current_view)
+
+            # Select parent directory
             home_dir = os.path.expanduser("~")
-            default_filename = os.path.join(home_dir, "fib_markers_report.pdf")
-            
-            # Use Qt file dialog
             file_dialog = pya.QFileDialog()
-            filename = file_dialog.getSaveFileName(self, "Export PDF Report", default_filename, "PDF Files (*.pdf)")
-            
+            parent_dir = file_dialog.getExistingDirectory(
+                self, "Select Export Directory", home_dir
+            )
+
             # Handle different return types
-            if isinstance(filename, tuple):
-                filename = filename[0] if filename[0] else None
-            
-            if not filename:
+            if isinstance(parent_dir, tuple):
+                parent_dir = parent_dir[0] if parent_dir[0] else None
+
+            if not parent_dir:
                 print("[FIB Panel] Export PDF cancelled by user")
                 return
-            
-            # Ensure .pdf extension
-            if not filename.endswith('.pdf'):
-                filename += '.pdf'
-            
-            print(f"[FIB Panel] Exporting PDF to: {filename}")
-            
-            # Export to PDF
-            success = self.export_markers_to_pdf(filename, current_view)
-            
+
+            # Auto-increment number
+            next_number = self.get_next_export_number(parent_dir, gds_basename)
+
+            # Generate directory name
+            export_dirname = self.generate_export_dirname(gds_basename, next_number)
+            export_dir = os.path.join(parent_dir, export_dirname)
+
+            # Create directory
+            try:
+                os.makedirs(export_dir, exist_ok=False)
+                print(f"[FIB Panel] Created export directory: {export_dir}")
+            except FileExistsError:
+                # Rare case: directory just created, increment and retry
+                next_number += 1
+                export_dirname = self.generate_export_dirname(gds_basename, next_number)
+                export_dir = os.path.join(parent_dir, export_dirname)
+                try:
+                    os.makedirs(export_dir, exist_ok=True)
+                    print(f"[FIB Panel] Created export directory (retry): {export_dir}")
+                except Exception as e:
+                    pya.MessageBox.warning("FIB Panel",
+                        f"Failed to create directory:\n{export_dir}\n\nError: {str(e)}",
+                        pya.MessageBox.Ok)
+                    return
+            except Exception as e:
+                pya.MessageBox.warning("FIB Panel",
+                    f"Failed to create directory:\n{export_dir}\n\nError: {str(e)}",
+                    pya.MessageBox.Ok)
+                return
+
+            # Export to new directory
+            success = self.export_markers_to_pdf(export_dir, current_view)
+
             if success:
-                basename = os.path.basename(filename)
-                pya.MessageBox.info("FIB Panel", f"PDF report exported successfully:\n{basename}\n\n{len(self.markers_list)} markers included", pya.MessageBox.Ok)
+                pya.MessageBox.info("FIB Panel",
+                    f"Report exported successfully to:\n{export_dir}\n\n{len(self.markers_list)} markers included",
+                    pya.MessageBox.Ok)
             else:
                 pya.MessageBox.warning("FIB Panel", "Failed to export PDF. Check console for details.", pya.MessageBox.Ok)
-                
+
         except Exception as e:
             print(f"[FIB Panel] Error in export PDF: {e}")
             import traceback
@@ -1374,34 +1473,37 @@ class FIBPanel(pya.QDockWidget):
             print(f"[FIB Panel] Error loading from JSON: {e}")
             return False
     
-    def export_markers_to_pdf(self, filename, view):
-        """Export markers to PDF report with screenshots"""
+    def export_markers_to_pdf(self, output_dir, view):
+        """Export markers to PDF report with screenshots
+
+        Args:
+            output_dir: Directory to save all output files (PDF, HTML, screenshots)
+            view: Current KLayout view
+        """
         try:
             import os
             from screenshot_export import (
                 export_markers_with_screenshots,
                 generate_html_report_with_screenshots
             )
-            
-            # Get output directory
-            output_dir = os.path.dirname(filename)
-            if not output_dir:
-                output_dir = os.path.expanduser("~")
-            
+
             print(f"[FIB Panel] Starting export with screenshots...")
             print(f"[FIB Panel] Output directory: {output_dir}")
-            
+
             # Generate screenshots for all markers
             screenshots_dict = export_markers_with_screenshots(
-                self.markers_list, 
-                view, 
+                self.markers_list,
+                view,
                 output_dir
             )
-            
+
             print(f"[FIB Panel] Screenshots generated: {len(screenshots_dict)} markers")
-            
+
+            # Define output filenames
+            pdf_filename = os.path.join(output_dir, "fib_markers_report.pdf")
+            html_filename = os.path.join(output_dir, "fib_markers_report.html")
+
             # Generate HTML report with screenshots
-            html_filename = filename.replace('.pdf', '.html')
             success = generate_html_report_with_screenshots(
                 self.markers_list,
                 screenshots_dict,
@@ -1424,7 +1526,7 @@ class FIBPanel(pya.QDockWidget):
                                       capture_output=True, timeout=5)
                 if result.returncode == 0:
                     print("[FIB Panel] Using wkhtmltopdf for PDF conversion")
-                    subprocess.run(['wkhtmltopdf', html_filename, filename], 
+                    subprocess.run(['wkhtmltopdf', html_filename, pdf_filename],
                                  check=True, timeout=30)
                     pdf_created = True
             except (FileNotFoundError, subprocess.TimeoutExpired, subprocess.CalledProcessError) as e:
@@ -1437,7 +1539,7 @@ class FIBPanel(pya.QDockWidget):
                 try:
                     from weasyprint import HTML
                     print("[FIB Panel] Using weasyprint for PDF conversion")
-                    HTML(html_filename).write_pdf(filename)
+                    HTML(html_filename).write_pdf(pdf_filename)
                     pdf_created = True
                 except ImportError:
                     print("[FIB Panel] weasyprint not available")
@@ -1459,9 +1561,9 @@ class FIBPanel(pya.QDockWidget):
                 self._ask_to_open_html(html_filename)
                 
                 return True
-            
-            print(f"[FIB Panel] PDF report created: {filename}")
-            
+
+            print(f"[FIB Panel] PDF report created: {pdf_filename}")
+
             # Ask user if they want to open the HTML file
             self._ask_to_open_html(html_filename)
             
