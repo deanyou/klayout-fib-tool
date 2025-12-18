@@ -246,3 +246,5 @@ print("- Adjust view zoom to see markers clearly")
 print("- Use Layer Panel to adjust marker visibility")
 print()
 print("FIB Tool loaded successfully! Use toolbar buttons to get started.")
+</text>
+</klayout-macro>

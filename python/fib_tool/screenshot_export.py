@@ -561,25 +561,210 @@ def export_markers_with_screenshots(markers, view, output_dir):
     return all_screenshots
 
 
+# ============================================================================
+# Helper functions for HTML generation
+# ============================================================================
+
+def _load_template_file(filename):
+    """Load template file from templates directory"""
+    from pathlib import Path
+    template_path = Path(__file__).parent / 'templates' / filename
+    try:
+        with open(template_path, 'r', encoding='utf-8') as f:
+            return f.read()
+    except FileNotFoundError:
+        print(f"[Screenshot] Warning: Template file {filename} not found, using fallback")
+        return None
+
+
+def _get_marker_coordinates(marker):
+    """Extract coordinates string from marker (helper function)"""
+    import math
+
+    if hasattr(marker, 'points') and len(marker.points) > 0:
+        # Multi-point marker
+        if len(marker.points) <= 5:
+            point_strs = []
+            for i, p in enumerate(marker.points):
+                layer_info = ""
+                if hasattr(marker, 'point_layers') and i < len(marker.point_layers) and marker.point_layers[i]:
+                    layer_info = f" [{marker.point_layers[i]}]"
+                point_strs.append(f"({p[0]:.3f},{p[1]:.3f}){layer_info}")
+            return f"{len(marker.points)} points: " + " → ".join(point_strs)
+        else:
+            # Show first 3, ..., last 2
+            first_points = []
+            for i in range(3):
+                p = marker.points[i]
+                layer_info = ""
+                if hasattr(marker, 'point_layers') and i < len(marker.point_layers) and marker.point_layers[i]:
+                    layer_info = f" [{marker.point_layers[i]}]"
+                first_points.append(f"({p[0]:.3f},{p[1]:.3f}){layer_info}")
+
+            last_points = []
+            for i in range(-2, 0):
+                p = marker.points[i]
+                idx = len(marker.points) + i
+                layer_info = ""
+                if hasattr(marker, 'point_layers') and idx < len(marker.point_layers) and marker.point_layers[idx]:
+                    layer_info = f" [{marker.point_layers[idx]}]"
+                last_points.append(f"({p[0]:.3f},{p[1]:.3f}){layer_info}")
+
+            return f"{len(marker.points)} points: " + " → ".join(first_points) + " → ... → " + " → ".join(last_points)
+
+    elif hasattr(marker, 'x1'):
+        # 2-point marker
+        layer1_info = f" [{marker.layer1}]" if hasattr(marker, 'layer1') and marker.layer1 else ""
+        layer2_info = f" [{marker.layer2}]" if hasattr(marker, 'layer2') and marker.layer2 else ""
+        return f"({marker.x1:.3f},{marker.y1:.3f}){layer1_info} to ({marker.x2:.3f},{marker.y2:.3f}){layer2_info}"
+
+    else:
+        # Single point marker
+        layer_info = f" [{marker.target_layer}]" if hasattr(marker, 'target_layer') and marker.target_layer else ""
+        return f"({marker.x:.3f},{marker.y:.3f}){layer_info}"
+
+
+def _get_marker_dimensions(marker):
+    """Calculate marker dimensions (helper function)"""
+    import math
+
+    if hasattr(marker, 'points') and len(marker.points) > 0:
+        first = marker.points[0]
+        last = marker.points[-1]
+        delta_x = abs(last[0] - first[0])
+        delta_y = abs(last[1] - first[1])
+
+        # Calculate total path length
+        total_length = 0
+        for i in range(len(marker.points) - 1):
+            p1 = marker.points[i]
+            p2 = marker.points[i + 1]
+            segment_length = math.sqrt((p2[0] - p1[0])**2 + (p2[1] - p1[1])**2)
+            total_length += segment_length
+
+        dimensions_str = f"DX = {delta_x:.2f} um, DY = {delta_y:.2f} um"
+        length_str = f"Path Length = {total_length:.2f} um"
+        return dimensions_str, length_str
+
+    elif hasattr(marker, 'x1'):
+        delta_x = abs(marker.x2 - marker.x1)
+        delta_y = abs(marker.y2 - marker.y1)
+        length = math.sqrt(delta_x**2 + delta_y**2)
+        dimensions_str = f"DX = {delta_x:.2f} um, DY = {delta_y:.2f} um"
+        length_str = f"Length = {length:.2f} um"
+        return dimensions_str, length_str
+
+    else:
+        return "Single point marker", "-"
+
+
+def _generate_marker_section_html(marker, screenshots_dict):
+    """Generate HTML for a single marker section (helper function)"""
+    marker_class = marker.__class__.__name__
+
+    # Determine marker type
+    if 'MultiPoint' in marker_class:
+        if 'Cut' in marker_class:
+            marker_type = "CUT (Multi-Point)"
+        elif 'Connect' in marker_class:
+            marker_type = "CONNECT (Multi-Point)"
+        else:
+            marker_type = "Multi-Point"
+    else:
+        marker_type = marker_class.replace('Marker', '').upper()
+
+    # Get coordinates and dimensions
+    coords = _get_marker_coordinates(marker)
+    dimensions_str, length_str = _get_marker_dimensions(marker)
+
+    # Get notes
+    notes = getattr(marker, 'notes', '')
+    if not notes:
+        if 'Cut' in marker_class:
+            notes = "切断"
+        elif 'Connect' in marker_class:
+            notes = "连接"
+        elif 'Probe' in marker_class:
+            notes = "点测"
+
+    # Build marker section HTML
+    html = f"""
+    <div class="marker-section">
+        <h2>{marker.id}</h2>
+
+        <div class="marker-info">
+            <p><strong>Type:</strong> {marker_type}</p>
+            <p><strong>Coordinates:</strong> {coords} um</p>
+            <p><strong>Dimensions:</strong> {dimensions_str}</p>
+            <p><strong>Length:</strong> {length_str}</p>
+            <p><strong>Notes:</strong> {notes if notes else '-'}</p>
+        </div>
+"""
+
+    # Add screenshots if available
+    if marker.id in screenshots_dict:
+        screenshots = screenshots_dict[marker.id]
+        html += f"""
+        <div class="screenshots" data-marker-id="{marker.id}">
+"""
+        for desc, filename, filepath in screenshots:
+            html += f"""
+            <div class="screenshot">
+                <h4>{desc}</h4>
+                <img src="images/{filename}" alt="{desc}">
+                <p>{desc} view of {marker.id}</p>
+            </div>
+"""
+
+        # Add custom images container
+        html += f"""
+            <div class="screenshot add-custom-images" id="custom-images-{marker.id}">
+                <!-- Custom images will be added here -->
+            </div>
+
+            <div class="screenshot add-image-btn">
+                <button onclick="addImage('{marker.id}')">
+                    <span class="plus-icon">+</span>
+                    <span>添加图片</span>
+                </button>
+                <input type="file" id="file-input-{marker.id}"
+                       accept="image/*" multiple
+                       style="display: none;"
+                       onchange="handleImageUpload('{marker.id}', this.files)">
+            </div>
+        </div>
+"""
+
+    html += """
+    </div>
+"""
+    return html
+
+
 def generate_html_report_with_screenshots(markers, screenshots_dict, output_path):
     """
-    Generate HTML report with screenshots
-    
+    Generate HTML report with screenshots using external template files.
+
+    Refactored to eliminate embedded HTML following Linus's "good taste" principle:
+    - HTML/CSS/JavaScript separated into template files
+    - Single responsibility helper functions
+    - Cleaner, more maintainable code
+
     Args:
         markers: List of marker objects
         screenshots_dict: Dictionary mapping marker.id to screenshots
         output_path: Output HTML file path
     """
     from datetime import datetime
-    
+
     try:
-        # Generate unique timestamp for this HTML report (精确到微秒)
+        # Generate unique timestamp for this HTML report
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")
         print(f"[Screenshot Export] Generated report timestamp: {timestamp}")
-        
+
         # Group markers by type
         markers_by_type = {'CUT': [], 'CONNECT': [], 'PROBE': []}
-        
+
         for marker in markers:
             marker_class = marker.__class__.__name__
             if 'Cut' in marker_class:
@@ -589,390 +774,65 @@ def generate_html_report_with_screenshots(markers, screenshots_dict, output_path
             elif 'Probe' in marker_class:
                 markers_by_type['PROBE'].append(marker)
         
-        # Generate HTML
-        html = f"""<!DOCTYPE html>
+        # Generate marker sections HTML
+        marker_sections_html = ""
+        for marker in markers:
+            marker_sections_html += _generate_marker_section_html(marker, screenshots_dict)
+
+        # Load templates from files (cleaner, more maintainable)
+        html_template = _load_template_file('report_template.html')
+        js_content = _load_template_file('report_script.js')
+        
+        if html_template and js_content:
+            # Use external templates (preferred method)
+            #
+            # NOTE:
+            # The HTML template contains many single braces `{` `}` in CSS
+            # blocks. Using `str.format()` on such a template causes Python to
+            # interpret those as format fields, which leads to KeyError like:
+            #   KeyError: '\\n            font-family'
+            #
+            # To avoid having to escape every CSS brace in the template, we
+            # perform a very small custom placeholder replacement just for the
+            # known fields we actually need to substitute.
+            context = {
+                "timestamp": timestamp,
+                "generation_datetime": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                "total_markers": len(markers),
+                "cut_count": len(markers_by_type['CUT']),
+                "connect_count": len(markers_by_type['CONNECT']),
+                "probe_count": len(markers_by_type['PROBE']),
+                "marker_sections": marker_sections_html,
+            }
+
+            html = html_template
+            for key, value in context.items():
+                placeholder = "{" + key + "}"
+                html = html.replace(placeholder, str(value))
+            
+            # Embed JavaScript inline for single-file export
+            html = html.replace('<script src="report_script.js"></script>', 
+                               f'<script>\n{js_content}\n</script>')
+            
+            print("[Screenshot] Using external template files")
+        else:
+            # Fallback: Use minimal embedded HTML if templates not found
+            print("[Screenshot] Warning: Template files not found, using embedded fallback")
+            html = f'''<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
-    <meta name="report-timestamp" content="{timestamp}" id="report-timestamp">
-    <title>FIB Markers Report with Screenshots</title>
-    <style>
-        body {{
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            background-color: #f5f5f5;
-        }}
-        .header {{
-            background-color: #2c3e50;
-            color: white;
-            padding: 20px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-        }}
-        h1 {{
-            margin: 0;
-            font-size: 24px;
-        }}
-        .summary {{
-            display: flex;
-            justify-content: space-around;
-            margin-bottom: 20px;
-        }}
-        .summary-box {{
-            background-color: white;
-            padding: 20px;
-            border-radius: 5px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            text-align: center;
-            flex: 1;
-            margin: 0 10px;
-        }}
-        .summary-box h3 {{
-            margin: 0;
-            color: #7f8c8d;
-            font-size: 14px;
-        }}
-        .summary-box .number {{
-            font-size: 36px;
-            font-weight: bold;
-            color: #2c3e50;
-            margin: 10px 0;
-        }}
-        .marker-section {{
-            background-color: white;
-            padding: 20px;
-            margin-bottom: 30px;
-            border-radius: 5px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            page-break-inside: avoid;
-        }}
-        .marker-section h2 {{
-            color: #2c3e50;
-            border-bottom: 2px solid #3498db;
-            padding-bottom: 10px;
-            margin-top: 0;
-        }}
-        .marker-info {{
-            margin-bottom: 20px;
-            padding: 15px;
-            background-color: #ecf0f1;
-            border-radius: 5px;
-        }}
-        .marker-info p {{
-            margin: 5px 0;
-        }}
-        .screenshots {{
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
-            margin-top: 20px;
-        }}
-        .screenshot {{
-            text-align: center;
-        }}
-        .screenshot h4 {{
-            margin: 0 0 10px 0;
-            color: #34495e;
-        }}
-        .screenshot img {{
-            width: 100%;
-            max-width: 800px;
-            border: 1px solid #ddd;
-            border-radius: 3px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }}
-        .screenshot p {{
-            margin: 5px 0;
-            color: #7f8c8d;
-            font-size: 12px;
-        }}
-        .footer {{
-            text-align: center;
-            color: #7f8c8d;
-            margin-top: 30px;
-            padding-top: 20px;
-            border-top: 1px solid #ddd;
-        }}
-
-        /* Notes section */
-        .notes-section {{
-            background: white;
-            padding: 15px 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            margin-bottom: 20px;
-        }}
-        .notes-section label {{
-            display: block;
-            font-weight: 600;
-            color: #2c3e50;
-            margin-bottom: 8px;
-            font-size: 14px;
-        }}
-        .notes-textarea {{
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-family: inherit;
-            font-size: 14px;
-            resize: vertical;
-            min-height: 60px;
-            box-sizing: border-box;
-        }}
-        .notes-textarea:focus {{
-            outline: none;
-            border-color: #3498db;
-            box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.1);
-        }}
-
-        /* Global controls */
-        .global-controls {{
-            display: flex;
-            gap: 15px;
-            align-items: center;
-            background: white;
-            padding: 15px 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            margin-bottom: 20px;
-        }}
-        .save-btn, .export-btn, .load-btn, .clear-btn {{
-            padding: 12px 24px;
-            font-size: 16px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.3s ease;
-        }}
-        .save-btn {{
-            background: #9b59b6;
-            color: white;
-        }}
-        .save-btn:hover {{
-            background: #8e44ad;
-            box-shadow: 0 4px 12px rgba(155, 89, 182, 0.3);
-        }}
-        .export-btn {{
-            background: #27ae60;
-            color: white;
-        }}
-        .export-btn:hover {{
-            background: #229954;
-            box-shadow: 0 4px 12px rgba(39, 174, 96, 0.3);
-        }}
-        .load-btn {{
-            background: #3498db;
-            color: white;
-        }}
-        .load-btn:hover {{
-            background: #2980b9;
-            box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
-        }}
-        .clear-btn {{
-            background: #e74c3c;
-            color: white;
-        }}
-        .clear-btn:hover {{
-            background: #c0392b;
-            box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
-        }}
-        .storage-info {{
-            margin-left: auto;
-            font-size: 14px;
-            color: #7f8c8d;
-        }}
-
-        /* Add image button */
-        .add-image-btn button {{
-            padding: 40px 20px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: 2px dashed white;
-            border-radius: 10px;
-            cursor: pointer;
-            font-size: 16px;
-            transition: all 0.3s ease;
-            width: 100%;
-            min-height: 200px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-        }}
-        .add-image-btn button:hover {{
-            transform: scale(1.05);
-            box-shadow: 0 8px 16px rgba(102, 126, 234, 0.4);
-        }}
-        .plus-icon {{
-            font-size: 48px;
-            margin-bottom: 10px;
-        }}
-
-        /* Custom image container - 与原始截图样式一致 */
-        .custom-image {{
-            position: relative;
-            text-align: center;
-            margin-bottom: 20px;
-            /* 确保与 .screenshot 对齐一致 */
-            display: inline-block;
-            width: 100%;
-        }}
-        .custom-image img {{
-            width: 100%;
-            max-width: 800px;
-            border: 1px solid #ddd;
-            border-radius: 3px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }}
-        /* 删除按钮 - 悬浮在图片右上角 */
-        .custom-image .remove-btn {{
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: rgba(231, 76, 60, 0.9);
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 32px;
-            height: 32px;
-            font-size: 20px;
-            cursor: pointer;
-            line-height: 1;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-            z-index: 10;
-        }}
-        .custom-image:hover .remove-btn {{
-            opacity: 1;
-        }}
-        .custom-image .remove-btn:hover {{
-            background: rgba(192, 57, 43, 1);
-            transform: scale(1.1);
-        }}
-
-        /* Lightbox 模态框 */
-        .lightbox {{
-            display: none;
-            position: fixed;
-            z-index: 9999;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.9);
-            cursor: zoom-out;
-        }}
-        .lightbox.active {{
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            animation: fadeIn 0.3s ease;
-        }}
-        .lightbox img {{
-            max-width: 95%;
-            max-height: 95%;
-            object-fit: contain;
-            box-shadow: 0 0 50px rgba(255, 255, 255, 0.3);
-            cursor: default;
-        }}
-        .lightbox-close {{
-            position: absolute;
-            top: 20px;
-            right: 30px;
-            color: white;
-            font-size: 40px;
-            font-weight: bold;
-            cursor: pointer;
-            background: none;
-            border: none;
-            transition: transform 0.3s ease;
-        }}
-        .lightbox-close:hover {{
-            transform: scale(1.2);
-        }}
-        @keyframes fadeIn {{
-            from {{ opacity: 0; }}
-            to {{ opacity: 1; }}
-        }}
-        /* 图片添加点击提示 */
-        .screenshot img,
-        .custom-image img {{
-            cursor: zoom-in;
-            transition: opacity 0.3s ease;
-        }}
-        .screenshot img:hover,
-        .custom-image img:hover {{
-            opacity: 0.9;
-        }}
-
-        @media print {{
-            .marker-section {{
-                page-break-inside: avoid;
-            }}
-            .global-controls, .add-image-btn {{
-                display: none;
-            }}
-            .notes-textarea {{
-                border: none;
-                padding: 5px 0;
-                background: transparent;
-            }}
-        }}
-    </style>
+    <title>FIB Markers Report</title>
 </head>
 <body>
-    <!-- Lightbox 模态框 -->
-    <div id="lightbox" class="lightbox" onclick="closeLightbox()">
-        <button class="lightbox-close" onclick="closeLightbox()" title="关闭 (ESC)">×</button>
-        <img id="lightbox-img" src="" alt="放大图片" onclick="event.stopPropagation()">
-    </div>
-
-    <div class="header">
-        <h1>FIB Markers Report with Screenshots</h1>
-        <p>Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
-        <p>Total Markers: {len(markers)}</p>
-    </div>
-    
-    <div class="summary">
-        <div class="summary-box">
-            <h3>CUT Markers</h3>
-            <div class="number">{len(markers_by_type['CUT'])}</div>
-        </div>
-        <div class="summary-box">
-            <h3>CONNECT Markers</h3>
-            <div class="number">{len(markers_by_type['CONNECT'])}</div>
-        </div>
-        <div class="summary-box">
-            <h3>PROBE Markers</h3>
-            <div class="number">{len(markers_by_type['PROBE'])}</div>
-        </div>
-    </div>
-
-    <div class="notes-section">
-        <label for="report-notes">Notes:</label>
-        <textarea id="report-notes" class="notes-textarea" rows="3" placeholder="输入备注...">connect resistance &gt; Ω</textarea>
-    </div>
-
-    <div class="global-controls">
-        <button onclick="if(saveNotes()) alert('✅ Notes 已保存到浏览器缓存！'); else alert('❌ 保存失败，请检查控制台');" class="save-btn" title="保存 Notes 到浏览器缓存">
-            💾 保存 Notes
-        </button>
-        <button onclick="exportHTMLWithImages()" class="export-btn" title="将当前页面（包括自定义图片和 Notes）导出为独立 HTML 文件">
-            📤 导出 HTML
-        </button>
-        <button onclick="loadCustomImages()" class="load-btn" title="从浏览器缓存加载之前保存的自定义图片">
-            📥 加载已保存图片
-        </button>
-        <button onclick="clearAllCustomImages()" class="clear-btn">
-            🗑️ 清除所有自定义图片
-        </button>
-        <div class="storage-info">
-            已使用: <span id="storage-used">0 KB</span> / 5 MB
-        </div>
-    </div>
-"""
+    <h1>FIB Markers Report</h1>
+    <p>Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
+    <p>Total Markers: {len(markers)}</p>
+    <p><strong>Error:</strong> Template files not found in templates/ directory.</p>
+    <p>Please ensure report_template.html and report_script.js exist.</p>
+</body>
+</html>'''
+        
         
         # Add each marker section
         for marker in markers:

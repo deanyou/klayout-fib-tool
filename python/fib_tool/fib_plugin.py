@@ -117,141 +117,91 @@ except ImportError:
     print("[FIB Plugin] Multi-point markers not available")
 
 # Marker creation functions
-def create_cut_marker(x1, y1, x2, y2, layer1=None, layer2=None):
-    """Create a CUT marker connecting two points
-    
-    Args:
-        x1, y1: First point coordinates (microns)
-        x2, y2: Second point coordinates (microns)
-        layer1: Layer info string for point 1 (e.g., "M1" or "1/0")
-        layer2: Layer info string for point 2 (e.g., "M2" or "2/0")
-    """
+def _get_next_marker_number(marker_type):
+    """Get next available marker number using smart counter with fallback"""
     global marker_counter
-    
-    print(f"[DEBUG] create_cut_marker called with: x1={x1}, y1={y1}, x2={x2}, y2={y2}, layer1={layer1}, layer2={layer2}")
-    
-    # Use smart counter to get next available number
+
     try:
         if PANEL_AVAILABLE:
             panel = get_fib_panel()
             if panel and hasattr(panel, 'smart_counter'):
-                next_number = panel.smart_counter.get_next_number('cut')
-            else:
-                next_number = marker_counter['cut']
-        else:
-            next_number = marker_counter['cut']
-    except:
-        next_number = marker_counter['cut']
-    
-    marker_id = f"CUT_{next_number}"
-    
+                return panel.smart_counter.get_next_number(marker_type)
+        return marker_counter[marker_type]
+    except (AttributeError, KeyError, TypeError) as e:
+        print(f"[FIB] Smart counter error: {e}, using fallback")
+        return marker_counter[marker_type]
+
+
+def _create_marker_internal(marker_type, marker_class, *args, **kwargs):
+    """Internal unified marker creation function
+
+    Args:
+        marker_type: 'cut', 'connect', or 'probe'
+        marker_class: CutMarker, ConnectMarker, or ProbeMarker class
+        *args, **kwargs: Arguments passed to marker class constructor
+    """
+    global marker_counter
+
+    # Get next number
+    next_number = _get_next_marker_number(marker_type)
+    marker_id = f"{marker_type.upper()}_{next_number}"
+
     # Update global counter
-    marker_counter['cut'] = max(marker_counter['cut'], next_number + 1)
-    
-    marker = CutMarker(marker_id, x1, y1, x2, y2, 6, layer1=layer1, layer2=layer2)
-    marker.notes = DEFAULT_MARKER_NOTES['cut']
-    marker.screenshots = []  # Initialize screenshots
-    print(f"[DEBUG] Created marker: {marker_id} from ({x1}, {y1}) [{layer1 or 'N/A'}] to ({x2}, {y2}) [{layer2 or 'N/A'}]")
-    
-    # Notify panel if available
+    marker_counter[marker_type] = max(marker_counter[marker_type], next_number + 1)
+
+    # Create marker
+    marker = marker_class(marker_id, *args, **kwargs)
+    marker.notes = DEFAULT_MARKER_NOTES[marker_type]
+    marker.screenshots = []
+
+    # Notify panel
     if PANEL_AVAILABLE:
         try:
             panel = get_fib_panel()
             if panel:
                 panel.add_marker(marker)
         except Exception as e:
-            print(f"[FIB Plugin] Error notifying panel for CUT marker: {e}")
-    
+            print(f"[FIB Plugin] Error notifying panel for {marker_type.upper()} marker: {e}")
+
+    return marker
+
+
+def create_cut_marker(x1, y1, x2, y2, layer1=None, layer2=None):
+    """Create a CUT marker connecting two points
+
+    Args:
+        x1, y1: First point coordinates (microns)
+        x2, y2: Second point coordinates (microns)
+        layer1: Layer info string for point 1 (e.g., "M1" or "1/0")
+        layer2: Layer info string for point 2 (e.g., "M2" or "2/0")
+    """
+    print(f"[DEBUG] create_cut_marker called with: x1={x1}, y1={y1}, x2={x2}, y2={y2}, layer1={layer1}, layer2={layer2}")
+    marker = _create_marker_internal('cut', CutMarker, x1, y1, x2, y2, 6, layer1=layer1, layer2=layer2)
+    print(f"[DEBUG] Created marker: {marker.id} from ({x1}, {y1}) [{layer1 or 'N/A'}] to ({x2}, {y2}) [{layer2 or 'N/A'}]")
     return marker
 
 def create_connect_marker(x1, y1, x2, y2, layer1=None, layer2=None):
     """Create a CONNECT marker
-    
+
     Args:
         x1, y1: First point coordinates (microns)
         x2, y2: Second point coordinates (microns)
         layer1: Layer info string for point 1 (e.g., "M1" or "1/0")
         layer2: Layer info string for point 2 (e.g., "M2" or "2/0")
     """
-    global marker_counter
-    
-    # Use smart counter to get next available number
-    try:
-        if PANEL_AVAILABLE:
-            panel = get_fib_panel()
-            if panel and hasattr(panel, 'smart_counter'):
-                next_number = panel.smart_counter.get_next_number('connect')
-            else:
-                next_number = marker_counter['connect']
-        else:
-            next_number = marker_counter['connect']
-    except:
-        next_number = marker_counter['connect']
-    
-    marker_id = f"CONNECT_{next_number}"
-    
-    # Update global counter
-    marker_counter['connect'] = max(marker_counter['connect'], next_number + 1)
-    
-    marker = ConnectMarker(marker_id, x1, y1, x2, y2, 6, layer1=layer1, layer2=layer2)
-    marker.notes = DEFAULT_MARKER_NOTES['connect']
-    marker.screenshots = []  # Initialize screenshots
-    
-    print(f"[DEBUG] Created marker: {marker_id} from ({x1}, {y1}) [{layer1 or 'N/A'}] to ({x2}, {y2}) [{layer2 or 'N/A'}]")
-    
-    # Notify panel if available
-    if PANEL_AVAILABLE:
-        try:
-            panel = get_fib_panel()
-            if panel:
-                panel.add_marker(marker)
-        except Exception as e:
-            print(f"[FIB Plugin] Error notifying panel for CONNECT marker: {e}")
-    
+    marker = _create_marker_internal('connect', ConnectMarker, x1, y1, x2, y2, 6, layer1=layer1, layer2=layer2)
+    print(f"[DEBUG] Created marker: {marker.id} from ({x1}, {y1}) [{layer1 or 'N/A'}] to ({x2}, {y2}) [{layer2 or 'N/A'}]")
     return marker
 
 def create_probe_marker(x, y, target_layer=None):
     """Create a PROBE marker
-    
+
     Args:
         x, y: Probe point coordinates (microns)
         target_layer: Layer info string at probe point (e.g., "M1" or "1/0")
     """
-    global marker_counter
-    
-    # Use smart counter to get next available number
-    try:
-        if PANEL_AVAILABLE:
-            panel = get_fib_panel()
-            if panel and hasattr(panel, 'smart_counter'):
-                next_number = panel.smart_counter.get_next_number('probe')
-            else:
-                next_number = marker_counter['probe']
-        else:
-            next_number = marker_counter['probe']
-    except:
-        next_number = marker_counter['probe']
-    
-    marker_id = f"PROBE_{next_number}"
-    
-    # Update global counter
-    marker_counter['probe'] = max(marker_counter['probe'], next_number + 1)
-    
-    marker = ProbeMarker(marker_id, x, y, 6, target_layer=target_layer)
-    marker.notes = DEFAULT_MARKER_NOTES['probe']
-    marker.screenshots = []  # Initialize screenshots
-    
-    print(f"[DEBUG] Created marker: {marker_id} at ({x}, {y}) [{target_layer or 'N/A'}]")
-    
-    # Notify panel if available
-    if PANEL_AVAILABLE:
-        try:
-            panel = get_fib_panel()
-            if panel:
-                panel.add_marker(marker)
-        except Exception as e:
-            print(f"[FIB Plugin] Error notifying panel for PROBE marker: {e}")
-    
+    marker = _create_marker_internal('probe', ProbeMarker, x, y, 6, target_layer=target_layer)
+    print(f"[DEBUG] Created marker: {marker.id} at ({x}, {y}) [{target_layer or 'N/A'}]")
     return marker
 
 # Drawing function
@@ -541,8 +491,8 @@ class FIBToolPlugin(pya.Plugin):
             if len(self.temp_points) >= 2:
                 try:
                     pya.MainWindow.instance().message(f"Cut path: {len(self.temp_points)} points. Right-click to finish.", UI_TIMEOUTS['message_medium'])
-                except:
-                    pass
+                except Exception:
+                    pass  # Message display is non-critical
         elif working_mode == 'connect':
             if len(self.temp_points) == 2:
                 # Get layer info for each point
@@ -560,8 +510,8 @@ class FIBToolPlugin(pya.Plugin):
             if len(self.temp_points) >= 2:
                 try:
                     pya.MainWindow.instance().message(f"Connect path: {len(self.temp_points)} points. Right-click to finish.", UI_TIMEOUTS['message_medium'])
-                except:
-                    pass
+                except Exception:
+                    pass  # Message display is non-critical
         elif working_mode == 'probe':
             if len(self.temp_points) == 1:
                 # Get layer info for probe point
@@ -611,8 +561,8 @@ class FIBToolPlugin(pya.Plugin):
             print(f"[DEBUG] Not enough points: {len(self.temp_points)} < 2")
             try:
                 pya.MainWindow.instance().message("Need at least 2 points. Continue clicking with left button.", UI_TIMEOUTS['message_medium'])
-            except:
-                pass
+            except Exception:
+                pass  # Message display is non-critical
             return True
         
         print(f"[DEBUG] Right-click: Finishing {effective_mode} with {len(self.temp_points)} points")

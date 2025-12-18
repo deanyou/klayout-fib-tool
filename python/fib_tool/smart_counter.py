@@ -64,7 +64,8 @@ class SmartCounter:
                 return global_counter.get(marker_type, 0)
             else:
                 return 0
-        except:
+        except (KeyError, AttributeError) as e:
+            print(f"[Smart Counter] Fallback counter error: {e}")
             return 0
     
     def update_global_counter(self, marker_type, number):

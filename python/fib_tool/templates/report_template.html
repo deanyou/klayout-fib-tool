@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="report-timestamp" content="{timestamp}" id="report-timestamp">
+    <title>FIB Markers Report with Screenshots</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .header {
+            background-color: #2c3e50;
+            color: white;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        .summary {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 20px;
+        }
+        .summary-box {
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+            flex: 1;
+            margin: 0 10px;
+        }
+        .summary-box h3 {
+            margin: 0;
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+        .summary-box .number {
+            font-size: 36px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin: 10px 0;
+        }
+        .marker-section {
+            background-color: white;
+            padding: 20px;
+            margin-bottom: 30px;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            page-break-inside: avoid;
+        }
+        .marker-section h2 {
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+        .marker-info {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #ecf0f1;
+            border-radius: 5px;
+        }
+        .marker-info p {
+            margin: 5px 0;
+        }
+        .screenshots {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .screenshot {
+            text-align: center;
+        }
+        .screenshot h4 {
+            margin: 0 0 10px 0;
+            color: #34495e;
+        }
+        .screenshot img {
+            width: 100%;
+            max-width: 800px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            cursor: zoom-in;
+            transition: opacity 0.3s ease;
+        }
+        .screenshot img:hover {
+            opacity: 0.9;
+        }
+        .screenshot p {
+            margin: 5px 0;
+            color: #7f8c8d;
+            font-size: 12px;
+        }
+        .footer {
+            text-align: center;
+            color: #7f8c8d;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+        }
+
+        /* Notes section */
+        .notes-section {
+            background: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        .notes-section label {
+            display: block;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        .notes-textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 14px;
+            resize: vertical;
+            min-height: 60px;
+            box-sizing: border-box;
+        }
+        .notes-textarea:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.1);
+        }
+
+        /* Global controls */
+        .global-controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            background: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        .save-btn, .export-btn, .load-btn, .clear-btn {
+            padding: 12px 24px;
+            font-size: 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        .save-btn {
+            background: #9b59b6;
+            color: white;
+        }
+        .save-btn:hover {
+            background: #8e44ad;
+            box-shadow: 0 4px 12px rgba(155, 89, 182, 0.3);
+        }
+        .export-btn {
+            background: #27ae60;
+            color: white;
+        }
+        .export-btn:hover {
+            background: #229954;
+            box-shadow: 0 4px 12px rgba(39, 174, 96, 0.3);
+        }
+        .load-btn {
+            background: #3498db;
+            color: white;
+        }
+        .load-btn:hover {
+            background: #2980b9;
+            box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+        }
+        .clear-btn {
+            background: #e74c3c;
+            color: white;
+        }
+        .clear-btn:hover {
+            background: #c0392b;
+            box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
+        }
+        .storage-info {
+            margin-left: auto;
+            font-size: 14px;
+            color: #7f8c8d;
+        }
+
+        /* Add image button */
+        .add-image-btn button {
+            padding: 40px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: 2px dashed white;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            width: 100%;
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .add-image-btn button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 8px 16px rgba(102, 126, 234, 0.4);
+        }
+        .plus-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
+        /* Custom image container */
+        .custom-image {
+            position: relative;
+            text-align: center;
+            margin-bottom: 20px;
+            display: inline-block;
+            width: 100%;
+        }
+        .custom-image img {
+            width: 100%;
+            max-width: 800px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            cursor: zoom-in;
+        }
+        .custom-image .remove-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(231, 76, 60, 0.9);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            font-size: 20px;
+            cursor: pointer;
+            line-height: 1;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: 10;
+        }
+        .custom-image:hover .remove-btn {
+            opacity: 1;
+        }
+        .custom-image .remove-btn:hover {
+            background: rgba(192, 57, 43, 1);
+            transform: scale(1.1);
+        }
+
+        /* Lightbox modal */
+        .lightbox {
+            display: none;
+            position: fixed;
+            z-index: 9999;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            cursor: zoom-out;
+        }
+        .lightbox.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.3s ease;
+        }
+        .lightbox img {
+            max-width: 95%;
+            max-height: 95%;
+            object-fit: contain;
+            box-shadow: 0 0 50px rgba(255, 255, 255, 0.3);
+            cursor: default;
+        }
+        .lightbox-close {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            color: white;
+            font-size: 40px;
+            font-weight: bold;
+            cursor: pointer;
+            background: none;
+            border: none;
+            transition: transform 0.3s ease;
+        }
+        .lightbox-close:hover {
+            transform: scale(1.2);
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @media print {
+            .marker-section {
+                page-break-inside: avoid;
+            }
+            .global-controls, .add-image-btn {
+                display: none;
+            }
+            .notes-textarea {
+                border: none;
+                padding: 5px 0;
+                background: transparent;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Lightbox modal -->
+    <div id="lightbox" class="lightbox" onclick="closeLightbox()">
+        <button class="lightbox-close" onclick="closeLightbox()" title="关闭 (ESC)">×</button>
+        <img id="lightbox-img" src="" alt="放大图片" onclick="event.stopPropagation()">
+    </div>
+
+    <div class="header">
+        <h1>FIB Markers Report with Screenshots</h1>
+        <p>Generated: {generation_datetime}</p>
+        <p>Total Markers: {total_markers}</p>
+    </div>
+    
+    <div class="summary">
+        <div class="summary-box">
+            <h3>CUT Markers</h3>
+            <div class="number">{cut_count}</div>
+        </div>
+        <div class="summary-box">
+            <h3>CONNECT Markers</h3>
+            <div class="number">{connect_count}</div>
+        </div>
+        <div class="summary-box">
+            <h3>PROBE Markers</h3>
+            <div class="number">{probe_count}</div>
+        </div>
+    </div>
+
+    <div class="notes-section">
+        <label for="report-notes">Notes:</label>
+        <textarea id="report-notes" class="notes-textarea" rows="3" placeholder="输入备注...">connect resistance &gt; Ω</textarea>
+    </div>
+
+    <div class="global-controls">
+        <button onclick="if(saveNotes()) alert('✅ Notes 已保存到浏览器缓存！'); else alert('❌ 保存失败，请检查控制台');" class="save-btn" title="保存 Notes 到浏览器缓存">
+            💾 保存 Notes
+        </button>
+        <button onclick="exportHTMLWithImages()" class="export-btn" title="将当前页面（包括自定义图片和 Notes）导出为独立 HTML 文件">
+            📤 导出 HTML
+        </button>
+        <button onclick="loadCustomImages()" class="load-btn" title="从浏览器缓存加载之前保存的自定义图片">
+            📥 加载已保存图片
+        </button>
+        <button onclick="clearAllCustomImages()" class="clear-btn">
+            🗑️ 清除所有自定义图片
+        </button>
+        <div class="storage-info">
+            已使用: <span id="storage-used">0 KB</span> / 5 MB
+        </div>
+    </div>
+
+{marker_sections}
+
+    <div class="footer">
+        <p>Generated by KLayout FIB Tool</p>
+        <p>All measurements in micrometers (&mu;m)</p>
+    </div>
+
+    <script src="report_script.js"></script>
+</body>
+</html>

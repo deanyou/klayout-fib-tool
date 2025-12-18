@@ -103,13 +103,7 @@ class ConnectMarker:
         circle2 = pya.Polygon.ellipse(pya.Box(p2.x - r, p2.y - r, p2.x + r, p2.y + r), 32)
         cell.shapes(fib_layer).insert(circle1)
         cell.shapes(fib_layer).insert(circle2)
-        
-        # Record start and end coordinates (already stored in dataclass)
-        self.start_x = self.x1
-        self.start_y = self.y1
-        self.end_x = self.x2
-        self.end_y = self.y2
-        
+
         # Draw label at midpoint
         mid_x = (p1.x + p2.x) // 2
         mid_y = (p1.y + p2.y) // 2
@@ -120,9 +114,10 @@ class ConnectMarker:
         """Serialize to XML element"""
         layer1_attr = f' layer1="{self.layer1}"' if self.layer1 else ''
         layer2_attr = f' layer2="{self.layer2}"' if self.layer2 else ''
-        return (f'<connect id="{self.id}" x1="{self.x1}" y1="{self.y1}" ' 
-                f'x2="{self.x2}" y2="{self.y2}" layer="{self.layer}" ' 
-                f'start_x="{self.x1}" start_y="{self.y1}" ' 
+        # Note: start_x/end_x kept in XML for backward compatibility
+        return (f'<connect id="{self.id}" x1="{self.x1}" y1="{self.y1}" '
+                f'x2="{self.x2}" y2="{self.y2}" layer="{self.layer}" '
+                f'start_x="{self.x1}" start_y="{self.y1}" '
                 f'end_x="{self.x2}" end_y="{self.y2}"{layer1_attr}{layer2_attr}/>')
     
     @staticmethod
@@ -164,13 +159,7 @@ class ProbeMarker:
         r = int(circle_radius / dbu)  # Convert to database units
         circle = pya.Polygon.ellipse(pya.Box(cx - r, cy - r, cx + r, cy + r), 32)
         cell.shapes(fib_layer).insert(circle)
-        
-        # Record start and end coordinates (same as center for circle)
-        self.start_x = self.x
-        self.start_y = self.y
-        self.end_x = self.x
-        self.end_y = self.y
-        
+
         # Draw label
         text = pya.Text(self.id, pya.Trans(pya.Point(cx, cy + r)))
         cell.shapes(fib_layer).insert(text)
@@ -178,8 +167,9 @@ class ProbeMarker:
     def to_xml(self) -> str:
         """Serialize to XML element"""
         target_layer_attr = f' target_layer="{self.target_layer}"' if self.target_layer else ''
-        return (f'<probe id="{self.id}" x="{self.x}" y="{self.y}" layer="{self.layer}" ' 
-                f'start_x="{self.x}" start_y="{self.y}" ' 
+        # Note: start_x/end_x kept in XML for backward compatibility
+        return (f'<probe id="{self.id}" x="{self.x}" y="{self.y}" layer="{self.layer}" '
+                f'start_x="{self.x}" start_y="{self.y}" '
                 f'end_x="{self.x}" end_y="{self.y}"{target_layer_attr}/>')
     
     @staticmethod
