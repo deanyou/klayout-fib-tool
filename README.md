@@ -98,119 +98,158 @@ Setup / 设置方法: View → Layer Toolbox → Right-click layer → Propertie
 
 For details / 详细说明: [Layer Color Setup / 图层颜色设置](docs/LAYER_COLOR_SETUP.md)
 
-## 项目结构
+## Project Structure / 项目结构
 
 ```
 klayout-fib-tool/
-├── fib_tool/                    # 源代码（SALT 包）
-│   ├── klayout_package.py       # SALT 入口点
-│   ├── __init__.py              # 包初始化
-│   ├── fib_plugin.py            # 主插件（Plugin Factory）
-│   ├── fib_panel.py             # 面板 UI
-│   ├── markers.py               # 基础标记类
-│   ├── multipoint_markers.py    # 多点标记
-│   ├── config.py                # 配置管理
-│   ├── layer_manager.py         # 自动图层创建
-│   ├── screenshot_export.py     # 截图导出
-│   ├── marker_menu.py           # 右键菜单
-│   ├── storage.py               # XML 序列化
-│   ├── report.py                # HTML/PDF 报告
-│   ├── smart_counter.py         # 智能计数器
-│   ├── utils.py                 # 工具函数
-│   └── file_dialog_helper.py    # 文件对话框
+├── python/fib_tool/             # Source code (SALT package) / 源代码（SALT 包）
+│   ├── klayout_package.py       # SALT entry point / SALT 入口点
+│   ├── __init__.py              # Package initialization / 包初始化
+│   ├── fib_plugin.py            # Main plugin (Plugin Factory) / 主插件
+│   ├── fib_panel.py             # Panel UI / 面板界面
+│   ├── markers.py               # Basic marker classes / 基础标记类
+│   ├── multipoint_markers.py    # Multi-point markers / 多点标记
+│   ├── config.py                # Configuration / 配置管理
+│   ├── layer_manager.py         # Auto layer creation / 自动图层创建
+│   ├── screenshot_export.py     # Screenshot export / 截图导出
+│   ├── marker_menu.py           # Context menu / 右键菜单
+│   └── layer_tap.py             # Layer detection / 图层检测
 │
-├── docs/                        # 文档
-│   ├── SALT_INSTALLATION.md     # SALT 安装指南
-│   ├── LAYER_AUTO_CREATION_TEST.md  # 图层测试
-│   └── ...                      # 其他设计文档
+├── pymacros/                    # KLayout macros / KLayout 宏
+│   ├── fib_menu.lym             # Tools menu entry / 工具菜单入口
+│   └── fib_tool.lym             # Plugin registration / 插件注册
 │
-├── salt.xml                     # SALT 包描述文件
-├── test_layer_creation.py       # 图层创建测试脚本
-├── INSTALL.md                   # 安装指南
-└── README.md                    # 本文件
+├── docs/                        # Documentation / 文档
+│   ├── LAYER_COLOR_SETUP.md     # Layer color guide / 图层颜色指南
+│   └── ...                      # Other docs / 其他文档
+│
+├── install.sh                   # Installation script (Unix) / 安装脚本
+├── install.bat                  # Installation script (Windows) / 安装脚本
+├── uninstall.sh                 # Uninstall script (Unix) / 卸载脚本
+├── uninstall.bat                # Uninstall script (Windows) / 卸载脚本
+├── load_fib_tool.py             # Development loader / 开发加载器
+├── grain.xml                    # SALT package descriptor / SALT 包描述
+└── README.md                    # This file / 本文件
 ```
 
-## 已实现功能
+## Features / 功能特性
 
-- **CUT 标注**：X 符号 + 方向箭头
-- **CONNECT 标注**：连线 + 端点圆圈
-- **PROBE 标注**：向下箭头符号
-- **删除标记**：选中后删除
-- **保存/加载**：XML 文件持久化
-- **生成报告**：HTML 报告 + 截图
+### Core Features / 核心功能
+- **CUT Markers / CUT 标注**: X symbol + direction arrow / X 符号 + 方向箭头
+- **CONNECT Markers / CONNECT 标注**: Line + endpoint circles / 连线 + 端点圆圈
+- **PROBE Markers / PROBE 标注**: Downward arrow / 向下箭头
+- **Multi-point Support / 多点支持**: Create complex paths / 创建复杂路径
+- **Layer Detection / 图层检测**: Auto-detect layers at click position / 自动检测点击位置的图层
 
-## 设计哲学
+### UI Features / 界面功能
+- **Panel Interface / 面板界面**: Dockable panel with marker tree / 可停靠面板，带标记树
+- **Context Menu / 右键菜单**: Right-click operations / 右键操作
+- **Toolbar Buttons / 工具栏按钮**: Quick access to marker modes / 快速访问标记模式
+- **Keyboard Shortcuts / 键盘快捷键**: `Ctrl+Shift+F` to toggle panel / 切换面板
 
-遵循 **Linus Torvalds** 的编程原则：
+### Data Management / 数据管理
+- **Save/Load / 保存/加载**: XML file persistence / XML 文件持久化
+- **Export Reports / 导出报告**: HTML reports with screenshots / HTML 报告带截图
+- **Smart Numbering / 智能编号**: Auto-increment marker IDs / 自动递增标记 ID
+- **Notes / 备注**: Add notes to each marker / 为每个标记添加备注
 
-1. **数据结构优先**：好的数据结构让代码自然简洁
-2. **消除特殊情况**：用多态，不用 if/else
-3. **扁平优于嵌套**：早返回，最多 2 层缩进
-4. **实用主义**：解决真实问题，不过度设计
+### Advanced Features / 高级功能
+- **Auto Layer Creation / 自动图层创建**: Creates FIB layers (337, 338, 339) / 自动创建 FIB 图层
+- **Zoom to Marker / 缩放到标记**: Double-click to zoom / 双击缩放
+- **Coordinate Display / 坐标显示**: Shows marker coordinates / 显示标记坐标
+- **Cross-platform / 跨平台**: Windows, macOS, Linux support / 支持 Windows、macOS、Linux
 
-详细哲学：[LinusTorvalds.md](LinusTorvalds.md)
+## Design Philosophy / 设计哲学
 
-## 代码质量
+Following **Linus Torvalds**' programming principles / 遵循 **Linus Torvalds** 的编程原则:
 
+1. **Data structures first / 数据结构优先**: Good data structures make code naturally simple / 好的数据结构让代码自然简洁
+2. **Eliminate special cases / 消除特殊情况**: Use polymorphism, not if/else / 用多态，不用 if/else
+3. **Flat is better than nested / 扁平优于嵌套**: Early returns, max 2 levels of indentation / 早返回，最多 2 层缩进
+4. **Pragmatism / 实用主义**: Solve real problems, don't over-engineer / 解决真实问题，不过度设计
+
+For details / 详细哲学: [LinusTorvalds.md](LinusTorvalds.md)
+
+## Code Quality / 代码质量
+
+**Clean, simple, no BS / 简洁、直接、无废话**
+
+- Modular architecture / 模块化架构
+- Comprehensive error handling / 完善的错误处理
+- Cross-platform compatibility / 跨平台兼容
+- Well-documented / 文档完善
+
+## Documentation / 文档
+
+### User Documentation / 用户文档
+- [Installation Guide / 安装指南](INSTALLATION.md)
+- [How to Load / 加载方法](HOW_TO_LOAD.md)
+- [Layer Color Setup / 图层颜色设置](docs/LAYER_COLOR_SETUP.md)
+
+### Developer Documentation / 开发文档
+- [Context Transfer Fixes / 上下文转移修复](CONTEXT_TRANSFER_FIXES.md)
+- [Fix Circular Import / 修复循环导入](FIX_CIRCULAR_IMPORT.md)
+- [Fix Unicode Encoding / 修复 Unicode 编码](FIX_UNICODE_ENCODING.md)
+- [Programming Philosophy / 编程哲学](LinusTorvalds.md)
+
+### Troubleshooting / 故障排除
+- [Panel Button Error / 面板按钮错误](FIX_PANEL_BUTTON_ERROR.md)
+- [Tools Menu Feature / 工具菜单功能](TOOLS_MENU_FEATURE.md)
+- [Which Loader to Use / 使用哪个加载器](WHICH_LOADER_TO_USE.md)
+
+## Testing / 测试
+
+Run diagnostics in KLayout Macro Development (F5) / 在 KLayout 宏开发窗口运行诊断:
+
+```python
+# Diagnose panel activation / 诊断面板激活
+exec(open('/path/to/diagnose_panel_activation.py', encoding='utf-8').read())
+
+# Diagnose layer creation / 诊断图层创建
+exec(open('/path/to/diagnose_layer_creation.py', encoding='utf-8').read())
 ```
-总代码行数：1028 行
-平均每文件：114 行
-最大文件：plugin.py (250 行)
-缩进层次：最多 2 层
-函数长度：最长 45 行
-```
 
-**符合 Linus 标准：简洁、直接、无废话**
+## Roadmap / 路线图
 
-## 文档
+### v1.0 (Current / 当前)
+- ✅ Core marking functionality / 核心标注功能
+- ✅ XML save/load / XML 保存/加载
+- ✅ HTML report generation / HTML 报告生成
+- ✅ Multi-point markers / 多点标记
+- ✅ Layer detection / 图层检测
+- ✅ Cross-platform support / 跨平台支持
 
-- **用户文档**
-  - [安装指南](INSTALL.md)
-  - [使用说明](src/README.md)
-  - [验证清单](VERIFICATION.md)
+### v1.1 (Planned / 计划中)
+- Group management / 分组管理
+- PDF export / PDF 导出
+- Undo/Redo / 撤销/重做
+- More keyboard shortcuts / 更多快捷键
 
-- **开发文档**
-  - [技术需求](docs/requirements.md)
-  - [产品需求](docs/prd.md)
-  - [MVP 规划](docs/mvp_plan.md)
-  - [实现总结](MVP_SUMMARY.md)
-
-- **参考文档**
-  - [KLayout API 研究](docs/klayout_api_research.md)
-  - [编程哲学](LinusTorvalds.md)
-
-## 测试
-
-```bash
-# 在 KLayout Macro Development 窗口运行
-python src/test_markers.py
-```
-
-手动测试清单：[VERIFICATION.md](VERIFICATION.md)
-
-## 下一步
-
-### v1.0 MVP（当前）
-- 基本标注功能
-- XML 保存/加载
-- HTML 报告生成
-
-### v1.1 增强版（规划中）
-- 分组管理
-- PDF 报告
-- 三级视图截图
-- 撤销/重做
-- 快捷键支持
-
-## 许可证
+## License / 许可证
 
 MIT License
 
-## 致谢
+## Acknowledgments / 致谢
 
-遵循 Linus Torvalds 的编程哲学：
+Following Linus Torvalds' programming philosophy / 遵循 Linus Torvalds 的编程哲学:
 > "Talk is cheap. Show me the code."
+> 
+> "空谈无益，代码说话。"
+
+## Contributing / 贡献
+
+Contributions are welcome! Please feel free to submit issues and pull requests.
+
+欢迎贡献！请随时提交问题和拉取请求。
+
+## Support / 支持
+
+- Report bugs / 报告错误: [GitHub Issues](https://github.com/yourusername/klayout-fib-tool/issues)
+- Documentation / 文档: See `docs/` folder / 查看 `docs/` 文件夹
+- Contact / 联系: [Your contact info / 你的联系方式]
 
 ---
 
-**简单、实用、零废话。代码说话。** for klayout
+**Simple, practical, no BS. Code speaks. / 简单、实用、零废话。代码说话。**
+
+Made for KLayout / 为 KLayout 打造
