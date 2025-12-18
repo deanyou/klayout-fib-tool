@@ -634,6 +634,85 @@ class FIBPanel(pya.QDockWidget):
         date_str = datetime.now().strftime("%Y%m%d")
         return f"{gds_basename}_#{number}_{date_str}"
 
+    def on_export_html(self):
+        """Handle Export HTML Only - with directory selection"""
+        try:
+            if not self.markers_list:
+                pya.MessageBox.warning("FIB Panel", "No markers to export. Create some markers first.", pya.MessageBox.Ok)
+                return
+
+            # Get current view
+            main_window = pya.Application.instance().main_window()
+            current_view = main_window.current_view()
+
+            if not current_view:
+                pya.MessageBox.warning("FIB Panel", "No active view", pya.MessageBox.Ok)
+                return
+
+            # Get GDS filename
+            gds_basename = self.get_gds_filename(current_view)
+
+            # Select parent directory
+            home_dir = os.path.expanduser("~")
+            file_dialog = pya.QFileDialog()
+            parent_dir = file_dialog.getExistingDirectory(
+                self, "Select Export Directory for HTML", home_dir
+            )
+
+            # Handle different return types
+            if isinstance(parent_dir, tuple):
+                parent_dir = parent_dir[0] if parent_dir[0] else None
+
+            if not parent_dir:
+                print("[FIB Panel] Export HTML cancelled by user")
+                return
+
+            # Auto-increment number
+            next_number = self.get_next_export_number(parent_dir, gds_basename)
+
+            # Generate directory name
+            export_dirname = self.generate_export_dirname(gds_basename, next_number)
+            export_dir = os.path.join(parent_dir, export_dirname)
+
+            # Create directory
+            try:
+                os.makedirs(export_dir, exist_ok=False)
+                print(f"[FIB Panel] Created export directory: {export_dir}")
+            except FileExistsError:
+                # Rare case: directory just created, increment and retry
+                next_number += 1
+                export_dirname = self.generate_export_dirname(gds_basename, next_number)
+                export_dir = os.path.join(parent_dir, export_dirname)
+                try:
+                    os.makedirs(export_dir, exist_ok=True)
+                    print(f"[FIB Panel] Created export directory (retry): {export_dir}")
+                except Exception as e:
+                    pya.MessageBox.warning("FIB Panel",
+                        f"Failed to create directory:\n{export_dir}\n\nError: {str(e)}",
+                        pya.MessageBox.Ok)
+                    return
+            except Exception as e:
+                pya.MessageBox.warning("FIB Panel",
+                    f"Failed to create directory:\n{export_dir}\n\nError: {str(e)}",
+                    pya.MessageBox.Ok)
+                return
+
+            # Export HTML only (no PDF conversion)
+            success = self.export_html_only(export_dir, current_view)
+
+            if success:
+                pya.MessageBox.info("FIB Panel",
+                    f"HTML report exported successfully to:\n{export_dir}\n\n{len(self.markers_list)} markers included",
+                    pya.MessageBox.Ok)
+            else:
+                pya.MessageBox.warning("FIB Panel", "Failed to export HTML. Check console for details.", pya.MessageBox.Ok)
+
+        except Exception as e:
+            print(f"[FIB Panel] Error in export HTML: {e}")
+            import traceback
+            traceback.print_exc()
+            pya.MessageBox.warning("FIB Panel", f"Error exporting HTML: {e}", pya.MessageBox.Ok)
+
     def on_export_pdf(self):
         """Handle Export PDF - with auto-numbered directory creation"""
         try:
@@ -1084,11 +1163,18 @@ class FIBPanel(pya.QDockWidget):
             print(f"[FIB Panel] Error clearing coordinate texts: {e}")
     
     def _ask_to_open_html(self, html_filename):
-        """Ask user if they want to open the HTML file in browser"""
+        """Ask user if they want to open the HTML file in browser or file explorer"""
         try:
+            import os
+            
+            # 先打开文件浏览器显示导出目录
+            output_dir = os.path.dirname(html_filename)
+            self._open_file_explorer(output_dir)
+            
+            # 然后询问是否在浏览器中打开 HTML
             result = pya.MessageBox.question(
                 "HTML Report Generated",
-                f"HTML report saved successfully!\n\n{html_filename}\n\nWould you like to open it in your browser?",
+                f"HTML report saved successfully!\n\n{html_filename}\n\nFile explorer opened.\n\nWould you like to also open the HTML in your browser?",
                 pya.MessageBox.Yes | pya.MessageBox.No
             )
             
@@ -1097,6 +1183,45 @@ class FIBPanel(pya.QDockWidget):
                 
         except Exception as e:
             print(f"[FIB Panel] Error asking to open HTML: {e}")
+    
+    def _open_file_explorer(self, directory):
+        """Open file explorer/finder at the specified directory"""
+        try:
+            import subprocess
+            import platform
+            import os
+            
+            if not os.path.exists(directory):
+                print(f"[FIB Panel] Directory does not exist: {directory}")
+                return
+            
+            system = platform.system().lower()
+            
+            if system == "windows":
+                # Windows: Open Explorer
+                subprocess.Popen(['explorer', directory])
+                print(f"[FIB Panel] Opened Explorer at: {directory}")
+                
+            elif system == "darwin":  # macOS
+                # macOS: Open Finder
+                subprocess.Popen(['open', directory])
+                print(f"[FIB Panel] Opened Finder at: {directory}")
+                
+            else:  # Linux
+                # Linux: Try common file managers
+                file_managers = ['xdg-open', 'nautilus', 'dolphin', 'thunar', 'nemo']
+                for fm in file_managers:
+                    try:
+                        subprocess.Popen([fm, directory])
+                        print(f"[FIB Panel] Opened {fm} at: {directory}")
+                        return
+                    except FileNotFoundError:
+                        continue
+                
+                print(f"[FIB Panel] No file manager found for Linux")
+                
+        except Exception as e:
+            print(f"[FIB Panel] Error opening file explorer: {e}")
     
     def _open_html_in_browser(self, html_filename):
         """Open HTML file in browser with priority: Edge > Chrome > IE"""

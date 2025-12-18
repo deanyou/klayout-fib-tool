@@ -573,6 +573,10 @@ def generate_html_report_with_screenshots(markers, screenshots_dict, output_path
     from datetime import datetime
     
     try:
+        # Generate unique timestamp for this HTML report (精确到微秒)
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")
+        print(f"[Screenshot Export] Generated report timestamp: {timestamp}")
+        
         # Group markers by type
         markers_by_type = {'CUT': [], 'CONNECT': [], 'PROBE': []}
         
@@ -590,6 +594,7 @@ def generate_html_report_with_screenshots(markers, screenshots_dict, output_path
 <html>
 <head>
     <meta charset="UTF-8">
+    <meta name="report-timestamp" content="{timestamp}" id="report-timestamp">
     <title>FIB Markers Report with Screenshots</title>
     <style>
         body {{
@@ -732,7 +737,7 @@ def generate_html_report_with_screenshots(markers, screenshots_dict, output_path
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
             margin-bottom: 20px;
         }}
-        .export-btn, .load-btn, .clear-btn {{
+        .save-btn, .export-btn, .load-btn, .clear-btn {{
             padding: 12px 24px;
             font-size: 16px;
             border: none;
@@ -740,6 +745,14 @@ def generate_html_report_with_screenshots(markers, screenshots_dict, output_path
             cursor: pointer;
             font-weight: 600;
             transition: all 0.3s ease;
+        }}
+        .save-btn {{
+            background: #9b59b6;
+            color: white;
+        }}
+        .save-btn:hover {{
+            background: #8e44ad;
+            box-shadow: 0 4px 12px rgba(155, 89, 182, 0.3);
         }}
         .export-btn {{
             background: #27ae60;
@@ -943,8 +956,11 @@ def generate_html_report_with_screenshots(markers, screenshots_dict, output_path
     </div>
 
     <div class="global-controls">
-        <button onclick="exportHTMLWithImages()" class="export-btn" title="将当前页面（包括自定义图片）导出为独立 HTML 文件">
-            💾 导出完整报告
+        <button onclick="if(saveNotes()) alert('✅ Notes 已保存到浏览器缓存！'); else alert('❌ 保存失败，请检查控制台');" class="save-btn" title="保存 Notes 到浏览器缓存">
+            💾 保存 Notes
+        </button>
+        <button onclick="exportHTMLWithImages()" class="export-btn" title="将当前页面（包括自定义图片和 Notes）导出为独立 HTML 文件">
+            📤 导出 HTML
         </button>
         <button onclick="loadCustomImages()" class="load-btn" title="从浏览器缓存加载之前保存的自定义图片">
             📥 加载已保存图片
@@ -1124,6 +1140,16 @@ def generate_html_report_with_screenshots(markers, screenshots_dict, output_path
     </div>
 
     <script>
+    // 获取当前 HTML 的时间戳
+    function getReportTimestamp() {
+        var meta = document.getElementById('report-timestamp');
+        if (meta) {
+            return meta.getAttribute('content');
+        }
+        // 兜底：如果没有时间戳，使用固定值
+        return 'legacy';
+    }
+
     // Custom image upload functionality
     function addImage(markerId) {
         document.getElementById('file-input-' + markerId).click();
@@ -1168,7 +1194,8 @@ def generate_html_report_with_screenshots(markers, screenshots_dict, output_path
     }
 
     function saveCustomImage(markerId, base64, filename) {
-        var storageKey = 'fib-custom-images-' + markerId;
+        var timestamp = getReportTimestamp();
+        var storageKey = 'fib-custom-images-' + markerId + '-' + timestamp;
         var images = JSON.parse(localStorage.getItem(storageKey) || '[]');
 
         images.push({
@@ -1183,12 +1210,18 @@ def generate_html_report_with_screenshots(markers, screenshots_dict, output_path
     }
 
     function loadCustomImages() {
+        var timestamp = getReportTimestamp();
+        if (!timestamp) {
+            console.warn('No report timestamp found, skipping image load');
+            return;
+        }
+
         var sections = document.querySelectorAll('.screenshots');
         for (var i = 0; i < sections.length; i++) {
             var section = sections[i];
             var markerId = section.getAttribute('data-marker-id');
             if (markerId) {
-                var storageKey = 'fib-custom-images-' + markerId;
+                var storageKey = 'fib-custom-images-' + timestamp + '-' + markerId;
                 var images = JSON.parse(localStorage.getItem(storageKey) || '[]');
 
                 for (var j = 0; j < images.length; j++) {
@@ -1205,7 +1238,10 @@ def generate_html_report_with_screenshots(markers, screenshots_dict, output_path
             element.remove();
         }
 
-        var storageKey = 'fib-custom-images-' + markerId;
+        var timestamp = getReportTimestamp();
+        if (!timestamp) return;
+
+        var storageKey = 'fib-custom-images-' + timestamp + '-' + markerId;
         var images = JSON.parse(localStorage.getItem(storageKey) || '[]');
         images = images.filter(function(img) {
             return img.id !== imageId;
@@ -1216,9 +1252,12 @@ def generate_html_report_with_screenshots(markers, screenshots_dict, output_path
     }
 
     function clearAllCustomImages() {
-        if (!confirm('确定要清除所有自定义图片吗？此操作不可撤销！')) {
+        if (!confirm('确定要清除当前报告的所有自定义图片吗？此操作不可撤销！')) {
             return;
         }
+
+        var timestamp = getReportTimestamp();
+        if (!timestamp) return;
 
         // Remove from DOM
         var customImages = document.querySelectorAll('.custom-image');
@@ -1226,23 +1265,33 @@ def generate_html_report_with_screenshots(markers, screenshots_dict, output_path
             customImages[i].remove();
         }
 
-        // Clear localStorage
+        // Clear localStorage for this report only
         var keys = Object.keys(localStorage);
+        var prefix = 'fib-custom-images-' + timestamp + '-';
         for (var i = 0; i < keys.length; i++) {
-            if (keys[i].startsWith('fib-custom-images-')) {
+            if (keys[i].startsWith(prefix)) {
                 localStorage.removeItem(keys[i]);
             }
         }
 
+        // Also clear notes for this report
+        localStorage.removeItem('fib-notes-' + timestamp);
+
         updateStorageInfo();
-        alert('所有自定义图片已清除！');
+        alert('当前报告的所有自定义图片已清除！');
     }
 
     function updateStorageInfo() {
+        var timestamp = getReportTimestamp();
+        if (!timestamp) return;
+
         var totalSize = 0;
         var keys = Object.keys(localStorage);
+        var prefix = 'fib-custom-images-' + timestamp + '-';
+        var notesKey = 'fib-notes-' + timestamp;
+        
         for (var i = 0; i < keys.length; i++) {
-            if (keys[i].startsWith('fib-custom-images-')) {
+            if (keys[i].startsWith(prefix) || keys[i] === notesKey) {
                 totalSize += localStorage[keys[i]].length;
             }
         }
@@ -1250,21 +1299,24 @@ def generate_html_report_with_screenshots(markers, screenshots_dict, output_path
         var sizeKB = (totalSize / 1024).toFixed(2);
         var storageElement = document.getElementById('storage-used');
         if (storageElement) {
-            storageElement.textContent = sizeKB + ' KB';
+            storageElement.textContent = sizeKB + ' KB (当前报告)';
         }
 
-        // Warning if approaching 5MB limit
+        // Warning if approaching 5MB limit for this report
         if (totalSize > 5 * 1024 * 1024 * 0.8) {
-            alert('警告：存储空间接近限制（5MB），建议导出报告并清除部分图片。');
+            alert('警告：当前报告存储空间接近限制（5MB），建议导出报告并清除部分图片。');
         }
     }
 
     function exportHTMLWithImages() {
+        // 先保存 Notes
+        saveNotes();
+        
         // Clone current document
         var clone = document.documentElement.cloneNode(true);
 
         // Remove export buttons and file inputs from clone
-        var elementsToRemove = clone.querySelectorAll('.export-btn, .load-btn, .clear-btn, input[type="file"], .add-image-btn button');
+        var elementsToRemove = clone.querySelectorAll('.save-btn, .export-btn, .load-btn, .clear-btn, input[type="file"], .add-image-btn button');
         for (var i = 0; i < elementsToRemove.length; i++) {
             elementsToRemove[i].remove();
         }
@@ -1324,11 +1376,68 @@ def generate_html_report_with_screenshots(markers, screenshots_dict, output_path
         }
     }
 
+    // Notes 持久化功能
+    function saveNotes() {
+        var timestamp = getReportTimestamp();
+        if (!timestamp) {
+            console.warn('No report timestamp found, cannot save notes');
+            return false;
+        }
+
+        // 保存全局 report notes
+        var reportNotes = document.getElementById('report-notes');
+        if (reportNotes) {
+            var storageKey = 'fib-notes-' + timestamp;
+            localStorage.setItem(storageKey, reportNotes.value);
+            updateStorageInfo();
+            console.log('Notes saved successfully to:', storageKey);
+            return true;
+        } else {
+            console.warn('Report notes textarea not found');
+            return false;
+        }
+    }
+
+    function loadNotes() {
+        var timestamp = getReportTimestamp();
+        if (!timestamp) {
+            console.warn('No report timestamp found, skipping notes load');
+            return;
+        }
+
+        var storageKey = 'fib-notes-' + timestamp;
+        var savedNotes = localStorage.getItem(storageKey);
+        
+        if (savedNotes) {
+            var reportNotes = document.getElementById('report-notes');
+            if (reportNotes) {
+                reportNotes.value = savedNotes;
+                console.log('Notes loaded successfully from:', storageKey);
+            }
+        } else {
+            console.log('No saved notes found for this report');
+        }
+    }
+
+    // 自动保存 Notes（防抖）
+    var saveNotesTimeout;
+    function autoSaveNotes() {
+        clearTimeout(saveNotesTimeout);
+        saveNotesTimeout = setTimeout(saveNotes, 1000); // 1秒后保存
+    }
+
     // Load custom images on page load
     window.addEventListener('DOMContentLoaded', function() {
-        // loadCustomImages(); // 不再自动加载，避免新 HTML 显示旧图片
+        loadCustomImages(); // 现在使用时间戳隔离，可以安全加载
+        loadNotes(); // 加载保存的 Notes
         updateStorageInfo();
         attachLightboxToImages(); // 为所有图片添加点击放大功能
+
+        // 为所有 Notes textarea 添加自动保存监听器
+        var textareas = document.querySelectorAll('textarea[id^="notes-"]');
+        for (var i = 0; i < textareas.length; i++) {
+            textareas[i].addEventListener('input', autoSaveNotes);
+        }
     });
     </script>
 </body>
