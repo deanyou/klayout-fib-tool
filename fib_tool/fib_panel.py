@@ -50,10 +50,10 @@ class FIBPanel(pya.QDockWidget):
             self.main_layout.setContentsMargins(2, 2, 2, 2)  # Reduced margins
             self.main_layout.setSpacing(1)  # Further reduced spacing for height compression
             
-            # Title with compact styling
-            title = pya.QLabel("FIB Tool Panel")
-            title.setStyleSheet("font-weight: bold; font-size: 12px; margin: 0px; padding: 1px;")  # Smaller font and minimal padding
-            self.main_layout.addWidget(title)
+            # Title with compact styling (removed to save space)
+            # title = pya.QLabel("FIB Tool Panel")
+            # title.setStyleSheet("font-weight: bold; font-size: 12px; margin: 0px; padding: 1px;")
+            # self.main_layout.addWidget(title)
             
             # Project management section
             self.create_project_section()
@@ -132,7 +132,7 @@ class FIBPanel(pya.QDockWidget):
             
             # Create all widgets with identical sizing and styling (very compact layout)
             widget_height = 24  # Reduced from 32 to 24 for height compression
-            widget_min_width = 75  # Adjusted to 75 to comfortably fit "Connect" text
+            widget_min_width = 75  # Compact width, using "MP" abbreviation for Multi Points
             
             # Cut button with explicit styling
             self.btn_cut = pya.QPushButton("Cut")
@@ -143,7 +143,7 @@ class FIBPanel(pya.QDockWidget):
             # Cut mode combo with identical styling
             self.cut_mode_combo = pya.QComboBox()
             self.cut_mode_combo.addItem("2 Points")
-            self.cut_mode_combo.addItem("Multi Points")
+            self.cut_mode_combo.addItem("MP")
             self.cut_mode_combo.setFixedWidth(widget_min_width)  # Fixed width to prevent expansion
             self.cut_mode_combo.setFixedHeight(widget_height)
             self.cut_mode_combo.setContentsMargins(0, 0, 0, 0)  # Remove internal margins
@@ -157,7 +157,7 @@ class FIBPanel(pya.QDockWidget):
             # Connect mode combo with identical styling
             self.connect_mode_combo = pya.QComboBox()
             self.connect_mode_combo.addItem("2 Points")
-            self.connect_mode_combo.addItem("Multi Points")
+            self.connect_mode_combo.addItem("MP")
             self.connect_mode_combo.setFixedWidth(widget_min_width)  # Fixed width to prevent expansion
             self.connect_mode_combo.setFixedHeight(widget_height)
             self.connect_mode_combo.setContentsMargins(0, 0, 0, 0)  # Remove internal margins
@@ -620,9 +620,9 @@ class FIBPanel(pya.QDockWidget):
             # Get selected mode from dropdown
             current_text = self.cut_mode_combo.currentText
             if callable(current_text):
-                is_multipoint = current_text() == "Multi Points"
+                is_multipoint = current_text() == "MP"
             else:
-                is_multipoint = current_text == "Multi Points"
+                is_multipoint = current_text == "MP"
             mode = 'cut_multi' if is_multipoint else 'cut'
             
             self.activate_toolbar_plugin(mode)
@@ -639,9 +639,9 @@ class FIBPanel(pya.QDockWidget):
             # Get selected mode from dropdown
             current_text = self.connect_mode_combo.currentText
             if callable(current_text):
-                is_multipoint = current_text() == "Multi Points"
+                is_multipoint = current_text() == "MP"
             else:
-                is_multipoint = current_text == "Multi Points"
+                is_multipoint = current_text == "MP"
             mode = 'connect_multi' if is_multipoint else 'connect'
             
             self.activate_toolbar_plugin(mode)
@@ -665,9 +665,9 @@ class FIBPanel(pya.QDockWidget):
             # Determine new mode
             current_text = self.cut_mode_combo.currentText
             if callable(current_text):
-                is_multipoint = current_text() == "Multi Points"
+                is_multipoint = current_text() == "MP"
             else:
-                is_multipoint = current_text == "Multi Points"
+                is_multipoint = current_text == "MP"
 
             new_mode = 'cut_multi' if is_multipoint else 'cut'
 
@@ -693,9 +693,9 @@ class FIBPanel(pya.QDockWidget):
             # Determine new mode
             current_text = self.connect_mode_combo.currentText
             if callable(current_text):
-                is_multipoint = current_text() == "Multi Points"
+                is_multipoint = current_text() == "MP"
             else:
-                is_multipoint = current_text == "Multi Points"
+                is_multipoint = current_text == "MP"
 
             new_mode = 'connect_multi' if is_multipoint else 'connect'
 
@@ -786,10 +786,12 @@ class FIBPanel(pya.QDockWidget):
                 self.mode_buttons[base_mode].setStyleSheet("background-color: lightgreen;")
             
             # Set appropriate status message (keep it short to prevent panel expansion)
+            # Shorten display names for compact layout
+            display_name = 'CON' if base_mode == 'connect' else base_mode.upper()
             if mode.endswith('_multi'):
-                self.status_label.setText(f"{base_mode.upper()} Multi: L-click add, R-click finish")
+                self.status_label.setText(f"{display_name}: L-add, R-end")
             else:
-                self.status_label.setText(f"{mode.upper()}: Click to add")
+                self.status_label.setText(f"{display_name}: Click")
             
             # Clear any pending points when switching modes
             self.clear_pending_points()
