@@ -1163,18 +1163,11 @@ class FIBPanel(pya.QDockWidget):
             print(f"[FIB Panel] Error clearing coordinate texts: {e}")
     
     def _ask_to_open_html(self, html_filename):
-        """Ask user if they want to open the HTML file in browser or file explorer"""
+        """Ask user if they want to open the HTML file in browser"""
         try:
-            import os
-            
-            # 先打开文件浏览器显示导出目录
-            output_dir = os.path.dirname(html_filename)
-            self._open_file_explorer(output_dir)
-            
-            # 然后询问是否在浏览器中打开 HTML
             result = pya.MessageBox.question(
                 "HTML Report Generated",
-                f"HTML report saved successfully!\n\n{html_filename}\n\nFile explorer opened.\n\nWould you like to also open the HTML in your browser?",
+                f"HTML report saved successfully!\n\n{html_filename}\n\nWould you like to open it in your browser?",
                 pya.MessageBox.Yes | pya.MessageBox.No
             )
             

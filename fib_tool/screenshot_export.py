@@ -1309,8 +1309,16 @@ def generate_html_report_with_screenshots(markers, screenshots_dict, output_path
     }
 
     function exportHTMLWithImages() {
-        // 先保存 Notes
+        // 先保存 Notes 到 localStorage
         saveNotes();
+        
+        // 将 textarea 的当前值同步到 DOM（这样克隆时会包含最新内容）
+        var reportNotes = document.getElementById('report-notes');
+        if (reportNotes) {
+            reportNotes.setAttribute('value', reportNotes.value);
+            // 更新 textarea 的 textContent（用于导出）
+            reportNotes.textContent = reportNotes.value;
+        }
         
         // Clone current document
         var clone = document.documentElement.cloneNode(true);
@@ -1333,7 +1341,7 @@ def generate_html_report_with_screenshots(markers, screenshots_dict, output_path
         a.click();
         URL.revokeObjectURL(url);
 
-        alert('报告已导出！包含所有自定义图片的 HTML 文件已下载。');
+        alert('报告已导出！包含所有自定义图片和 Notes 的 HTML 文件已下载。');
     }
 
     function getTimestamp() {

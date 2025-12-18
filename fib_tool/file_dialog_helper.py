@@ -10,9 +10,18 @@ class FileDialogHelper:
     """Helper class for file dialogs"""
     
     @staticmethod
-    def get_save_filename(parent=None, default_name="project1_markers.json"):
-        """Get filename for saving with proper file dialog"""
+    def get_save_filename(parent=None, default_name=None):
+        """Get filename for saving with proper file dialog
+        
+        Args:
+            parent: Parent widget
+            default_name: Default filename (if None, will generate based on GDS name)
+        """
         try:
+            # Generate default name if not provided
+            if default_name is None:
+                default_name = FileDialogHelper._generate_default_json_name(parent)
+            
             # Try to use QFileDialog for better file selection
             home_dir = os.path.expanduser("~")
             default_path = os.path.join(home_dir, default_name)
@@ -46,9 +55,44 @@ class FileDialogHelper:
             print(f"[File Dialog] Error in save dialog: {e}")
             # Fallback to home directory with default name
             home_dir = os.path.expanduser("~")
-            fallback_path = os.path.join(home_dir, default_name)
+            fallback_name = default_name if default_name else "project1_markers.json"
+            fallback_path = os.path.join(home_dir, fallback_name)
             print(f"[File Dialog] Using fallback path: {fallback_path}")
-            return fallback_path
+    
+    @staticmethod
+    def _generate_default_json_name(parent):
+        """Generate default JSON filename based on GDS name and date
+        Format: {gds_basename}_#{number}_{YYYYMMDD}.json
+        """
+        try:
+            from datetime import datetime
+            
+            # Get GDS filename
+            gds_basename = "project1"
+            try:
+                main_window = pya.Application.instance().main_window()
+                current_view = main_window.current_view()
+                if current_view and current_view.active_cellview().is_valid():
+                    cellview = current_view.active_cellview()
+                    if cellview.filename():
+                        import os
+                        gds_basename = os.path.splitext(os.path.basename(cellview.filename()))[0]
+            except:
+                pass
+            
+            # Get date string
+            date_str = datetime.now().strftime("%Y%m%d")
+            
+            # Generate filename: {gds_basename}_#1_{YYYYMMDD}.json
+            # Note: We use #1 as default, user can change it
+            default_name = f"{gds_basename}_#1_{date_str}.json"
+            
+            print(f"[File Dialog] Generated default JSON name: {default_name}")
+            return default_name
+            
+        except Exception as e:
+            print(f"[File Dialog] Error generating default name: {e}")
+            return "project1_markers.json"
     
     @staticmethod
     def get_load_filename(parent=None):
