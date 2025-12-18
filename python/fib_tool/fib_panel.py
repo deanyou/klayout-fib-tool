@@ -777,13 +777,25 @@ class FIBPanel(pya.QDockWidget):
                 return
 
             # Export to new directory
+            print("=" * 80)
+            print("[FIB Panel] About to call export_markers_to_pdf()")
+            print(f"[FIB Panel] export_dir: {export_dir}")
+            print(f"[FIB Panel] current_view: {current_view}")
+            print(f"[FIB Panel] markers_list length: {len(self.markers_list)}")
+            print("=" * 80)
+            
             success = self.export_markers_to_pdf(export_dir, current_view)
+            
+            print("=" * 80)
+            print(f"[FIB Panel] export_markers_to_pdf() returned: {success}")
+            print("=" * 80)
 
             if success:
                 pya.MessageBox.info("FIB Panel",
                     f"Report exported successfully to:\n{export_dir}\n\n{len(self.markers_list)} markers included",
                     pya.MessageBox.Ok)
             else:
+                print("[FIB Panel] Export failed, showing warning dialog")
                 pya.MessageBox.warning("FIB Panel", "Failed to export PDF. Check console for details.", pya.MessageBox.Ok)
 
         except Exception as e:
@@ -1650,15 +1662,23 @@ class FIBPanel(pya.QDockWidget):
             output_dir: Directory to save all output files (PDF, HTML, screenshots)
             view: Current KLayout view
         """
+        print("=" * 80)
+        print("[FIB Panel] export_markers_to_pdf() CALLED")
+        print("=" * 80)
+        print(f"[FIB Panel] Output directory: {output_dir}")
+        print(f"[FIB Panel] Number of markers: {len(self.markers_list)}")
+        print(f"[FIB Panel] View: {view}")
+        
         try:
+            print("[FIB Panel] Importing screenshot_export module...")
             import os
             from .screenshot_export import (
                 export_markers_with_screenshots,
                 generate_html_report_with_screenshots
             )
+            print("[FIB Panel] Import successful")
 
             print(f"[FIB Panel] Starting export with screenshots...")
-            print(f"[FIB Panel] Output directory: {output_dir}")
 
             # Generate screenshots for all markers
             print(f"[FIB Panel] Calling export_markers_with_screenshots with {len(self.markers_list)} markers...")
