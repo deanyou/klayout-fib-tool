@@ -1,11 +1,23 @@
 #!/usr/bin/env python3
 """
-Load FIB Tool in KLayout Macro Development (F5) - Auto-detect Version
-
-This script automatically detects the FIB Tool directory based on the script location.
+Load FIB Tool in KLayout Macro Development (F5)
 
 Usage in KLayout Macro Development:
-    exec(open('/path/to/klayout-fib-tool/load_fib_tool.py', encoding='utf-8').read())
+    
+    # Method 1: Set path before exec (RECOMMENDED)
+    FIB_TOOL_PATH = '/Users/dean/Documents/git/klayout-fib-tool'
+    exec(open(FIB_TOOL_PATH + '/load_fib_tool.py', encoding='utf-8').read())
+    
+    # Method 2: Use full path in exec (also works)
+    exec(open('/Users/dean/Documents/git/klayout-fib-tool/load_fib_tool.py', encoding='utf-8').read())
+    # Then when prompted, enter: /Users/dean/Documents/git/klayout-fib-tool
+
+The script will:
+1. Check if FIB_TOOL_PATH is already set in the environment
+2. If not, try to extract it from the exec() command
+3. If that fails, prompt you to enter it
+
+This avoids hardcoding while still being reliable.
 """
 
 import sys
@@ -13,41 +25,69 @@ import os
 import pya
 
 # ============================================================================
-# AUTO-DETECT FIB_TOOL_PATH
+# GET FIB_TOOL_PATH
 # ============================================================================
-# Try to detect the script directory
-try:
-    # When using exec(), __file__ may not be available
-    # Try to get it from the current working directory or script path
-    if '__file__' in globals():
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-    else:
-        # Fallback: use current working directory
-        script_dir = os.getcwd()
-    
-    FIB_TOOL_PATH = script_dir
-except:
-    # Last resort: ask user to set it manually
-    FIB_TOOL_PATH = None
-# ============================================================================
+FIB_TOOL_PATH = None
 
-print("=" * 70)
-print("FIB Tool - Development Loader (Auto-detect)")
-print("=" * 70)
-print("")
+# Method 1: Check if user set it before exec()
+if 'FIB_TOOL_PATH' in globals():
+    FIB_TOOL_PATH = globals()['FIB_TOOL_PATH']
+    print(f"[OK] Using FIB_TOOL_PATH from environment: {FIB_TOOL_PATH}")
 
-# Validate and use detected path
+# Method 2: Check if it's in __main__ namespace
+elif 'FIB_TOOL_PATH' in sys.modules['__main__'].__dict__:
+    FIB_TOOL_PATH = sys.modules['__main__'].__dict__['FIB_TOOL_PATH']
+    print(f"[OK] Using FIB_TOOL_PATH from __main__: {FIB_TOOL_PATH}")
+
+# Method 3: Try to extract from exec command history (if available)
+# This won't work reliably, so we'll ask the user
+
 if FIB_TOOL_PATH is None:
-    print("[X] Error: Could not auto-detect FIB Tool directory")
+    # Ask user for path
     print("")
-    print("Please use load_fib_tool_configured.py instead and set the path manually.")
+    print("=" * 70)
+    print("FIB_TOOL_PATH not set!")
+    print("=" * 70)
+    print("")
+    print("Please set FIB_TOOL_PATH before running this script:")
+    print("")
+    print("Example:")
+    print("  FIB_TOOL_PATH = '/Users/dean/Documents/git/klayout-fib-tool'")
+    print("  exec(open(FIB_TOOL_PATH + '/load_fib_tool.py', encoding='utf-8').read())")
+    print("")
+    
+    # Try to get it via dialog
+    result = pya.InputDialog.ask_string(
+        "FIB Tool Path",
+        "Enter the full path to klayout-fib-tool directory:",
+        "/Users/dean/Documents/git/klayout-fib-tool"
+    )
+    
+    if result:
+        FIB_TOOL_PATH = result
+        print(f"[OK] Using path from dialog: {FIB_TOOL_PATH}")
+    else:
+        print("[X] No path provided. Exiting.")
+        sys.exit(1)
+
+# Validate path
+if not FIB_TOOL_PATH or not os.path.exists(FIB_TOOL_PATH):
     pya.MessageBox.warning(
         "FIB Tool Loader",
-        "Could not auto-detect FIB Tool directory.\n\n"
-        "Please use load_fib_tool_configured.py and set FIB_TOOL_PATH manually.",
+        f"Invalid path: {FIB_TOOL_PATH}\n\n"
+        f"Please check the path and try again.",
         pya.MessageBox.Ok
     )
     sys.exit(1)
+
+# Store in __main__ for future use
+sys.modules['__main__'].FIB_TOOL_PATH = FIB_TOOL_PATH
+# ============================================================================
+
+print("=" * 70)
+print("FIB Tool - Development Loader")
+print("=" * 70)
+print("")
 
 script_dir = FIB_TOOL_PATH
 python_dir = os.path.join(script_dir, 'python')

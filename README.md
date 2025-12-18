@@ -1,100 +1,102 @@
-# KLayout FIB Tool
+# KLayout FIB Tool / KLayout FIB 标注工具
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![KLayout](https://img.shields.io/badge/KLayout-%3E%3D0.28-green.svg)
 ![Version](https://img.shields.io/badge/version-1.0.0-orange.svg)
 ![Python](https://img.shields.io/badge/python-3.8%2B-blue.svg)
-![Status](https://img.shields.io/badge/status-MVP%20Complete-brightgreen.svg)
+![Status](https://img.shields.io/badge/status-Production%20Ready-brightgreen.svg)
 
-**简单、实用的 FIB 标注工具。遵循 Linus Torvalds 编程哲学：零废话，直接能用。**
+**A simple, practical FIB marking tool for IC layout. Following Linus Torvalds' philosophy: No BS, just works.**
 
-> **开发阶段说明**: MVP 已完成，功能完整。正在准备发布到 KLayout SALT Mine。
+**简单、实用的 IC 版图 FIB 标注工具。遵循 Linus Torvalds 编程哲学：零废话，直接能用。**
 
-## 项目状态
+---
 
-✅ **MVP 已完成** - 1028 行代码，8 个核心文件
+> **Development Status / 开发状态**: Production ready. Fully functional with comprehensive documentation.
+> 
+> 生产就绪。功能完整，文档齐全。
 
-## 快速开始
+## Project Status / 项目状态
 
-### 安装
+✅ **Production Ready / 生产就绪**
+- Core functionality complete / 核心功能完整
+- Comprehensive documentation / 文档齐全
+- Cross-platform support (Windows/macOS/Linux) / 跨平台支持
+- SALT package ready / SALT 包就绪
 
-**方式 1: SALT Package Manager（推荐）**
+## Quick Start / 快速开始
+
+### Installation / 安装
+
+**Method 1: SALT Package Manager (Recommended) / 方式 1: SALT 包管理器（推荐）**
 ```
 Tools → Manage Packages → Install from URL
-输入 GitHub Release URL
+Enter GitHub Release URL / 输入 GitHub Release URL
 ```
 
-**方式 2: 手动安装**
+**Method 2: Manual Installation / 方式 2: 手动安装**
 
-Linux/Mac:
+**Linux/Mac:**
 ```bash
-cp -r fib_tool ~/.klayout/salt/
+./install.sh
 ```
 
-Windows:
+**Windows:**
+```cmd
+install.bat
+```
 
-> **说明**：Windows 版 KLayout 默认没有 `~/.klayout/salt/` 路径（因为 Windows 没有"家目录"符号 `~`），对应位置是 `%USERPROFILE%\KLayout\salt\`
+Or manually / 或手动安装:
+```bash
+# Linux/Mac
+cp -r python/fib_tool ~/.klayout/salt/fib-tool/python/
+cp -r pymacros/*.lym ~/.klayout/salt/fib-tool/pymacros/
 
-1. 打开资源管理器，在地址栏输入以下路径并回车：
-   ```
-   %USERPROFILE%\KLayout\salt\
-   ```
-   如果 `salt` 子目录不存在，请手动新建一个。
+# Windows - Open File Explorer and navigate to / 打开文件资源管理器，导航到:
+%APPDATA%\KLayout\salt\
+# Then copy the fib-tool folder / 然后复制 fib-tool 文件夹
+```
 
-2. 把解压后的 `fib_tool` 整个文件夹复制到该目录下，最终形成：
-   ```
-   %USERPROFILE%\KLayout\salt\fib_tool\
-   ```
+> **Windows Note / Windows 说明**: 
+> - KLayout SALT directory is at / KLayout SALT 目录位于: `%APPDATA%\KLayout\salt\`
+> - If using portable version / 如果使用便携版: `<KLayout folder>\salt\`
+> - Restart KLayout after installation / 安装后重启 KLayout
 
-3. 重启 KLayout，菜单 **Tools → Salt** 里就能看到 `fib_tool`，或者直接出现在 **Tools** 菜单里。
+**Method 3: Development Mode / 方式 3: 开发模式**
 
-**注意事项**：
-- 不要把 `fib_tool` 再套一层文件夹，KLayout 只认 `salt\xxx\xxx.lym` 这种结构
-- 如果装的是"便携版"（绿色 zip），则路径是 `<KLayout 解压目录>\salt\` 而不是用户目录
-- 安装后重启 KLayout 生效
-
-**方式 3: 开发调试**
-
-Linux/Mac:
 ```python
-# 在 KLayout Macro Development (F5) 中执行
-import sys; sys.path.insert(0, '/path/to/klayout-fib-tool/fib_tool')
-exec(open('/path/to/klayout-fib-tool/fib_tool/fib_plugin.py', encoding='utf-8').read())
+# In KLayout Macro Development (F5) / 在 KLayout 宏开发窗口 (F5) 中:
+FIB_TOOL_PATH = '/path/to/klayout-fib-tool'  # Set your path / 设置你的路径
+exec(open(FIB_TOOL_PATH + '/load_fib_tool.py', encoding='utf-8').read())
 ```
 
-Windows:
-```python
-# 在 KLayout Macro Development (F5) 中执行
-import sys; sys.path.insert(0, r'C:\path\to\klayout-fib-tool\fib_tool')
-exec(open(r'C:\path\to\klayout-fib-tool\fib_tool\fib_plugin.py', encoding='utf-8').read())
-```
+> **Windows**: Use `r'C:\path\to\...'` format for paths / 路径使用 `r'C:\...'` 格式
 
-> **注意**：Windows 路径使用 `r'C:\...'` 格式（原始字符串），避免反斜杠转义问题
+For detailed instructions / 详细说明: [HOW_TO_LOAD.md](HOW_TO_LOAD.md) | [INSTALLATION.md](INSTALLATION.md)
 
-详细安装说明：[INSTALL.md](INSTALL.md) | [SALT 安装指南](docs/SALT_INSTALLATION.md)
+### Usage / 使用
 
-### 使用
+**Launch Methods / 启动方式:**
+- **Method 1 / 方式 1**: Menu **Tools → FIB Tool** / 菜单 **Tools → FIB Tool**
+- **Method 2 / 方式 2**: Shortcut `Ctrl+Shift+F` / 快捷键 `Ctrl+Shift+F`
+- **Method 3 / 方式 3**: Toolbar buttons (Cut/Connect/Probe) / 工具栏按钮
 
-**启动方式：**
-- **方式 1**：点击菜单 **Tools → FIB Tool**
-- **方式 2**：按快捷键 `Ctrl+Shift+F`
-- **方式 3**：点击工具栏按钮（Cut/Connect/Probe）
+**Basic Workflow / 基本流程:**
+1. Open a GDS file / 打开 GDS 文件
+2. Launch FIB Tool (use any method above) / 启动 FIB Tool（使用上述任一方式）
+3. Click Cut/Connect/Probe buttons / 点击 Cut/Connect/Probe 按钮
+4. Click on layout to create markers / 在版图上点击创建标记
+5. Save as XML or generate HTML report / 保存为 XML 或生成 HTML 报告
 
-**基本流程：**
-1. 打开 GDS 文件
-2. 启动 FIB Tool（使用上述任一方式）
-3. 点击 Cut/Connect/Probe 按钮
-4. 在版图上点击创建标记
-5. 保存为 XML 或生成 HTML 报告
+**Layer Colors (Recommended) / 图层颜色（推荐）:**
+- Layer 337 (FIB_CUT): Pink / 粉色 - RGB(255, 105, 180)
+- Layer 338 (FIB_CONNECT): Yellow / 黄色 - RGB(255, 255, 0)
+- Layer 339 (FIB_PROBE): White / 白色 - RGB(255, 255, 255)
 
-**图层颜色设置（推荐）：**
-- Layer 337 (FIB_CUT): 粉色 RGB(255, 105, 180)
-- Layer 338 (FIB_CONNECT): 黄色 RGB(255, 255, 0)
-- Layer 339 (FIB_PROBE): 白色 RGB(255, 255, 255)
+Setup / 设置方法: View → Layer Toolbox → Right-click layer → Properties → Set color
+查看 → 图层工具箱 → 右键图层 → 属性 → 设置颜色
 
-设置方法：View → Layer Toolbox → 右键图层 → Properties → 设置颜色
-
-详细说明：[图层颜色设置指南](docs/LAYER_COLOR_SETUP.md) | [使用说明](src/README.md)
+For details / 详细说明: [Layer Color Setup / 图层颜色设置](docs/LAYER_COLOR_SETUP.md)
 
 ## 项目结构
 
