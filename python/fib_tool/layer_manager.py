@@ -6,7 +6,7 @@ Automatically detects and creates required layers if they don't exist.
 """
 
 import pya
-from config import LAYERS, LAYER_COLORS, LAYER_MARKER_CONFIG
+from .config import LAYERS, LAYER_COLORS, LAYER_MARKER_CONFIG
 
 
 def check_and_create_layers(layout):
@@ -40,6 +40,8 @@ def check_and_create_layers(layout):
             
             layer_name = layer_names.get(layer_key, f'FIB_{layer_key.upper()}')
             
+            print(f"[Layer Manager] Processing {layer_key} (Layer {layer_num}/0)...")
+            
             # Check if layer exists by searching through existing layers
             layer_exists = False
             existing_layer_index = -1
@@ -49,27 +51,67 @@ def check_and_create_layers(layout):
                 if layer_info.layer == layer_num and layer_info.datatype == 0:
                     layer_exists = True
                     existing_layer_index = layout.layer(layer_info)
-                    print(f"[Layer Manager] ✓ Layer {layer_num}/0 already exists (name: {layer_info.name})")
+                    print(f"[Layer Manager]   ✓ Layer {layer_num}/0 already exists (name: {layer_info.name}, index: {existing_layer_index})")
                     layer_status[layer_key] = 'existed'
                     break
             
             # If layer doesn't exist, create it
             if not layer_exists:
+                print(f"[Layer Manager]   Layer {layer_num}/0 does not exist, creating...")
+                
                 try:
                     # Create new layer info
                     new_layer_info = pya.LayerInfo(layer_num, 0, layer_name)
                     
-                    # Insert the layer into the layout
+                    # Method 1: Try insert_layer first
+                    print(f"[Layer Manager]   Trying insert_layer()...")
                     new_layer_index = layout.insert_layer(new_layer_info)
+                    print(f"[Layer Manager]   insert_layer() returned index: {new_layer_index}")
                     
-                    layer_status[layer_key] = 'created'
-                    print(f"[Layer Manager] ✓ Created layer {layer_num}/0 ({layer_name}) with index {new_layer_index}")
+                    # Verify it was actually created
+                    verified = False
+                    for layer_info in layout.layer_infos():
+                        if layer_info.layer == layer_num and layer_info.datatype == 0:
+                            verified = True
+                            print(f"[Layer Manager]   ✓ VERIFIED: Layer {layer_num}/0 created successfully")
+                            layer_status[layer_key] = 'created'
+                            break
+                    
+                    if not verified:
+                        print(f"[Layer Manager]   ⚠ WARNING: insert_layer() succeeded but layer not found!")
+                        print(f"[Layer Manager]   Trying alternative method: layout.layer()...")
+                        
+                        # Method 2: Try layout.layer() as fallback
+                        alt_layer_index = layout.layer(new_layer_info)
+                        print(f"[Layer Manager]   layout.layer() returned index: {alt_layer_index}")
+                        
+                        # Verify again
+                        verified2 = False
+                        for layer_info in layout.layer_infos():
+                            if layer_info.layer == layer_num and layer_info.datatype == 0:
+                                verified2 = True
+                                print(f"[Layer Manager]   ✓ VERIFIED: Layer {layer_num}/0 created with fallback method")
+                                layer_status[layer_key] = 'created'
+                                break
+                        
+                        if not verified2:
+                            print(f"[Layer Manager]   ✗ FAILED: Both methods failed to create layer {layer_num}/0")
+                            layer_status[layer_key] = 'failed'
                     
                 except Exception as create_error:
-                    print(f"[Layer Manager] ✗ Failed to create layer {layer_num}/0: {create_error}")
+                    print(f"[Layer Manager]   ✗ Exception creating layer {layer_num}/0: {create_error}")
+                    import traceback
+                    traceback.print_exc()
                     layer_status[layer_key] = 'failed'
         
-        print(f"[Layer Manager] Layer check complete: {len(layer_status)} layers verified")
+        print(f"[Layer Manager] Layer check complete: {len(layer_status)} layers processed")
+        
+        # Print summary
+        created = sum(1 for s in layer_status.values() if s == 'created')
+        existed = sum(1 for s in layer_status.values() if s == 'existed')
+        failed = sum(1 for s in layer_status.values() if s == 'failed')
+        print(f"[Layer Manager] Summary: {existed} existed, {created} created, {failed} failed")
+        
         return layer_status
         
     except Exception as e:
@@ -535,7 +577,7 @@ def force_layer_panel_refresh(current_view, layout):
                 cell = cellview.cell
                 
                 # Create a temporary shape on each FIB layer to force recognition
-                from config import LAYERS
+                from .config import LAYERS
                 for layer_key, layer_num in LAYERS.items():
                     if layer_key == 'coordinates':
                         continue

@@ -41,7 +41,7 @@ def init_fib_tool():
         
         # Import and execute the main plugin
         # This will register plugin factories and create the panel
-        import fib_plugin
+        from . import fib_plugin
         
         # Mark as initialized
         _FIB_TOOL_INITIALIZED = True

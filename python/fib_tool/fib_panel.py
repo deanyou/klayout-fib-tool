@@ -13,11 +13,11 @@ if script_dir not in sys.path:
     sys.path.insert(0, script_dir)
 
 import pya
-from markers import CutMarker, ConnectMarker, ProbeMarker
-from config import LAYERS, GEOMETRIC_PARAMS, UI_TIMEOUTS, DEFAULT_MARKER_NOTES
-from marker_menu import MarkerContextMenu
-from smart_counter import SmartCounter
-from file_dialog_helper import FileDialogHelper
+from .markers import CutMarker, ConnectMarker, ProbeMarker
+from .config import LAYERS, GEOMETRIC_PARAMS, UI_TIMEOUTS, DEFAULT_MARKER_NOTES
+from .marker_menu import MarkerContextMenu
+from .smart_counter import SmartCounter
+from .file_dialog_helper import FileDialogHelper
 
 class FIBPanel(pya.QDockWidget):
     """Main FIB Panel - Dockable widget for KLayout"""
@@ -397,7 +397,7 @@ class FIBPanel(pya.QDockWidget):
 
                 # Trigger save dialog
                 try:
-                    from file_dialog_helper import FileDialogHelper
+                    from .file_dialog_helper import FileDialogHelper
                     filename = FileDialogHelper.get_save_filename(self)
 
                     if filename:
@@ -915,7 +915,7 @@ class FIBPanel(pya.QDockWidget):
             
             # Import the plugin module to access plugin classes
             try:
-                import fib_plugin
+                from . import fib_plugin
                 
                 # Create a plugin instance
                 plugin = fib_plugin.FIBToolPlugin(None)
@@ -1120,7 +1120,7 @@ class FIBPanel(pya.QDockWidget):
             layout = cellview.layout()
             
             # Import config to get layer numbers
-            from config import LAYERS
+            from .config import LAYERS
             
             # Clear all FIB layers
             for layer_name, layer_num in LAYERS.items():
@@ -1154,7 +1154,7 @@ class FIBPanel(pya.QDockWidget):
                     cell = cellview.cell
                     layout = cellview.layout()
                     
-                    from config import LAYERS
+                    from .config import LAYERS
                     coord_layer = layout.layer(LAYERS['coordinates'], 0)
                     cell.shapes(coord_layer).clear()
                     print("[FIB Panel] Coordinate texts cleared directly")
@@ -1344,7 +1344,7 @@ class FIBPanel(pya.QDockWidget):
             else:
                 # Try to import and reset directly
                 try:
-                    import fib_plugin
+                    from . import fib_plugin
                     if hasattr(fib_plugin, 'marker_counter'):
                         fib_plugin.marker_counter['cut'] = 0
                         fib_plugin.marker_counter['connect'] = 0
@@ -1492,11 +1492,11 @@ class FIBPanel(pya.QDockWidget):
             layout = cellview.layout()
             
             # Import marker classes and drawing function
-            from markers import CutMarker, ConnectMarker, ProbeMarker
+            from .markers import CutMarker, ConnectMarker, ProbeMarker
             
             # Try to import multi-point markers
             try:
-                from multipoint_markers import MultiPointCutMarker, MultiPointConnectMarker
+                from .multipoint_markers import MultiPointCutMarker, MultiPointConnectMarker
                 multipoint_available = True
             except ImportError:
                 multipoint_available = False
@@ -1564,7 +1564,7 @@ class FIBPanel(pya.QDockWidget):
                         print(f"[FIB Panel] Restored target_layer for {marker_id}: {marker.target_layer}")
                     
                     # Draw marker to GDS
-                    from config import LAYERS
+                    from .config import LAYERS
                     if marker_type.startswith('multipoint_'):
                         base_type = marker_type.replace('multipoint_', '')
                         fib_layer = layout.layer(LAYERS[base_type], 0)
@@ -1600,7 +1600,7 @@ class FIBPanel(pya.QDockWidget):
         """
         try:
             import os
-            from screenshot_export import (
+            from .screenshot_export import (
                 export_markers_with_screenshots,
                 generate_html_report_with_screenshots
             )

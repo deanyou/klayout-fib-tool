@@ -8,7 +8,7 @@ Maintains backward compatibility with existing 2-point markers.
 from dataclasses import dataclass, field
 from typing import List, Tuple
 import pya
-from config import LAYERS, SYMBOL_SIZES, DEFAULT_MARKER_NOTES
+from .config import LAYERS, SYMBOL_SIZES, DEFAULT_MARKER_NOTES
 
 
 @dataclass
@@ -231,7 +231,7 @@ def create_multipoint_cut_marker(marker_id: str, points: List[Tuple[float, float
     
     # Notify panel if available
     try:
-        from fib_panel import get_fib_panel
+        from .fib_panel import get_fib_panel
         panel = get_fib_panel()
         if panel:
             panel.add_marker(marker)
@@ -263,7 +263,7 @@ def create_multipoint_connect_marker(marker_id: str, points: List[Tuple[float, f
     
     # Notify panel if available
     try:
-        from fib_panel import get_fib_panel
+        from .fib_panel import get_fib_panel
         panel = get_fib_panel()
         if panel:
             panel.add_marker(marker)

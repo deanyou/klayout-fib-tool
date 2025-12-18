@@ -8,7 +8,7 @@ Each marker knows how to draw itself and serialize to XML.
 from dataclasses import dataclass, field
 from typing import Tuple, Optional
 import pya
-from config import LAYERS, SYMBOL_SIZES
+from .config import LAYERS, SYMBOL_SIZES
 
 
 @dataclass

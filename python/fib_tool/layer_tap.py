@@ -12,7 +12,7 @@ Strategy:
 """
 
 import pya
-from config import LAYERS, GEOMETRIC_PARAMS
+from .config import LAYERS, GEOMETRIC_PARAMS
 
 # Default search radius for layer detection (in microns)
 # Set to 0.5 for precise detection in 0.5μm × 0.5μm area

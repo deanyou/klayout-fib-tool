@@ -7,7 +7,7 @@ Handles zoom, copy, rename, and delete operations
 import sys
 import os
 import pya
-from config import GEOMETRIC_PARAMS, UI_TIMEOUTS, DEFAULT_MARKER_NOTES
+from .config import GEOMETRIC_PARAMS, UI_TIMEOUTS, DEFAULT_MARKER_NOTES
 
 class MarkerContextMenu:
     """Context menu handler for FIB markers"""
@@ -692,7 +692,7 @@ class MarkerContextMenu:
             if 'multipoint' in marker_type:
                 marker_type = marker_type.replace('multipoint', '')
             
-            from config import LAYERS
+            from .config import LAYERS
             if marker_type not in LAYERS:
                 print(f"[Marker Menu] Unknown marker type: {marker_type}")
                 return 0

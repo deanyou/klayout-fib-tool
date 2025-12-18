@@ -16,7 +16,7 @@ if script_dir not in sys.path:
 import xml.etree.ElementTree as ET
 from datetime import datetime
 from typing import List, Union
-from markers import CutMarker, ConnectMarker, ProbeMarker
+from .markers import CutMarker, ConnectMarker, ProbeMarker
 
 
 def save_markers(markers: List[Union[CutMarker, ConnectMarker, ProbeMarker]], 

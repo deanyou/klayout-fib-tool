@@ -17,8 +17,8 @@ from datetime import datetime
 from typing import List, Union
 from pathlib import Path
 import pya
-from markers import CutMarker, ConnectMarker, ProbeMarker
-from config import REPORT_TEMPLATE, SCREENSHOT_DPI, SCREENSHOT_MARGIN
+from .markers import CutMarker, ConnectMarker, ProbeMarker
+from .config import REPORT_TEMPLATE, SCREENSHOT_DPI, SCREENSHOT_MARGIN
 
 
 def generate_report(markers: List[Union[CutMarker, ConnectMarker, ProbeMarker]],

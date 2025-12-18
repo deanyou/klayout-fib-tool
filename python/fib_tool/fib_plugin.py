@@ -24,13 +24,13 @@ if script_dir not in sys.path:
     sys.path.insert(0, script_dir)
 
 import pya
-from markers import CutMarker, ConnectMarker, ProbeMarker
-from config import LAYERS, GEOMETRIC_PARAMS, UI_TIMEOUTS, DEFAULT_MARKER_NOTES
-from layer_manager import ensure_fib_layers, get_layer_info_summary, verify_layers_exist
+from .markers import CutMarker, ConnectMarker, ProbeMarker
+from .config import LAYERS, GEOMETRIC_PARAMS, UI_TIMEOUTS, DEFAULT_MARKER_NOTES
+from .layer_manager import ensure_fib_layers, get_layer_info_summary, verify_layers_exist
 
 # Import layer tap functionality
 try:
-    from layer_tap import get_layer_at_point_with_selection, format_layer_for_display
+    from .layer_tap import get_layer_at_point_with_selection, format_layer_for_display
     LAYER_TAP_AVAILABLE = True
     print("[FIB Plugin] Layer tap functionality available")
 except ImportError as e:
@@ -93,7 +93,7 @@ current_mode = None
 
 # Import panel functionality
 try:
-    from fib_panel import get_fib_panel
+    from .fib_panel import get_fib_panel
     PANEL_AVAILABLE = True
 except ImportError:
     PANEL_AVAILABLE = False
@@ -101,7 +101,7 @@ except ImportError:
 
 # Import multi-point marker classes
 try:
-    from multipoint_markers import (
+    from .multipoint_markers import (
         MultiPointCutMarker, MultiPointConnectMarker,
         create_multipoint_cut_marker, create_multipoint_connect_marker
     )
@@ -1090,7 +1090,7 @@ print("clear_coordinate_texts() - Clear all coordinate text labels (Layer 319)")
 # Create FIB Panel
 print("\n=== FIB Panel Integration ===")
 try:
-    from fib_panel import create_fib_panel
+    from .fib_panel import create_fib_panel
     panel = create_fib_panel()
     if panel:
         print("✓ FIB Panel created and docked successfully")

@@ -12,7 +12,7 @@ Each screenshot includes a scale bar in micrometers.
 
 import os
 import pya
-from config import SCREENSHOT_CONFIG
+from .config import SCREENSHOT_CONFIG
 
 
 def get_marker_bbox(marker):
@@ -242,7 +242,7 @@ def select_marker_path(view, marker):
         else:
             layer_key = 'cut'  # fallback
         
-        from config import LAYERS
+        from .config import LAYERS
         fib_layer_num = LAYERS[layer_key]
         fib_layer = layout.layer(fib_layer_num, 0)
         

@@ -42,7 +42,7 @@
 ## 🏗️ 代码结构
 
 ```
-klayout_fib_tool/
+klayout_fib_tool/src/
 ├── __init__.py              # 插件入口，注册到 KLayout
 ├── plugin.py                # 核心插件逻辑（鼠标事件处理）
 ├── markers.py               # 标记类（CutMarker, ConnectMarker, ProbeMarker）
