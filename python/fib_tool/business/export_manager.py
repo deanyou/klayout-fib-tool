@@ -1,9 +1,9 @@
 """Export management for FIB Tool
 
-This module provides a clean API for exporting markers to various formats
-including PDF and HTML reports with screenshots.
+This module provides a clean API for exporting markers to HTML reports
+with screenshots.
 
-This is a facade that wraps the existing screenshot_export and report modules.
+This is a facade that wraps the existing screenshot_export module.
 """
 
 import os
@@ -40,34 +40,6 @@ class FibExportManager:
 
         except Exception as e:
             print(f"[Export Manager] Error exporting to HTML: {e}")
-            import traceback
-            traceback.print_exc()
-            return False
-
-    @staticmethod
-    def export_to_pdf(markers, screenshots_dict, output_path):
-        """Export markers to PDF report
-
-        Args:
-            markers (list): List of marker objects
-            screenshots_dict (dict): Dictionary of screenshots indexed by marker ID
-            output_path (str): Output PDF file path
-
-        Returns:
-            bool: True if exported successfully, False otherwise
-        """
-        try:
-            from ..report import generate_pdf_report
-
-            result = generate_pdf_report(
-                markers,
-                screenshots_dict,
-                output_path
-            )
-            return result
-
-        except Exception as e:
-            print(f"[Export Manager] Error exporting to PDF: {e}")
             import traceback
             traceback.print_exc()
             return False

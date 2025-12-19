@@ -117,14 +117,14 @@ class FIBPanel(pya.QDockWidget):
             
             group_layout.addLayout(btn_layout1)
             
-            # Second row: Export PDF
+            # Second row: Export HTML
             btn_layout2 = pya.QHBoxLayout()
-            
-            btn_export_pdf = pya.QPushButton("Export PDF")
-            btn_export_pdf.clicked.connect(self.on_export_pdf)
-            
-            btn_layout2.addWidget(btn_export_pdf)
-            
+
+            btn_export_html = pya.QPushButton("Export HTML")
+            btn_export_html.clicked.connect(self.on_export_html)
+
+            btn_layout2.addWidget(btn_export_html)
+
             group_layout.addLayout(btn_layout2)
             self.main_layout.addWidget(group)
             
@@ -683,8 +683,8 @@ class FIBPanel(pya.QDockWidget):
                 FibDialogManager.warning(f"Failed to create directory:\n{export_dir}\n\nError: {str(e)}", "FIB Panel")
                 return
 
-            # Export HTML only (no PDF conversion)
-            success = self.export_html_only(export_dir, current_view)
+            # Export HTML with screenshots
+            success = self.export_markers(export_dir, current_view)
 
             if success:
                 FibDialogManager.info(f"HTML report exported successfully to:\n{export_dir}\n\n{len(self.markers_list)} markers included", "FIB Panel")
@@ -697,8 +697,8 @@ class FIBPanel(pya.QDockWidget):
             traceback.print_exc()
             FibDialogManager.warning(f"Error exporting HTML: {e}", "FIB Panel")
 
-    def export_html_only(self, output_dir, view):
-        """Export markers to HTML report with screenshots (no PDF conversion)
+    def export_markers(self, output_dir, view):
+        """Export markers to HTML report with screenshots
 
         Args:
             output_dir: Directory to save all output files (HTML, screenshots)
@@ -708,7 +708,7 @@ class FIBPanel(pya.QDockWidget):
             bool: True if successful, False otherwise
         """
         print("=" * 80)
-        print("[FIB Panel] export_html_only() CALLED")
+        print("[FIB Panel] export_markers() CALLED")
         print("=" * 80)
         print(f"[FIB Panel] Output directory: {output_dir}")
         print(f"[FIB Panel] Number of markers: {len(self.markers_list)}")
@@ -766,100 +766,11 @@ class FIBPanel(pya.QDockWidget):
                 return False
 
         except Exception as e:
-            print(f"[FIB Panel] Error in export_html_only: {e}")
+            print(f"[FIB Panel] Error in export_markers: {e}")
             import traceback
             traceback.print_exc()
             return False
 
-    def on_export_pdf(self):
-        """Handle Export PDF - with auto-numbered directory creation"""
-        try:
-            if not self.markers_list:
-                FibDialogManager.warning("No markers to export. Create some markers first.", "FIB Panel")
-                return
-
-            # Get current view
-            main_window = pya.Application.instance().main_window()
-            current_view = main_window.current_view()
-
-            if not current_view:
-                FibDialogManager.warning("No active view", "FIB Panel")
-                return
-
-            # Get GDS filename
-            gds_basename = self.get_gds_filename(current_view)
-
-            # Select parent directory
-            home_dir = os.path.expanduser("~")
-            file_dialog = pya.QFileDialog()
-            parent_dir = file_dialog.getExistingDirectory(
-                self, "Select Export Directory", home_dir
-            )
-
-            # Handle different return types
-            if isinstance(parent_dir, tuple):
-                parent_dir = parent_dir[0] if parent_dir[0] else None
-
-            if not parent_dir:
-                print("[FIB Panel] Export PDF cancelled by user")
-                return
-
-            # Auto-increment number
-            next_number = self.get_next_export_number(parent_dir, gds_basename)
-
-            # Generate directory name
-            export_dirname = self.generate_export_dirname(gds_basename, next_number)
-            export_dir = os.path.join(parent_dir, export_dirname)
-
-            # Create directory
-            try:
-                os.makedirs(export_dir, exist_ok=False)
-                print(f"[FIB Panel] Created export directory: {export_dir}")
-            except FileExistsError:
-                # Rare case: directory just created, increment and retry
-                next_number += 1
-                export_dirname = self.generate_export_dirname(gds_basename, next_number)
-                export_dir = os.path.join(parent_dir, export_dirname)
-                try:
-                    os.makedirs(export_dir, exist_ok=True)
-                    print(f"[FIB Panel] Created export directory (retry): {export_dir}")
-                except Exception as e:
-                    FibDialogManager.warning(f"Failed to create directory:\n{export_dir}\n\nError: {str(e)}", "FIB Panel")
-                    return
-            except Exception as e:
-                FibDialogManager.warning(f"Failed to create directory:\n{export_dir}\n\nError: {str(e)}", "FIB Panel")
-                return
-
-            # Export to new directory
-            print("=" * 80)
-            print("[FIB Panel] About to call export_markers_to_pdf()")
-            print(f"[FIB Panel] export_dir: {export_dir}")
-            print(f"[FIB Panel] current_view: {current_view}")
-            print(f"[FIB Panel] markers_list length: {len(self.markers_list)}")
-            print("=" * 80)
-            
-            success = self.export_markers_to_pdf(export_dir, current_view)
-            
-            print("=" * 80)
-            print(f"[FIB Panel] export_markers_to_pdf() returned: {success}")
-            print("=" * 80)
-
-            if success:
-                # Check if PDF was actually created or just HTML
-                pdf_path = os.path.join(export_dir, "fib_markers_report.pdf")
-                if os.path.exists(pdf_path):
-                    msg = f"PDF report exported successfully to:\n{export_dir}"
-                else:
-                    msg = f"HTML report exported successfully to:\n{export_dir}\n\n(PDF conversion tools not available)"
-                FibDialogManager.info(f"{msg}\n\n{len(self.markers_list)} markers included", "FIB Panel")
-            else:
-                FibDialogManager.warning("Export failed. Check console for details.", "FIB Panel")
-
-        except Exception as e:
-            print(f"[FIB Panel] Error in export PDF: {e}")
-            import traceback
-            traceback.print_exc()
-            FibDialogManager.warning(f"Error exporting PDF: {e}", "FIB Panel")
     
     def on_cut_clicked(self):
         """Handle Cut button - activate toolbar plugin"""
@@ -1577,122 +1488,6 @@ class FIBPanel(pya.QDockWidget):
             print(f"[FIB Panel] Error loading from JSON: {e}")
             return False
     
-    def export_markers_to_pdf(self, output_dir, view):
-        """Export markers to PDF report with screenshots
-
-        Args:
-            output_dir: Directory to save all output files (PDF, HTML, screenshots)
-            view: Current KLayout view
-        """
-        print("=" * 80)
-        print("[FIB Panel] export_markers_to_pdf() CALLED")
-        print("=" * 80)
-        print(f"[FIB Panel] Output directory: {output_dir}")
-        print(f"[FIB Panel] Number of markers: {len(self.markers_list)}")
-        print(f"[FIB Panel] View: {view}")
-        
-        try:
-            print("[FIB Panel] Importing screenshot_export module...")
-            import os
-            from .screenshot_export import (
-                export_markers_with_screenshots,
-                generate_html_report_with_screenshots
-            )
-            print("[FIB Panel] Import successful")
-
-            print(f"[FIB Panel] Starting export with screenshots...")
-
-            # Generate screenshots for all markers
-            print(f"[FIB Panel] Calling export_markers_with_screenshots with {len(self.markers_list)} markers...")
-            try:
-                screenshots_dict = export_markers_with_screenshots(
-                    self.markers_list,
-                    view,
-                    output_dir
-                )
-                print(f"[FIB Panel] Screenshots generated: {len(screenshots_dict)} markers")
-            except Exception as screenshot_error:
-                print(f"[FIB Panel] ERROR in export_markers_with_screenshots: {screenshot_error}")
-                import traceback
-                traceback.print_exc()
-                return False
-
-            # Define output filenames
-            pdf_filename = os.path.join(output_dir, "fib_markers_report.pdf")
-            html_filename = os.path.join(output_dir, "fib_markers_report.html")
-
-            # Generate HTML report with screenshots
-            print(f"[FIB Panel] Calling generate_html_report_with_screenshots...")
-            try:
-                success = generate_html_report_with_screenshots(
-                    self.markers_list,
-                    screenshots_dict,
-                    html_filename
-                )
-                
-                if not success:
-                    print(f"[FIB Panel] Failed to generate HTML report (returned False)")
-                    return False
-                
-                print(f"[FIB Panel] HTML report saved to: {html_filename}")
-            except Exception as html_error:
-                print(f"[FIB Panel] ERROR in generate_html_report_with_screenshots: {html_error}")
-                import traceback
-                traceback.print_exc()
-                return False
-            
-            # Try to convert to PDF using available tools
-            pdf_created = False
-            
-            # Method 1: Try using wkhtmltopdf (if installed)
-            try:
-                import subprocess
-                result = subprocess.run(['wkhtmltopdf', '--version'], 
-                                      capture_output=True, timeout=5)
-                if result.returncode == 0:
-                    print("[FIB Panel] Using wkhtmltopdf for PDF conversion")
-                    subprocess.run(['wkhtmltopdf', html_filename, pdf_filename],
-                                 check=True, timeout=30)
-                    pdf_created = True
-            except (FileNotFoundError, subprocess.TimeoutExpired, subprocess.CalledProcessError) as e:
-                print(f"[FIB Panel] wkhtmltopdf not available: {e}")
-            except Exception as wk_error:
-                print(f"[FIB Panel] wkhtmltopdf error: {wk_error}")
-            
-            # Method 2: Try using weasyprint (if installed)
-            if not pdf_created:
-                try:
-                    from weasyprint import HTML
-                    print("[FIB Panel] Using weasyprint for PDF conversion")
-                    HTML(html_filename).write_pdf(pdf_filename)
-                    pdf_created = True
-                except ImportError:
-                    print("[FIB Panel] weasyprint not available")
-                except Exception as weasy_error:
-                    print(f"[FIB Panel] weasyprint error: {weasy_error}")
-            
-            # If PDF conversion failed, just keep the HTML (silent operation)
-            if not pdf_created:
-                print(f"[FIB Panel] PDF conversion tools not available. HTML report saved instead.")
-                # Silent operation: No dialog, just proceed with HTML export
-
-                # Ask user if they want to open the HTML file
-                self._ask_to_open_html(html_filename)
-
-                return True
-
-            print(f"[FIB Panel] PDF report created: {pdf_filename}")
-
-            # Ask user if they want to open the HTML file
-            self._ask_to_open_html(html_filename)
-            
-            return True
-            
-        except Exception as e:
-            print(f"[FIB Panel] Error exporting to PDF: {e}")
-            import traceback
-            traceback.print_exc()
-            return False
     
     # Public methods for plugin integration
     def add_marker(self, marker):
