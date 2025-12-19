@@ -654,7 +654,10 @@ class FIBPanel(pya.QDockWidget):
                 parent_dir = parent_dir[0] if parent_dir[0] else None
 
             if not parent_dir:
-                print("[FIB Panel] Export HTML cancelled by user")
+                try:
+                    print("[FIB Panel] Export HTML cancelled by user")
+                except:
+                    pass
                 return
 
             # Auto-increment number
@@ -667,7 +670,10 @@ class FIBPanel(pya.QDockWidget):
             # Create directory
             try:
                 os.makedirs(export_dir, exist_ok=False)
-                print(f"[FIB Panel] Created export directory: {export_dir}")
+                try:
+                    print(f"[FIB Panel] Created export directory: {export_dir}")
+                except:
+                    pass
             except FileExistsError:
                 # Rare case: directory just created, increment and retry
                 next_number += 1
@@ -675,7 +681,10 @@ class FIBPanel(pya.QDockWidget):
                 export_dir = os.path.join(parent_dir, export_dirname)
                 try:
                     os.makedirs(export_dir, exist_ok=True)
-                    print(f"[FIB Panel] Created export directory (retry): {export_dir}")
+                    try:
+                        print(f"[FIB Panel] Created export directory (retry): {export_dir}")
+                    except:
+                        pass
                 except Exception as e:
                     FibDialogManager.warning(f"Failed to create directory:\n{export_dir}\n\nError: {str(e)}", "FIB Panel")
                     return
@@ -687,15 +696,27 @@ class FIBPanel(pya.QDockWidget):
             success = self.export_markers(export_dir, current_view)
 
             if success:
-                FibDialogManager.info(f"HTML report exported successfully to:\n{export_dir}\n\n{len(self.markers_list)} markers included", "FIB Panel")
+                FibDialogManager.info(f"HTML report exported successfully to:\\n{export_dir}\\n\\n{len(self.markers_list)} markers included\\n\\nLog file: {export_dir}/export_log.txt", "FIB Panel")
             else:
-                FibDialogManager.warning("Failed to export HTML. Check console for details.", "FIB Panel")
+                FibDialogManager.warning(f"Failed to export HTML.\\n\\nPlease check the log file for details:\\n{export_dir}/export_log.txt", "FIB Panel")
 
         except Exception as e:
-            print(f"[FIB Panel] Error in export HTML: {e}")
-            import traceback
-            traceback.print_exc()
-            FibDialogManager.warning(f"Error exporting HTML: {e}", "FIB Panel")
+            # Try to write to a log file in the export directory if available
+            try:
+                log_file = os.path.join(os.path.expanduser("~"), "fib_export_error.log")
+                with open(log_file, 'a', encoding='utf-8') as f:
+                    f.write(f"[FIB Panel] Error in export HTML: {e}\n")
+                    import traceback
+                    f.write(traceback.format_exc() + "\n")
+                error_msg = f"Error exporting HTML: {e}\\n\\nError log saved to: {log_file}"
+            except:
+                error_msg = f"Error exporting HTML: {e}"
+
+            try:
+                print(f"[FIB Panel] {error_msg}")
+            except:
+                pass
+            FibDialogManager.warning(error_msg, "FIB Panel")
 
     def export_markers(self, output_dir, view):
         """Export markers to HTML report with screenshots
@@ -707,44 +728,65 @@ class FIBPanel(pya.QDockWidget):
         Returns:
             bool: True if successful, False otherwise
         """
-        print("=" * 80)
-        print("[FIB Panel] export_markers() CALLED")
-        print("=" * 80)
-        print(f"[FIB Panel] Output directory: {output_dir}")
-        print(f"[FIB Panel] Number of markers: {len(self.markers_list)}")
-        print(f"[FIB Panel] View: {view}")
+        # Setup logging to file (works without Macro Development Console)
+        from pathlib import Path
+        log_file = None
+        try:
+            log_file = Path(output_dir) / 'export_log.txt'
+            # Clear old log
+            if log_file.exists():
+                log_file.unlink()
+        except:
+            pass
+
+        def log(message):
+            """Log to both console and file"""
+            print(message)
+            if log_file:
+                try:
+                    with open(log_file, 'a', encoding='utf-8') as f:
+                        f.write(message + '\n')
+                except:
+                    pass
+
+        log("=" * 80)
+        log("[FIB Panel] export_markers() CALLED")
+        log("=" * 80)
+        log(f"[FIB Panel] Output directory: {output_dir}")
+        log(f"[FIB Panel] Number of markers: {len(self.markers_list)}")
+        log(f"[FIB Panel] View: {view}")
 
         try:
-            print("[FIB Panel] Importing screenshot_export module...")
+            log("[FIB Panel] Importing screenshot_export module...")
             import os
             from .screenshot_export import (
                 export_markers_with_screenshots,
                 generate_html_report_with_screenshots
             )
-            print("[FIB Panel] Import successful")
+            log("[FIB Panel] Import successful")
 
-            print(f"[FIB Panel] Starting HTML export with screenshots...")
+            log(f"[FIB Panel] Starting HTML export with screenshots...")
 
             # Generate screenshots for all markers
-            print(f"[FIB Panel] Calling export_markers_with_screenshots with {len(self.markers_list)} markers...")
+            log(f"[FIB Panel] Calling export_markers_with_screenshots with {len(self.markers_list)} markers...")
             try:
                 screenshots_dict = export_markers_with_screenshots(
                     self.markers_list,
                     view,
                     output_dir
                 )
-                print(f"[FIB Panel] Screenshots generated: {len(screenshots_dict)} markers")
+                log(f"[FIB Panel] Screenshots generated: {len(screenshots_dict)} markers")
             except Exception as screenshot_error:
-                print(f"[FIB Panel] ERROR in export_markers_with_screenshots: {screenshot_error}")
+                log(f"[FIB Panel] ERROR in export_markers_with_screenshots: {screenshot_error}")
                 import traceback
-                traceback.print_exc()
+                log(traceback.format_exc())
                 return False
 
             # Define output filename
             html_filename = os.path.join(output_dir, "fib_markers_report.html")
 
             # Generate HTML report with screenshots
-            print(f"[FIB Panel] Calling generate_html_report_with_screenshots...")
+            log(f"[FIB Panel] Calling generate_html_report_with_screenshots...")
             try:
                 success = generate_html_report_with_screenshots(
                     self.markers_list,
@@ -753,22 +795,22 @@ class FIBPanel(pya.QDockWidget):
                 )
 
                 if not success:
-                    print(f"[FIB Panel] Failed to generate HTML report (returned False)")
+                    log(f"[FIB Panel] Failed to generate HTML report (returned False)")
                     return False
 
-                print(f"[FIB Panel] HTML report saved to: {html_filename}")
+                log(f"[FIB Panel] HTML report saved to: {html_filename}")
                 return True
 
             except Exception as html_error:
-                print(f"[FIB Panel] ERROR in generate_html_report_with_screenshots: {html_error}")
+                log(f"[FIB Panel] ERROR in generate_html_report_with_screenshots: {html_error}")
                 import traceback
-                traceback.print_exc()
+                log(traceback.format_exc())
                 return False
 
         except Exception as e:
-            print(f"[FIB Panel] Error in export_markers: {e}")
+            log(f"[FIB Panel] Error in export_markers: {e}")
             import traceback
-            traceback.print_exc()
+            log(traceback.format_exc())
             return False
 
     

@@ -121,11 +121,17 @@ def get_marker_bbox(marker):
             return pya.DBox(marker.x - r, marker.y - r, marker.x + r, marker.y + r)
         
         else:
-            print(f"[Screenshot] Warning: Unknown marker type for {marker.id}")
+            try:
+                print(f"[Screenshot] Warning: Unknown marker type for {marker.id}")
+            except:
+                pass
             return pya.DBox(0, 0, 10, 10)
-            
+
     except Exception as e:
-        print(f"[Screenshot] Error getting bbox for {marker.id}: {e}")
+        try:
+            print(f"[Screenshot] Error getting bbox for {marker.id}: {e}")
+        except:
+            pass
         return pya.DBox(0, 0, 10, 10)
 
 
@@ -173,13 +179,16 @@ def create_marker_dimension_rulers(view, marker):
             x2, y2 = marker.x2, marker.y2
         else:
             # PROBE marker - no dimensions to show
-            print(f"[Screenshot] PROBE marker has no dimensions to measure")
+            try:
+                print(f"[Screenshot] PROBE marker has no dimensions to measure")
+            except:
+                pass
             return
-        
+
         # Calculate deltas
         delta_x = abs(x2 - x1)
         delta_y = abs(y2 - y1)
-        
+
         # X direction ruler (horizontal)
         if delta_x > 0.01:  # Only show if significant
             x_ruler = pya.Annotation()
@@ -188,8 +197,11 @@ def create_marker_dimension_rulers(view, marker):
             x_ruler.style = pya.Annotation.StyleRuler  # Ruler with measurement
             # Remove custom format to avoid $ syntax errors
             view.insert_annotation(x_ruler)
-            print(f"[Screenshot] Created X ruler: DX = {delta_x:.2f} um")
-        
+            try:
+                print(f"[Screenshot] Created X ruler: DX = {delta_x:.2f} um")
+            except:
+                pass
+
         # Y direction ruler (vertical)
         if delta_y > 0.01:  # Only show if significant
             y_ruler = pya.Annotation()
@@ -198,14 +210,21 @@ def create_marker_dimension_rulers(view, marker):
             y_ruler.style = pya.Annotation.StyleRuler  # Ruler with measurement
             # Remove custom format to avoid $ syntax errors
             view.insert_annotation(y_ruler)
-            print(f"[Screenshot] Created Y ruler: DY = {delta_y:.2f} um")
-        
-        print(f"[Screenshot] Marker dimensions: DX={delta_x:.2f} um, DY={delta_y:.2f} um")
-        
+            try:
+                print(f"[Screenshot] Created Y ruler: DY = {delta_y:.2f} um")
+            except:
+                pass
+
+        try:
+            print(f"[Screenshot] Marker dimensions: DX={delta_x:.2f} um, DY={delta_y:.2f} um")
+        except:
+            pass
+
     except Exception as e:
-        print(f"[Screenshot] Error creating dimension rulers: {e}")
-        import traceback
-        traceback.print_exc()
+        try:
+            print(f"[Screenshot] Error creating dimension rulers: {e}")
+        except:
+            pass
 
 
 def create_crosshair_annotation(view, marker_center, layout_bbox):
@@ -235,12 +254,18 @@ def create_crosshair_annotation(view, marker_center, layout_bbox):
         v_ruler.p2 = pya.DPoint(marker_center.x, layout_bbox.top)
         v_ruler.style = pya.Annotation.StyleLine
         view.insert_annotation(v_ruler)
-        
-        print(f"[Screenshot] Created crosshair at ({marker_center.x:.2f}, {marker_center.y:.2f})")
-        print(f"[Screenshot] Note: To change crosshair color to white, set ruler color in KLayout preferences")
-        
+
+        try:
+            print(f"[Screenshot] Created crosshair at ({marker_center.x:.2f}, {marker_center.y:.2f})")
+            print(f"[Screenshot] Note: To change crosshair color to white, set ruler color in KLayout preferences")
+        except:
+            pass
+
     except Exception as e:
-        print(f"[Screenshot] Error creating crosshair: {e}")
+        try:
+            print(f"[Screenshot] Error creating crosshair: {e}")
+        except:
+            pass
 
 
 def create_scale_bar(view, view_bbox):
@@ -268,42 +293,52 @@ def create_scale_bar(view, view_bbox):
         scale_bar.p2 = pya.DPoint(scale_x + scale_length, scale_y)
         scale_bar.style = pya.Annotation.StyleRuler  # Ruler style with measurement
         view.insert_annotation(scale_bar)
-        
-        print(f"[Screenshot] Created scale bar: {scale_length} um")
-        
+
+        try:
+            print(f"[Screenshot] Created scale bar: {scale_length} um")
+        except:
+            pass
+
     except Exception as e:
-        print(f"[Screenshot] Error creating scale bar: {e}")
+        try:
+            print(f"[Screenshot] Error creating scale bar: {e}")
+        except:
+            pass
 
 
-def select_marker_path(view, marker):
+def select_marker_path(view, marker, log_func=None):
     """
     Select the marker's coordinate text labels for highlighting in screenshots
-    
+
     This function finds and selects the text labels associated with the marker
     to make them more visible in screenshots with highlighting boxes.
-    
+
     Args:
         view: LayoutView object
         marker: Marker object
-    
+        log_func: Optional logging function (defaults to print)
+
     Returns:
         bool: True if selection successful
     """
+    # Use provided log function or default to print
+    log = log_func if log_func else print
+
     try:
-        print(f"[Screenshot] Attempting to select text labels for {marker.id}")
-        
+        log(f"[Screenshot] Attempting to select text labels for {marker.id}")
+
         # Clear any existing selection first
         view.clear_selection()
-        
+
         cellview = view.active_cellview()
         if not cellview.is_valid():
-            print(f"[Screenshot] Invalid cellview for {marker.id}")
+            log(f"[Screenshot] Invalid cellview for {marker.id}")
             return False
-        
+
         cell = cellview.cell
         layout = cellview.layout()
         dbu = layout.dbu
-        
+
         # Get marker layer
         marker_class = marker.__class__.__name__.lower()
         if 'cut' in marker_class:
@@ -314,86 +349,86 @@ def select_marker_path(view, marker):
             layer_key = 'probe'
         else:
             layer_key = 'cut'  # fallback
-        
+
         from .config import LAYERS
         fib_layer_num = LAYERS[layer_key]
         fib_layer = layout.layer(fib_layer_num, 0)
-        
+
         # Create search regions around marker coordinates to find text labels
         search_regions = []
-        
+
         if hasattr(marker, 'points') and len(marker.points) >= 2:
             # Multi-point marker: search around each point for coordinate texts
-            print(f"[Screenshot] Searching for {len(marker.points)} coordinate texts for multi-point {marker.id}")
+            log(f"[Screenshot] Searching for {len(marker.points)} coordinate texts for multi-point {marker.id}")
             for i, (x, y) in enumerate(marker.points):
                 # Create search box around each coordinate
                 margin = SCREENSHOT_CONFIG['search_radius']  # Search radius in microns
                 db_box = pya.Box(
-                    int((x - margin) / dbu), 
+                    int((x - margin) / dbu),
                     int((y - margin) / dbu),
-                    int((x + margin) / dbu), 
+                    int((x + margin) / dbu),
                     int((y + margin) / dbu)
                 )
                 search_regions.append(db_box)
-                
+
         elif hasattr(marker, 'x1'):
             # Regular 2-point marker: search around both endpoints
-            print(f"[Screenshot] Searching for 2 coordinate texts for 2-point {marker.id}")
+            log(f"[Screenshot] Searching for 2 coordinate texts for 2-point {marker.id}")
             for x, y in [(marker.x1, marker.y1), (marker.x2, marker.y2)]:
                 margin = SCREENSHOT_CONFIG['search_radius']  # Search radius in microns
                 db_box = pya.Box(
-                    int((x - margin) / dbu), 
+                    int((x - margin) / dbu),
                     int((y - margin) / dbu),
-                    int((x + margin) / dbu), 
+                    int((x + margin) / dbu),
                     int((y + margin) / dbu)
                 )
                 search_regions.append(db_box)
-                
+
         else:
             # PROBE marker: search around single point
-            print(f"[Screenshot] Searching for 1 coordinate text for probe {marker.id}")
+            log(f"[Screenshot] Searching for 1 coordinate text for probe {marker.id}")
             margin = SCREENSHOT_CONFIG['search_radius']  # Search radius in microns
             db_box = pya.Box(
-                int((marker.x - margin) / dbu), 
+                int((marker.x - margin) / dbu),
                 int((marker.y - margin) / dbu),
-                int((marker.x + margin) / dbu), 
+                int((marker.x + margin) / dbu),
                 int((marker.y + margin) / dbu)
             )
             search_regions.append(db_box)
-        
+
         # Search for text labels in each region
         texts_found = 0
         texts_selected = 0
-        
+
         for i, search_box in enumerate(search_regions):
-            print(f"[Screenshot] Searching region {i+1}/{len(search_regions)}: {search_box}")
-            
+            log(f"[Screenshot] Searching region {i+1}/{len(search_regions)}: {search_box}")
+
             for shape in cell.shapes(fib_layer).each_overlapping(search_box):
                 if shape.is_text():
                     text_obj = shape.text
                     text_string = text_obj.string
                     texts_found += 1
-                    
+
                     # Check if this text belongs to our marker
-                    if marker.id in text_string or any(f"({coord[0]:.3f},{coord[1]:.3f})" in text_string 
-                                                     for coord in (marker.points if hasattr(marker, 'points') 
+                    if marker.id in text_string or any(f"({coord[0]:.3f},{coord[1]:.3f})" in text_string
+                                                     for coord in (marker.points if hasattr(marker, 'points')
                                                                  else [(marker.x1, marker.y1), (marker.x2, marker.y2)] if hasattr(marker, 'x1')
                                                                  else [(marker.x, marker.y)])):
-                        
-                        print(f"[Screenshot] Found matching text: '{text_string}'")
-                        
+
+                        log(f"[Screenshot] Found matching text: '{text_string}'")
+
                         # Create a highlight box around the text for better visibility
                         try:
                             text_pos = text_obj.trans.disp
                             select_point = pya.DPoint(text_pos.x * dbu, text_pos.y * dbu)
-                            
-                            print(f"[Screenshot] Found text '{text_string}' at ({select_point.x:.2f}, {select_point.y:.2f})")
-                            
+
+                            log(f"[Screenshot] Found text '{text_string}' at ({select_point.x:.2f}, {select_point.y:.2f})")
+
                             # Create a highlight annotation box around the text
                             try:
                                 # Use line annotations to create a box (more compatible)
                                 margin = SCREENSHOT_CONFIG['highlight_margin']  # Margin around text in microns
-                                
+
                                 # Create 4 lines to form a rectangle
                                 # Top line
                                 top_line = pya.Annotation()
@@ -401,52 +436,53 @@ def select_marker_path(view, marker):
                                 top_line.p2 = pya.DPoint(select_point.x + margin, select_point.y + margin)
                                 top_line.style = pya.Annotation.StyleLine
                                 view.insert_annotation(top_line)
-                                
+
                                 # Bottom line
                                 bottom_line = pya.Annotation()
                                 bottom_line.p1 = pya.DPoint(select_point.x - margin, select_point.y - margin)
                                 bottom_line.p2 = pya.DPoint(select_point.x + margin, select_point.y - margin)
                                 bottom_line.style = pya.Annotation.StyleLine
                                 view.insert_annotation(bottom_line)
-                                
+
                                 # Left line
                                 left_line = pya.Annotation()
                                 left_line.p1 = pya.DPoint(select_point.x - margin, select_point.y - margin)
                                 left_line.p2 = pya.DPoint(select_point.x - margin, select_point.y + margin)
                                 left_line.style = pya.Annotation.StyleLine
                                 view.insert_annotation(left_line)
-                                
+
                                 # Right line
                                 right_line = pya.Annotation()
                                 right_line.p1 = pya.DPoint(select_point.x + margin, select_point.y - margin)
                                 right_line.p2 = pya.DPoint(select_point.x + margin, select_point.y + margin)
                                 right_line.style = pya.Annotation.StyleLine
                                 view.insert_annotation(right_line)
-                                
-                                print(f"[Screenshot] ✓ Created highlight box around text '{text_string}'")
+
+                                log(f"[Screenshot] ✓ Created highlight box around text '{text_string}'")
                                 texts_selected += 1
-                                
+
                             except Exception as highlight_error:
-                                print(f"[Screenshot] Could not create highlight box: {highlight_error}")
+                                log(f"[Screenshot] Could not create highlight box: {highlight_error}")
                                 # Still count as processed even if highlighting failed
                                 texts_selected += 1
-                            
+
                         except Exception as text_select_error:
-                            print(f"[Screenshot] Could not process text '{text_string}': {text_select_error}")
-        
-        print(f"[Screenshot] Text search results for {marker.id}: {texts_found} texts found, {texts_selected} processed")
-        
+                            log(f"[Screenshot] Could not process text '{text_string}': {text_select_error}")
+
+        log(f"[Screenshot] Text search results for {marker.id}: {texts_found} texts found, {texts_selected} processed")
+
         if texts_found > 0:
-            print(f"[Screenshot] ✓ Found {texts_found} text labels for {marker.id}")
+            log(f"[Screenshot] ✓ Found {texts_found} text labels for {marker.id}")
             return True
         else:
-            print(f"[Screenshot] ⚠ No text labels found for {marker.id}")
+            log(f"[Screenshot] ⚠ No text labels found for {marker.id}")
             return False
-            
+
     except Exception as e:
-        print(f"[Screenshot] Error selecting text labels for {marker.id}: {e}")
+        log(f"[Screenshot] Error selecting text labels for {marker.id}: {e}")
         import traceback
-        traceback.print_exc()
+        if log_func:
+            log(traceback.format_exc())
         # Don't fail the screenshot process due to selection issues
         return True
 
@@ -454,51 +490,73 @@ def select_marker_path(view, marker):
 def take_marker_screenshots(marker, view, output_dir):
     """
     Generate 3 screenshots for a single marker
-    
+
     Args:
         marker: Marker object
         view: LayoutView object
         output_dir: Output directory path
-    
+
     Returns:
         list: List of tuples (description, filename, filepath)
     """
+    from pathlib import Path
+    import os
+
+    # Setup logging to file (works without Macro Development Console)
+    log_file = None
+    try:
+        # output_dir is images subdirectory, go up one level for log
+        base_dir = Path(output_dir).parent
+        log_file = base_dir / 'export_log.txt'
+    except:
+        pass
+
+    def log(message):
+        """Log to both console and file"""
+        print(message)
+        if log_file:
+            try:
+                with open(log_file, 'a', encoding='utf-8') as f:
+                    f.write(message + '\n')
+            except:
+                pass
+
     screenshots = []
-    
+
     try:
         # Get layout and marker info
         cellview = view.active_cellview()
         if not cellview.is_valid():
-            print(f"[Screenshot] Error: Invalid cellview")
+            log(f"[Screenshot] Error: Invalid cellview")
             return screenshots
-        
+
         layout_bbox = cellview.cell.dbbox()
         marker_bbox = get_marker_bbox(marker)
         marker_center = marker_bbox.center()
-        
-        print(f"[Screenshot] Processing {marker.id}...")
-        print(f"[Screenshot]   Marker bbox: {marker_bbox}")
-        print(f"[Screenshot]   Marker center: ({marker_center.x:.2f}, {marker_center.y:.2f})")
-        
+
+        log(f"[Screenshot] Processing {marker.id}...")
+        log(f"[Screenshot]   Marker bbox: {marker_bbox}")
+        log(f"[Screenshot]   Marker center: ({marker_center.x:.2f}, {marker_center.y:.2f})")
+
         # Store original view state
         original_box = view.box()
-        
+
         # Attempt to select marker path for highlighting in screenshots
         # Note: Path selection is currently disabled due to API compatibility issues
-        selection_success = select_marker_path(view, marker)
+        selection_success = select_marker_path(view, marker, log_func=log)
         if selection_success:
-            print(f"[Screenshot] ✓ Marker path selected for highlighting in {marker.id}")
+            log(f"[Screenshot] ✓ Marker path selected for highlighting in {marker.id}")
         else:
-            print(f"[Screenshot] ℹ Screenshots will be generated without path highlighting for {marker.id}")
-        
+            log(f"[Screenshot] ℹ Screenshots will be generated without path highlighting for {marker.id}")
+
         # === Screenshot 1: Overview (Fit All) with crosshair ===
         try:
             view.zoom_fit()
             view.clear_annotations()
-            
+
             # Create crosshair pointing to marker
             create_crosshair_annotation(view, marker_center, layout_bbox)
-            
+
             # Create scale bar
             current_box = view.box()
             create_scale_bar(view, current_box)
@@ -506,9 +564,9 @@ def take_marker_screenshots(marker, view, output_dir):
             # Save screenshot
             overview_filename = f"{marker.id}_overview.png"
             overview_path = os.path.join(output_dir, overview_filename)
-            print(f"[Screenshot] Attempting to save: {overview_path}")
-            print(f"[Screenshot]   View box: {view.box()}")
-            print(f"[Screenshot]   Cellview: valid={cellview.is_valid()}, cell={cellview.cell.name if cellview.cell else 'None'}")
+            log(f"[Screenshot] Attempting to save: {overview_path}")
+            log(f"[Screenshot]   View box: {view.box()}")
+            log(f"[Screenshot]   Cellview: valid={cellview.is_valid()}, cell={cellview.cell.name if cellview.cell else 'None'}")
             view.save_image(overview_path, 800, 600)
 
             # Verify file was actually created
@@ -519,10 +577,10 @@ def take_marker_screenshots(marker, view, output_dir):
                 raise RuntimeError(f"Screenshot file is empty (0 bytes): {overview_path}")
 
             screenshots.append(('Overview', overview_filename, overview_path))
-            print(f"[Screenshot]   ✓ Overview saved: {overview_filename} ({file_size} bytes)")
+            log(f"[Screenshot]   ✓ Overview saved: {overview_filename} ({file_size} bytes)")
             
         except Exception as e:
-            print(f"[Screenshot]   ✗ Overview failed: {e}")
+            log(f"[Screenshot]   ✗ Overview failed: {e}")
             raise
 
         # === Screenshot 2: Zoom 2x (medium zoom) ===
@@ -550,9 +608,9 @@ def take_marker_screenshots(marker, view, output_dir):
             # Save screenshot
             zoom2_filename = f"{marker.id}_zoom2x.png"
             zoom2_path = os.path.join(output_dir, zoom2_filename)
-            print(f"[Screenshot] Attempting to save: {zoom2_path}")
-            print(f"[Screenshot]   View box: {view.box()}")
-            print(f"[Screenshot]   Cellview: valid={cellview.is_valid()}, cell={cellview.cell.name if cellview.cell else 'None'}")
+            log(f"[Screenshot] Attempting to save: {zoom2_path}")
+            log(f"[Screenshot]   View box: {view.box()}")
+            log(f"[Screenshot]   Cellview: valid={cellview.is_valid()}, cell={cellview.cell.name if cellview.cell else 'None'}")
             view.save_image(zoom2_path, 800, 600)
 
             # Verify file was actually created
@@ -563,10 +621,10 @@ def take_marker_screenshots(marker, view, output_dir):
                 raise RuntimeError(f"Screenshot file is empty (0 bytes): {zoom2_path}")
 
             screenshots.append(('Zoom 2x', zoom2_filename, zoom2_path))
-            print(f"[Screenshot]   ✓ Zoom 2x saved: {zoom2_filename} ({file_size} bytes)")
+            log(f"[Screenshot]   ✓ Zoom 2x saved: {zoom2_filename} ({file_size} bytes)")
             
         except Exception as e:
-            print(f"[Screenshot]   ✗ Zoom 2x failed: {e}")
+            log(f"[Screenshot]   ✗ Zoom 2x failed: {e}")
             raise
 
         # === Screenshot 3: Detail (close-up) ===
@@ -594,9 +652,9 @@ def take_marker_screenshots(marker, view, output_dir):
             # Save screenshot
             detail_filename = f"{marker.id}_detail.png"
             detail_path = os.path.join(output_dir, detail_filename)
-            print(f"[Screenshot] Attempting to save: {detail_path}")
-            print(f"[Screenshot]   View box: {view.box()}")
-            print(f"[Screenshot]   Cellview: valid={cellview.is_valid()}, cell={cellview.cell.name if cellview.cell else 'None'}")
+            log(f"[Screenshot] Attempting to save: {detail_path}")
+            log(f"[Screenshot]   View box: {view.box()}")
+            log(f"[Screenshot]   Cellview: valid={cellview.is_valid()}, cell={cellview.cell.name if cellview.cell else 'None'}")
             view.save_image(detail_path, 800, 600)
 
             # Verify file was actually created
@@ -607,10 +665,10 @@ def take_marker_screenshots(marker, view, output_dir):
                 raise RuntimeError(f"Screenshot file is empty (0 bytes): {detail_path}")
 
             screenshots.append(('Detail', detail_filename, detail_path))
-            print(f"[Screenshot]   ✓ Detail saved: {detail_filename} ({file_size} bytes)")
+            log(f"[Screenshot]   ✓ Detail saved: {detail_filename} ({file_size} bytes)")
             
         except Exception as e:
-            print(f"[Screenshot]   ✗ Detail failed: {e}")
+            log(f"[Screenshot]   ✗ Detail failed: {e}")
             raise
 
         # Restore original view and clear selection
@@ -618,12 +676,12 @@ def take_marker_screenshots(marker, view, output_dir):
         view.clear_selection()  # Clear marker path selection
         view.zoom_box(original_box)
         
-        print(f"[Screenshot] Completed {marker.id}: {len(screenshots)} screenshots")
+        log(f"[Screenshot] Completed {marker.id}: {len(screenshots)} screenshots")
         
     except Exception as e:
-        print(f"[Screenshot] Error processing {marker.id}: {e}")
+        log(f"[Screenshot] Error processing {marker.id}: {e}")
         import traceback
-        traceback.print_exc()
+        log(traceback.format_exc())
     
     return screenshots
 
@@ -640,18 +698,38 @@ def export_markers_with_screenshots(markers, view, output_dir):
     Returns:
         dict: Dictionary mapping marker.id to list of screenshots
     """
+    from pathlib import Path
+    import os
+
+    # Setup logging to file (works without Macro Development Console)
+    log_file = None
+    try:
+        log_file = Path(output_dir) / 'export_log.txt'
+    except:
+        pass
+
+    def log(message):
+        """Log to both console and file"""
+        print(message)
+        if log_file:
+            try:
+                with open(log_file, 'a', encoding='utf-8') as f:
+                    f.write(message + '\n')
+            except:
+                pass
+
     all_screenshots = {}
 
     try:
         # ===== VIEW STATE VALIDATION =====
-        print("\n" + "=" * 70)
-        print("[Screenshot Export] View State Validation")
-        print("=" * 70)
+        log("\n" + "=" * 70)
+        log("[Screenshot Export] View State Validation")
+        log("=" * 70)
 
         # Validate view
         if view is None:
             raise ValueError("View is None - no active KLayout window")
-        print(f"[Screenshot] ✓ View object exists")
+        log(f"[Screenshot] ✓ View object exists")
 
         # Get cellview and validate it
         try:
@@ -661,50 +739,50 @@ def export_markers_with_screenshots(markers, view, output_dir):
 
         if not cellview.is_valid():
             raise ValueError("No active cellview - open a GDS file first")
-        print(f"[Screenshot] ✓ Cellview is valid")
+        log(f"[Screenshot] ✓ Cellview is valid")
 
         if cellview.cell is None:
             raise ValueError("Active cellview has no cell - layout not loaded")
-        print(f"[Screenshot] ✓ Cell is loaded: {cellview.cell.name}")
+        log(f"[Screenshot] ✓ Cell is loaded: {cellview.cell.name}")
 
-        print("=" * 70 + "\n")
+        log("=" * 70 + "\n")
         # ===== END VALIDATION =====
 
         # Diagnostic output for debugging
-        print("[Screenshot] ========================================")
-        print(f"[Screenshot] Python module file: {__file__}")
-        print(f"[Screenshot] Module directory: {Path(__file__).parent}")
+        log("[Screenshot] ========================================")
+        log(f"[Screenshot] Python module file: {__file__}")
+        log(f"[Screenshot] Module directory: {Path(__file__).parent}")
         templates_dir = Path(__file__).parent / 'templates'
-        print(f"[Screenshot] Templates directory: {templates_dir}")
-        print(f"[Screenshot] Templates exist: {templates_dir.exists()}")
+        log(f"[Screenshot] Templates directory: {templates_dir}")
+        log(f"[Screenshot] Templates exist: {templates_dir.exists()}")
         if templates_dir.exists():
             template_files = list(templates_dir.glob('*.html')) + list(templates_dir.glob('*.js'))
-            print(f"[Screenshot] Template files found: {[f.name for f in template_files]}")
-        print(f"[Screenshot] Output directory: {output_dir}")
-        print(f"[Screenshot] Output dir exists: {os.path.exists(output_dir)}")
-        print(f"[Screenshot] Output dir writable: {os.access(output_dir, os.W_OK)}")
-        print("[Screenshot] ========================================")
+            log(f"[Screenshot] Template files found: {[f.name for f in template_files]}")
+        log(f"[Screenshot] Output directory: {output_dir}")
+        log(f"[Screenshot] Output dir exists: {os.path.exists(output_dir)}")
+        log(f"[Screenshot] Output dir writable: {os.access(output_dir, os.W_OK)}")
+        log("[Screenshot] ========================================")
 
         # Create images subdirectory
         images_dir = os.path.join(output_dir, 'images')
         os.makedirs(images_dir, exist_ok=True)
 
-        print(f"[Screenshot] Starting export for {len(markers)} markers")
-        print(f"[Screenshot] Images directory: {images_dir}")
-        
+        log(f"[Screenshot] Starting export for {len(markers)} markers")
+        log(f"[Screenshot] Images directory: {images_dir}")
+
         # Process each marker
         for i, marker in enumerate(markers, 1):
-            print(f"[Screenshot] [{i}/{len(markers)}] Processing {marker.id}...")
-            
+            log(f"[Screenshot] [{i}/{len(markers)}] Processing {marker.id}...")
+
             screenshots = take_marker_screenshots(marker, view, images_dir)
             all_screenshots[marker.id] = screenshots
-        
-        print(f"[Screenshot] Export complete: {len(all_screenshots)} markers processed")
+
+        log(f"[Screenshot] Export complete: {len(all_screenshots)} markers processed")
 
     except Exception as e:
-        print(f"[Screenshot] Error in export: {e}")
+        log(f"[Screenshot] Error in export: {e}")
         import traceback
-        traceback.print_exc()
+        log(traceback.format_exc())
         raise  # Re-raise so caller knows export failed
 
     return all_screenshots
@@ -722,7 +800,10 @@ def _load_template_file(filename):
         with open(template_path, 'r', encoding='utf-8') as f:
             return f.read()
     except FileNotFoundError:
-        print(f"[Screenshot] Warning: Template file {filename} not found, using fallback")
+        try:
+            print(f"[Screenshot] Warning: Template file {filename} not found, using fallback")
+        except:
+            pass
         return None
 
 
@@ -903,13 +984,39 @@ def generate_html_report_with_screenshots(markers, screenshots_dict, output_path
         markers: List of marker objects
         screenshots_dict: Dictionary mapping marker.id to screenshots
         output_path: Output HTML file path
+
+    Returns:
+        bool: True if successful, False otherwise
     """
     from datetime import datetime
+    from pathlib import Path
+    import os
+
+    # Setup logging to file (works without Macro Development Console)
+    log_file = None
+    try:
+        log_dir = Path(output_path).parent
+        log_file = log_dir / 'export_log.txt'
+        # Clear old log
+        if log_file.exists():
+            log_file.unlink()
+    except:
+        pass
+
+    def log(message):
+        """Log to both console and file"""
+        print(message)
+        if log_file:
+            try:
+                with open(log_file, 'a', encoding='utf-8') as f:
+                    f.write(message + '\n')
+            except:
+                pass
 
     try:
         # Generate unique timestamp for this HTML report
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")
-        print(f"[Screenshot Export] Generated report timestamp: {timestamp}")
+        log(f"[Screenshot Export] Generated report timestamp: {timestamp}")
 
         # Group markers by type
         markers_by_type = {'CUT': [], 'CONNECT': [], 'PROBE': []}
@@ -963,13 +1070,13 @@ def generate_html_report_with_screenshots(markers, screenshots_dict, output_path
             html = html.replace('<script src="report_script.js"></script>', 
                                f'<script>\n{js_content}\n</script>')
             
-            print("[Screenshot] Using external template files")
+            log("[Screenshot] Using external template files")
         else:
             # Fallback: Use embedded minimal HTML when external templates not found
-            print("[Screenshot] ⚠️  WARNING: External template files not found")
-            print("[Screenshot] Using embedded fallback template (basic functionality)")
-            print("[Screenshot] For enhanced features, ensure templates/ directory exists")
-            print(f"[Screenshot] Expected location: {Path(__file__).parent / 'templates'}")
+            log("[Screenshot] ⚠️  WARNING: External template files not found")
+            log("[Screenshot] Using embedded fallback template (basic functionality)")
+            log("[Screenshot] For enhanced features, ensure templates/ directory exists")
+            log(f"[Screenshot] Expected location: {Path(__file__).parent / 'templates'}")
 
             html_template = EMBEDDED_MINIMAL_HTML
             js_content = ""  # No JavaScript in minimal template
@@ -989,17 +1096,17 @@ def generate_html_report_with_screenshots(markers, screenshots_dict, output_path
                 placeholder = "{" + key + "}"
                 html = html.replace(placeholder, str(value))
 
-            print("[Screenshot] Using embedded fallback template")
+            log("[Screenshot] Using embedded fallback template")
 
         # Write HTML file (works for both external and embedded templates)
         with open(output_path, 'w', encoding='utf-8') as f:
             f.write(html)
 
-        print(f"[Screenshot] HTML report saved: {output_path}")
+        log(f"[Screenshot] HTML report saved: {output_path}")
         return True
 
     except Exception as e:
-        print(f"[Screenshot] Error generating HTML: {e}")
+        log(f"[Screenshot] Error generating HTML: {e}")
         import traceback
-        traceback.print_exc()
+        log(traceback.format_exc())
         return False
