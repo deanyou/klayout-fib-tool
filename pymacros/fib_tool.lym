@@ -6,7 +6,7 @@
  <prolog/>
  <interpreter>python</interpreter>
  <dsl-interpreter-name/>
- <text>import sys
+ <text><![CDATA[import sys
 import os
 
 # Add the current directory to Python path
@@ -246,5 +246,5 @@ print("- Adjust view zoom to see markers clearly")
 print("- Use Layer Panel to adjust marker visibility")
 print()
 print("FIB Tool loaded successfully! Use toolbar buttons to get started.")
-</text>
+]]></text>
 </klayout-macro>
