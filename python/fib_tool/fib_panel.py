@@ -845,10 +845,15 @@ class FIBPanel(pya.QDockWidget):
             print("=" * 80)
 
             if success:
-                FibDialogManager.info(f"Report exported successfully to:\n{export_dir}\n\n{len(self.markers_list)} markers included", "FIB Panel")
+                # Check if PDF was actually created or just HTML
+                pdf_path = os.path.join(export_dir, "fib_markers_report.pdf")
+                if os.path.exists(pdf_path):
+                    msg = f"PDF report exported successfully to:\n{export_dir}"
+                else:
+                    msg = f"HTML report exported successfully to:\n{export_dir}\n\n(PDF conversion tools not available)"
+                FibDialogManager.info(f"{msg}\n\n{len(self.markers_list)} markers included", "FIB Panel")
             else:
-                print("[FIB Panel] Export failed, showing warning dialog")
-                FibDialogManager.warning("Failed to export PDF. Check console for details.", "FIB Panel")
+                FibDialogManager.warning("Export failed. Check console for details.", "FIB Panel")
 
         except Exception as e:
             print(f"[FIB Panel] Error in export PDF: {e}")
@@ -1666,18 +1671,14 @@ class FIBPanel(pya.QDockWidget):
                 except Exception as weasy_error:
                     print(f"[FIB Panel] weasyprint error: {weasy_error}")
             
-            # If PDF conversion failed, just keep the HTML
+            # If PDF conversion failed, just keep the HTML (silent operation)
             if not pdf_created:
                 print(f"[FIB Panel] PDF conversion tools not available. HTML report saved instead.")
-                FibDialogManager.info(f"PDF conversion tools not installed.\n\n"
-                    f"HTML report with screenshots saved to:\n{html_filename}\n\n"
-                    f"To enable PDF export, install:\n"
-                    f"  pip install weasyprint\n"
-                    f"or install wkhtmltopdf", "FIB Panel")
-                
+                # Silent operation: No dialog, just proceed with HTML export
+
                 # Ask user if they want to open the HTML file
                 self._ask_to_open_html(html_filename)
-                
+
                 return True
 
             print(f"[FIB Panel] PDF report created: {pdf_filename}")
