@@ -2,7 +2,7 @@
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![KLayout](https://img.shields.io/badge/KLayout-%3E%3D0.28-green.svg)
-![Version](https://img.shields.io/badge/version-1.0.0-orange.svg)
+![Version](https://img.shields.io/badge/version-1.0.1-orange.svg)
 ![Python](https://img.shields.io/badge/python-3.8%2B-blue.svg)
 ![Status](https://img.shields.io/badge/status-Production%20Ready-brightgreen.svg)
 
@@ -53,8 +53,8 @@ cp -r python/fib_tool ~/.klayout/salt/fib-tool/python/
 cp -r pymacros/*.lym ~/.klayout/salt/fib-tool/pymacros/
 
 # Windows - Open File Explorer and navigate to / 打开文件资源管理器，导航到:
-%APPDATA%\KLayout\salt\
-# Then copy the fib-tool folder / 然后复制 fib-tool 文件夹
+%APPDATA%\KLayout\salt\fib-tool\
+# Then copy klayout-fib-tool/* to the fib-tool folder / 然后复制klayout-fib-tool/*到fib-tool文件夹
 ```
 
 > **Windows Note / Windows 说明**: 
@@ -73,6 +73,28 @@ exec(open(FIB_TOOL_PATH + '/load_fib_tool.py', encoding='utf-8').read())
 > **Windows**: Use `r'C:\path\to\...'` format for paths / 路径使用 `r'C:\...'` 格式
 
 For detailed instructions / 详细说明: [HOW_TO_LOAD.md](HOW_TO_LOAD.md) | [INSTALLATION.md](INSTALLATION.md)
+
+## 📹 Video Tutorial / 视频教程
+
+**Watch the complete usage demonstration / 观看完整使用演示:**
+
+<div align="center">
+
+### [🎬 Click to Download Video Tutorial (40MB)](docs/klayout-fib-tool.wmv)
+
+**[📥 Direct Download / 直接下载](https://github.com/deanyou/klayout-fib-tool/raw/main/docs/klayout-fib-tool.wmv)**
+
+*Video format: WMV | Size: 40MB | Duration: Complete workflow demonstration*
+*视频格式: WMV | 大小: 40MB | 时长: 完整工作流程演示*
+
+</div>
+
+> **Note / 提示**:
+> - Click the link above to download the video tutorial / 点击上方链接下载视频教程
+> - The video demonstrates complete FIB marking workflow / 视频展示完整的 FIB 标注工作流程
+> - Covers marker creation, editing, and export / 包括标注创建、编辑和导出
+
+---
 
 ### Usage / 使用
 
@@ -246,7 +268,7 @@ Contributions are welcome! Please feel free to submit issues and pull requests.
 
 - Report bugs / 报告错误: [GitHub Issues](https://github.com/yourusername/klayout-fib-tool/issues)
 - Documentation / 文档: See `docs/` folder / 查看 `docs/` 文件夹
-- Contact / 联系: [Your contact info / 你的联系方式]
+- Contact / 联系: youliuyi61@qq.com [Your contact info / 你的联系方式]
 
 ---
 
