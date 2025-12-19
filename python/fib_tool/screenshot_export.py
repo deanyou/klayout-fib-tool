@@ -507,7 +507,7 @@ def take_marker_screenshots(marker, view, output_dir):
             overview_filename = f"{marker.id}_overview.png"
             overview_path = os.path.join(output_dir, overview_filename)
             print(f"[Screenshot] Attempting to save: {overview_path}")
-            print(f"[Screenshot]   View state: valid={view.is_valid()}, box={view.box()}")
+            print(f"[Screenshot]   View box: {view.box()}")
             print(f"[Screenshot]   Cellview: valid={cellview.is_valid()}, cell={cellview.cell.name if cellview.cell else 'None'}")
             view.save_image(overview_path, 800, 600)
 
@@ -551,7 +551,7 @@ def take_marker_screenshots(marker, view, output_dir):
             zoom2_filename = f"{marker.id}_zoom2x.png"
             zoom2_path = os.path.join(output_dir, zoom2_filename)
             print(f"[Screenshot] Attempting to save: {zoom2_path}")
-            print(f"[Screenshot]   View state: valid={view.is_valid()}, box={view.box()}")
+            print(f"[Screenshot]   View box: {view.box()}")
             print(f"[Screenshot]   Cellview: valid={cellview.is_valid()}, cell={cellview.cell.name if cellview.cell else 'None'}")
             view.save_image(zoom2_path, 800, 600)
 
@@ -595,7 +595,7 @@ def take_marker_screenshots(marker, view, output_dir):
             detail_filename = f"{marker.id}_detail.png"
             detail_path = os.path.join(output_dir, detail_filename)
             print(f"[Screenshot] Attempting to save: {detail_path}")
-            print(f"[Screenshot]   View state: valid={view.is_valid()}, box={view.box()}")
+            print(f"[Screenshot]   View box: {view.box()}")
             print(f"[Screenshot]   Cellview: valid={cellview.is_valid()}, cell={cellview.cell.name if cellview.cell else 'None'}")
             view.save_image(detail_path, 800, 600)
 
@@ -653,11 +653,12 @@ def export_markers_with_screenshots(markers, view, output_dir):
             raise ValueError("View is None - no active KLayout window")
         print(f"[Screenshot] ✓ View object exists")
 
-        if not view.is_valid():
-            raise ValueError("View not valid - KLayout view not initialized")
-        print(f"[Screenshot] ✓ View is valid")
+        # Get cellview and validate it
+        try:
+            cellview = view.active_cellview()
+        except Exception as e:
+            raise ValueError(f"Cannot get active cellview: {e}")
 
-        cellview = view.active_cellview()
         if not cellview.is_valid():
             raise ValueError("No active cellview - open a GDS file first")
         print(f"[Screenshot] ✓ Cellview is valid")
@@ -699,12 +700,13 @@ def export_markers_with_screenshots(markers, view, output_dir):
             all_screenshots[marker.id] = screenshots
         
         print(f"[Screenshot] Export complete: {len(all_screenshots)} markers processed")
-        
+
     except Exception as e:
         print(f"[Screenshot] Error in export: {e}")
         import traceback
         traceback.print_exc()
-    
+        raise  # Re-raise so caller knows export failed
+
     return all_screenshots
 
 
