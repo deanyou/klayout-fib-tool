@@ -38,8 +38,32 @@ __version__ = "1.0.0"
 __author__ = "Dean"
 __license__ = "MIT"
 
+# Import new modular components (version 4.0+)
+from .core.global_state import FibGlobalState
+from .core.geometry_utils import (
+    calculate_distance,
+    calculate_direction,
+    get_bounding_box,
+    get_marker_center
+)
+from .core.validation_utils import (
+    validate_marker_id,
+    validate_coordinates,
+    validate_file_path,
+    validate_conversion
+)
+from .ui.dialog_manager import FibDialogManager
+from .business.marker_transformer import FibMarkerTransformer
+from .business.file_manager import FibFileManager
+from .business.export_manager import FibExportManager
+
+# Backward compatibility: FIBPanel will be imported from ui/ after refactoring
+# For now, it's still in the old location
+# from .ui.fib_panel import FIBPanel
+
 # Package metadata
 __all__ = [
+    # Legacy module names (for backward compatibility)
     'markers',
     'multipoint_markers',
     'config',
@@ -47,4 +71,19 @@ __all__ = [
     'layer_tap',
     'fib_panel',
     'fib_plugin',
+    # New modular components (version 4.0+)
+    'FibGlobalState',
+    'calculate_distance',
+    'calculate_direction',
+    'get_bounding_box',
+    'get_marker_center',
+    'validate_marker_id',
+    'validate_coordinates',
+    'validate_file_path',
+    'validate_conversion',
+    'FibDialogManager',
+    'FibMarkerTransformer',
+    'FibFileManager',
+    'FibExportManager',
+    # 'FIBPanel',  # Uncomment after refactoring fib_panel.py
 ]

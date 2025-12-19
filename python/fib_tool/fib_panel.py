@@ -19,6 +19,13 @@ from .marker_menu import MarkerContextMenu
 from .smart_counter import SmartCounter
 from .file_dialog_helper import FileDialogHelper
 
+# Phase 2 refactoring: Import new modular components
+from .core.global_state import FibGlobalState
+from .ui.dialog_manager import FibDialogManager
+from .business.marker_transformer import FibMarkerTransformer
+from .business.file_manager import FibFileManager
+from .business.export_manager import FibExportManager
+
 class FIBPanel(pya.QDockWidget):
     """Main FIB Panel - Dockable widget for KLayout"""
     
@@ -27,7 +34,13 @@ class FIBPanel(pya.QDockWidget):
         self.markers_list = []  # Global marker list
         self.active_mode = None
         self.marker_notes_dict = {}  # Centralized notes storage: marker_id -> notes
-        
+
+        # Phase 2 refactoring: Initialize global state and business logic modules
+        self.state = FibGlobalState()
+        self.transformer = FibMarkerTransformer()
+        self.file_manager = FibFileManager()
+        self.export_manager = FibExportManager()
+
         # Initialize context menu handler and smart counter
         self.context_menu = MarkerContextMenu(self)
         self.smart_counter = SmartCounter(self)
@@ -373,25 +386,24 @@ class FIBPanel(pya.QDockWidget):
             if not self.markers_list or len(self.markers_list) == 0:
                 # No markers, just clear
                 self._clear_project_internal()
-                pya.MessageBox.info("FIB Panel", "New project created", pya.MessageBox.Ok)
+                FibDialogManager.info("New project created", "FIB Panel")
                 return
 
             # Show confirmation dialog with save option
             marker_count = len(self.markers_list)
 
-            # Create custom dialog with three buttons
-            result = pya.MessageBox.warning(
+            # Create custom dialog with three buttons (Phase 3: using FibDialogManager)
+            result = FibDialogManager.confirm_with_cancel(
                 "New Project",
                 f"You have {marker_count} marker(s) in the current project.\n\n"
-                f"Do you want to save before clearing?",
-                pya.MessageBox.Yes | pya.MessageBox.No | pya.MessageBox.Cancel
+                f"Do you want to save before clearing?"
             )
 
-            if result == pya.MessageBox.Cancel:
+            if result == FibDialogManager.RESULT_CANCEL:
                 print("[FIB Panel] New project cancelled by user")
                 return
 
-            if result == pya.MessageBox.Yes:
+            if result == FibDialogManager.RESULT_YES:
                 # User wants to save first
                 print("[FIB Panel] User chose to save before clearing")
 
@@ -406,14 +418,8 @@ class FIBPanel(pya.QDockWidget):
 
                         if not success:
                             # Save failed, ask if user wants to continue anyway
-                            retry_result = pya.MessageBox.warning(
-                                "Save Failed",
-                                f"Failed to save markers.\n\n"
-                                f"Do you still want to clear the project?",
-                                pya.MessageBox.Yes | pya.MessageBox.No
-                            )
-
-                            if retry_result == pya.MessageBox.No:
+                            if not FibDialogManager.confirm("Save Failed", f"Failed to save markers.\n\n"
+                                f"Do you still want to clear the project?"):
                                 print("[FIB Panel] New project cancelled after save failure")
                                 return
                         else:
@@ -428,14 +434,8 @@ class FIBPanel(pya.QDockWidget):
                                 pass
                     else:
                         # User cancelled save dialog, ask if want to continue
-                        retry_result = pya.MessageBox.warning(
-                            "Save Cancelled",
-                            f"Save cancelled.\n\n"
-                            f"Do you still want to clear the project without saving?",
-                            pya.MessageBox.Yes | pya.MessageBox.No
-                        )
-
-                        if retry_result == pya.MessageBox.No:
+                        if not FibDialogManager.confirm("Save Cancelled", f"Save cancelled.\n\n"
+                            f"Do you still want to clear the project without saving?"):
                             print("[FIB Panel] New project cancelled after save cancellation")
                             return
 
@@ -443,28 +443,22 @@ class FIBPanel(pya.QDockWidget):
                     print(f"[FIB Panel] Error during save: {save_error}")
 
                     # Ask if user wants to continue despite error
-                    retry_result = pya.MessageBox.warning(
-                        "Save Error",
-                        f"Error during save: {save_error}\n\n"
-                        f"Do you still want to clear the project?",
-                        pya.MessageBox.Yes | pya.MessageBox.No
-                    )
-
-                    if retry_result == pya.MessageBox.No:
+                    if not FibDialogManager.confirm("Save Error", f"Error during save: {save_error}\n\n"
+                        f"Do you still want to clear the project?"):
                         print("[FIB Panel] New project cancelled after save error")
                         return
 
             # Clear project (both "No" and "Yes after save" paths reach here)
             self._clear_project_internal()
 
-            pya.MessageBox.info("FIB Panel", "New project created", pya.MessageBox.Ok)
+            FibDialogManager.info("New project created", "FIB Panel")
             print(f"[FIB Panel] New project created, cleared {marker_count} markers")
 
         except Exception as e:
             print(f"[FIB Panel] Error in on_new_project: {e}")
             import traceback
             traceback.print_exc()
-            pya.MessageBox.warning("FIB Panel", f"Error creating new project: {e}", pya.MessageBox.Ok)
+            FibDialogManager.warning(f"Error creating new project: {e}", "FIB Panel")
 
     def _clear_project_internal(self):
         """Internal method to clear all project data (called after confirmation)"""
@@ -506,11 +500,7 @@ class FIBPanel(pya.QDockWidget):
     
     def on_close_project(self):
         """Handle Close project"""
-        result = pya.MessageBox.question(
-            "FIB Panel", "Close current project?", 
-            pya.MessageBox.Yes | pya.MessageBox.No
-        )
-        if result == pya.MessageBox.Yes:
+        if FibDialogManager.confirm("FIB Panel", "Close current project?"):
             self.on_new_project()
     
     def on_save_project(self):
@@ -523,9 +513,9 @@ class FIBPanel(pya.QDockWidget):
                 success = self.save_markers_to_json(filename)
                 if success:
                     basename = os.path.basename(filename)
-                    pya.MessageBox.info("FIB Panel", f"Project saved as {basename} with {len(self.markers_list)} markers", pya.MessageBox.Ok)
+                    FibDialogManager.info(f"Project saved as {basename} with {len(self.markers_list)} markers", "FIB Panel")
                 else:
-                    pya.MessageBox.warning("FIB Panel", "Failed to save project", pya.MessageBox.Ok)
+                    FibDialogManager.warning("Failed to save project", "FIB Panel")
             else:
                 # User cancelled or error, try auto-save as fallback
                 try:
@@ -533,14 +523,14 @@ class FIBPanel(pya.QDockWidget):
                     saved_filename = simple_save_project(self)
                     if saved_filename:
                         basename = os.path.basename(saved_filename)
-                        pya.MessageBox.info("FIB Panel", f"Project auto-saved as {basename} with {len(self.markers_list)} markers", pya.MessageBox.Ok)
+                        FibDialogManager.info(f"Project auto-saved as {basename} with {len(self.markers_list)} markers", "FIB Panel")
                 except Exception as fallback_error:
                     print(f"[FIB Panel] Fallback save error: {fallback_error}")
-                    pya.MessageBox.warning("FIB Panel", "Save failed. Check console for details.", pya.MessageBox.Ok)
+                    FibDialogManager.warning("Save failed. Check console for details.", "FIB Panel")
                     
         except Exception as e:
             print(f"[FIB Panel] Error in save project: {e}")
-            pya.MessageBox.warning("FIB Panel", f"Error saving project: {e}", pya.MessageBox.Ok)
+            FibDialogManager.warning(f"Error saving project: {e}", "FIB Panel")
     
     def on_load_project(self):
         """Handle Load project"""
@@ -552,15 +542,15 @@ class FIBPanel(pya.QDockWidget):
                 success = self.load_markers_from_json(filename)
                 if success:
                     basename = os.path.basename(filename)
-                    pya.MessageBox.info("FIB Panel", f"Project '{basename}' loaded successfully with {len(self.markers_list)} markers", pya.MessageBox.Ok)
+                    FibDialogManager.info(f"Project '{basename}' loaded successfully with {len(self.markers_list)} markers", "FIB Panel")
                 else:
-                    pya.MessageBox.warning("FIB Panel", "Failed to load project", pya.MessageBox.Ok)
+                    FibDialogManager.warning("Failed to load project", "FIB Panel")
             else:
                 print("[FIB Panel] Load cancelled by user")
                 
         except Exception as e:
             print(f"[FIB Panel] Error in load project: {e}")
-            pya.MessageBox.warning("FIB Panel", f"Error loading project: {e}", pya.MessageBox.Ok)
+            FibDialogManager.warning(f"Error loading project: {e}", "FIB Panel")
 
     def get_gds_filename(self, view):
         """Get GDS filename from current cellview (basename without extension)"""
@@ -638,7 +628,7 @@ class FIBPanel(pya.QDockWidget):
         """Handle Export HTML Only - with directory selection"""
         try:
             if not self.markers_list:
-                pya.MessageBox.warning("FIB Panel", "No markers to export. Create some markers first.", pya.MessageBox.Ok)
+                FibDialogManager.warning("No markers to export. Create some markers first.", "FIB Panel")
                 return
 
             # Get current view
@@ -646,7 +636,7 @@ class FIBPanel(pya.QDockWidget):
             current_view = main_window.current_view()
 
             if not current_view:
-                pya.MessageBox.warning("FIB Panel", "No active view", pya.MessageBox.Ok)
+                FibDialogManager.warning("No active view", "FIB Panel")
                 return
 
             # Get GDS filename
@@ -687,37 +677,31 @@ class FIBPanel(pya.QDockWidget):
                     os.makedirs(export_dir, exist_ok=True)
                     print(f"[FIB Panel] Created export directory (retry): {export_dir}")
                 except Exception as e:
-                    pya.MessageBox.warning("FIB Panel",
-                        f"Failed to create directory:\n{export_dir}\n\nError: {str(e)}",
-                        pya.MessageBox.Ok)
+                    FibDialogManager.warning(f"Failed to create directory:\n{export_dir}\n\nError: {str(e)}", "FIB Panel")
                     return
             except Exception as e:
-                pya.MessageBox.warning("FIB Panel",
-                    f"Failed to create directory:\n{export_dir}\n\nError: {str(e)}",
-                    pya.MessageBox.Ok)
+                FibDialogManager.warning(f"Failed to create directory:\n{export_dir}\n\nError: {str(e)}", "FIB Panel")
                 return
 
             # Export HTML only (no PDF conversion)
             success = self.export_html_only(export_dir, current_view)
 
             if success:
-                pya.MessageBox.info("FIB Panel",
-                    f"HTML report exported successfully to:\n{export_dir}\n\n{len(self.markers_list)} markers included",
-                    pya.MessageBox.Ok)
+                FibDialogManager.info(f"HTML report exported successfully to:\n{export_dir}\n\n{len(self.markers_list)} markers included", "FIB Panel")
             else:
-                pya.MessageBox.warning("FIB Panel", "Failed to export HTML. Check console for details.", pya.MessageBox.Ok)
+                FibDialogManager.warning("Failed to export HTML. Check console for details.", "FIB Panel")
 
         except Exception as e:
             print(f"[FIB Panel] Error in export HTML: {e}")
             import traceback
             traceback.print_exc()
-            pya.MessageBox.warning("FIB Panel", f"Error exporting HTML: {e}", pya.MessageBox.Ok)
+            FibDialogManager.warning(f"Error exporting HTML: {e}", "FIB Panel")
 
     def on_export_pdf(self):
         """Handle Export PDF - with auto-numbered directory creation"""
         try:
             if not self.markers_list:
-                pya.MessageBox.warning("FIB Panel", "No markers to export. Create some markers first.", pya.MessageBox.Ok)
+                FibDialogManager.warning("No markers to export. Create some markers first.", "FIB Panel")
                 return
 
             # Get current view
@@ -725,7 +709,7 @@ class FIBPanel(pya.QDockWidget):
             current_view = main_window.current_view()
 
             if not current_view:
-                pya.MessageBox.warning("FIB Panel", "No active view", pya.MessageBox.Ok)
+                FibDialogManager.warning("No active view", "FIB Panel")
                 return
 
             # Get GDS filename
@@ -766,14 +750,10 @@ class FIBPanel(pya.QDockWidget):
                     os.makedirs(export_dir, exist_ok=True)
                     print(f"[FIB Panel] Created export directory (retry): {export_dir}")
                 except Exception as e:
-                    pya.MessageBox.warning("FIB Panel",
-                        f"Failed to create directory:\n{export_dir}\n\nError: {str(e)}",
-                        pya.MessageBox.Ok)
+                    FibDialogManager.warning(f"Failed to create directory:\n{export_dir}\n\nError: {str(e)}", "FIB Panel")
                     return
             except Exception as e:
-                pya.MessageBox.warning("FIB Panel",
-                    f"Failed to create directory:\n{export_dir}\n\nError: {str(e)}",
-                    pya.MessageBox.Ok)
+                FibDialogManager.warning(f"Failed to create directory:\n{export_dir}\n\nError: {str(e)}", "FIB Panel")
                 return
 
             # Export to new directory
@@ -791,18 +771,16 @@ class FIBPanel(pya.QDockWidget):
             print("=" * 80)
 
             if success:
-                pya.MessageBox.info("FIB Panel",
-                    f"Report exported successfully to:\n{export_dir}\n\n{len(self.markers_list)} markers included",
-                    pya.MessageBox.Ok)
+                FibDialogManager.info(f"Report exported successfully to:\n{export_dir}\n\n{len(self.markers_list)} markers included", "FIB Panel")
             else:
                 print("[FIB Panel] Export failed, showing warning dialog")
-                pya.MessageBox.warning("FIB Panel", "Failed to export PDF. Check console for details.", pya.MessageBox.Ok)
+                FibDialogManager.warning("Failed to export PDF. Check console for details.", "FIB Panel")
 
         except Exception as e:
             print(f"[FIB Panel] Error in export PDF: {e}")
             import traceback
             traceback.print_exc()
-            pya.MessageBox.warning("FIB Panel", f"Error exporting PDF: {e}", pya.MessageBox.Ok)
+            FibDialogManager.warning(f"Error exporting PDF: {e}", "FIB Panel")
     
     def on_cut_clicked(self):
         """Handle Cut button - activate toolbar plugin"""
@@ -977,9 +955,7 @@ class FIBPanel(pya.QDockWidget):
             print(f"[FIB Panel] [X] ALL METHODS FAILED")
             print("=" * 80)
             
-            pya.MessageBox.warning(
-                "FIB Panel", 
-                f"无法激活 {mode.upper()} 模式。\n\n"
+            FibDialogManager.warning(f"无法激活 {mode.upper()} 模式。\n\n"
                 f"Failed to activate {mode.upper()} mode.\n\n"
                 f"请尝试：\n"
                 f"1. 使用工具栏上的 FIB 按钮\n"
@@ -988,9 +964,7 @@ class FIBPanel(pya.QDockWidget):
                 f"Please try:\n"
                 f"1. Use the FIB buttons in the toolbar\n"
                 f"2. Reload FIB Tool\n"
-                f"3. Check Macro Development console for errors",
-                pya.MessageBox.Ok
-            )
+                f"3. Check Macro Development console for errors", "FIB Panel")
             return False
                 
         except Exception as e:
@@ -999,11 +973,7 @@ class FIBPanel(pya.QDockWidget):
             traceback.print_exc()
             print("=" * 80)
             
-            pya.MessageBox.warning(
-                "FIB Panel Error",
-                f"激活模式时出错 / Error activating mode:\n\n{str(e)}",
-                pya.MessageBox.Ok
-            )
+            FibDialogManager.warning(f"激活模式时出错 / Error activating mode:\n\n{str(e)}", "FIB Panel Error")
             return False
     
     def activate_mode(self, mode):
@@ -1078,7 +1048,7 @@ class FIBPanel(pya.QDockWidget):
             coord_text = coord_text.strip()
             
             if not coord_text:
-                pya.MessageBox.warning("Coordinate Jump", "Please enter coordinates", pya.MessageBox.Ok)
+                FibDialogManager.warning("Please enter coordinates", "Coordinate Jump")
                 return
             
             # Parse coordinates - support multiple formats
@@ -1097,11 +1067,7 @@ class FIBPanel(pya.QDockWidget):
             match = re.match(pattern, coord_text)
             
             if not match:
-                pya.MessageBox.warning(
-                    "Coordinate Jump", 
-                    f"Invalid coordinate format: '{coord_text}'\n\nSupported formats:\n- 100 100\n- 100,100\n- (100,100)\n- (100 100)\n- \"100,100\"",
-                    pya.MessageBox.Ok
-                )
+                FibDialogManager.warning(f"Invalid coordinate format: '{coord_text}'\n\nSupported formats:\n- 100 100\n- 100,100\n- (100,100)\n- (100 100)\n- \"100,100\"", "Coordinate Jump")
                 return
             
             # Extract coordinates
@@ -1109,7 +1075,7 @@ class FIBPanel(pya.QDockWidget):
                 x = float(match.group(1))
                 y = float(match.group(2))
             except ValueError:
-                pya.MessageBox.warning("Coordinate Jump", "Invalid number format", pya.MessageBox.Ok)
+                FibDialogManager.warning("Invalid number format", "Coordinate Jump")
                 return
             
             # Get current view
@@ -1117,7 +1083,7 @@ class FIBPanel(pya.QDockWidget):
             current_view = main_window.current_view()
             
             if not current_view:
-                pya.MessageBox.warning("Coordinate Jump", "No active layout view", pya.MessageBox.Ok)
+                FibDialogManager.warning("No active layout view", "Coordinate Jump")
                 return
             
             # Zoom to coordinate with some padding
@@ -1138,17 +1104,12 @@ class FIBPanel(pya.QDockWidget):
             print(f"[FIB Panel] Error in coordinate jump: {e}")
             import traceback
             traceback.print_exc()
-            pya.MessageBox.warning("Coordinate Jump", f"Error: {e}", pya.MessageBox.Ok)
+            FibDialogManager.warning(f"Error: {e}", "Coordinate Jump")
     
     def on_clear_all(self):
         """Clear all markers"""
         if self.markers_list:
-            result = pya.MessageBox.question(
-                "Clear All",
-                f"Delete all {len(self.markers_list)} markers from layout and reset counters?",
-                pya.MessageBox.Yes | pya.MessageBox.No
-            )
-            if result == pya.MessageBox.Yes:
+            if FibDialogManager.confirm("Clear All", f"Delete all {len(self.markers_list)} markers from layout and reset counters?"):
                 # Clear markers from GDS layout
                 self.clear_markers_from_gds()
                 
@@ -1229,13 +1190,7 @@ class FIBPanel(pya.QDockWidget):
     def _ask_to_open_html(self, html_filename):
         """Ask user if they want to open the HTML file in browser"""
         try:
-            result = pya.MessageBox.question(
-                "HTML Report Generated",
-                f"HTML report saved successfully!\n\n{html_filename}\n\nWould you like to open it in your browser?",
-                pya.MessageBox.Yes | pya.MessageBox.No
-            )
-            
-            if result == pya.MessageBox.Yes:
+            if FibDialogManager.confirm("HTML Report Generated", f"HTML report saved successfully!\n\n{html_filename}\n\nWould you like to open it in your browser?"):
                 self._open_html_in_browser(html_filename)
                 
         except Exception as e:
@@ -1357,9 +1312,7 @@ class FIBPanel(pya.QDockWidget):
         except Exception as e:
             print(f"[FIB Panel] Error opening HTML in browser: {e}")
             # Final fallback: Show message with file path
-            pya.MessageBox.info("FIB Panel", 
-                f"Could not open browser automatically.\n\nPlease open this file manually:\n{html_filename}",
-                pya.MessageBox.Ok)
+            FibDialogManager.info(f"Could not open browser automatically.\n\nPlease open this file manually:\n{html_filename}", "FIB Panel")
     
     def _recreate_coordinate_texts(self, marker, cell, layout):
         """Recreate coordinate text labels for a loaded marker"""
@@ -1398,150 +1351,40 @@ class FIBPanel(pya.QDockWidget):
     def reset_marker_counters(self):
         """Reset marker counters to start from 0"""
         try:
-            # Access the global marker counter from fib_plugin
-            if 'marker_counter' in sys.modules['__main__'].__dict__:
-                marker_counter = sys.modules['__main__'].__dict__['marker_counter']
-                marker_counter['cut'] = 0
-                marker_counter['connect'] = 0
-                marker_counter['probe'] = 0
-                print("[FIB Panel] Marker counters reset via global variable")
-            else:
-                # Try to import and reset directly
-                try:
-                    from . import fib_plugin
-                    if hasattr(fib_plugin, 'marker_counter'):
-                        fib_plugin.marker_counter['cut'] = 0
-                        fib_plugin.marker_counter['connect'] = 0
-                        fib_plugin.marker_counter['probe'] = 0
-                        print("[FIB Panel] Marker counters reset via module import")
-                except Exception as import_error:
-                    print(f"[FIB Panel] Could not reset counters via import: {import_error}")
-                    
+            # Phase 2 refactoring: Use FibGlobalState instead of sys.modules
+            self.state.reset_counters()
+            print("[FIB Panel] Marker counters reset via FibGlobalState")
         except Exception as e:
             print(f"[FIB Panel] Error resetting marker counters: {e}")
     
     def save_markers_to_json(self, filename):
-        """Save markers to JSON file"""
-        try:
-            import json
-            import os
-            
-            # Ensure we save to a writable location
-            if not os.path.isabs(filename):
-                # If relative path, save to user's home directory
-                home_dir = os.path.expanduser("~")
-                filename = os.path.join(home_dir, filename)
-                print(f"[FIB Panel] Saving to home directory: {filename}")
-            
-            # Prepare marker data
-            markers_data = []
-            for marker in self.markers_list:
-                marker_class_name = marker.__class__.__name__
-                
-                # Handle multi-point markers
-                if 'MultiPoint' in marker_class_name:
-                    if 'Cut' in marker_class_name:
-                        marker_type = 'multipoint_cut'
-                    elif 'Connect' in marker_class_name:
-                        marker_type = 'multipoint_connect'
-                    else:
-                        marker_type = 'multipoint'
-                    
-                    marker_dict = {
-                        'id': marker.id,
-                        'type': marker_type,
-                        'points': marker.points if hasattr(marker, 'points') else [],
-                        'notes': getattr(marker, 'notes', ''),
-                        'screenshots': getattr(marker, 'screenshots', []),
-                        'target_layers': getattr(marker, 'target_layers', []),
-                        'point_layers': getattr(marker, 'point_layers', [])  # Save multi-point layer info
-                    }
-                else:
-                    # Regular markers
-                    marker_dict = {
-                        'id': marker.id,
-                        'type': marker_class_name.replace('Marker', '').lower(),
-                        'notes': getattr(marker, 'notes', ''),
-                        'screenshots': getattr(marker, 'screenshots', []),
-                        'target_layers': getattr(marker, 'target_layers', [])
-                    }
-                    
-                    # Add coordinates based on marker type
-                    if hasattr(marker, 'x1'):  # CUT or CONNECT
-                        marker_dict['x1'] = marker.x1
-                        marker_dict['y1'] = marker.y1
-                        marker_dict['x2'] = marker.x2
-                        marker_dict['y2'] = marker.y2
-                        # Save layer info for two-point markers
-                        marker_dict['layer1'] = getattr(marker, 'layer1', None)
-                        marker_dict['layer2'] = getattr(marker, 'layer2', None)
-                    else:  # PROBE
-                        marker_dict['x'] = marker.x
-                        marker_dict['y'] = marker.y
-                        # Save layer info for probe markers
-                        marker_dict['target_layer'] = getattr(marker, 'target_layer', None)
-                
-                markers_data.append(marker_dict)
-            
-            # Save to file
-            with open(filename, 'w') as f:
-                json.dump({
-                    'version': '1.0',
-                    'markers': markers_data,
-                    'marker_notes_dict': self.marker_notes_dict,  # Save centralized notes dict
-                    'marker_counters': {
-                        'cut': sys.modules['__main__'].__dict__.get('marker_counter', {}).get('cut', 0),
-                        'connect': sys.modules['__main__'].__dict__.get('marker_counter', {}).get('connect', 0),
-                        'probe': sys.modules['__main__'].__dict__.get('marker_counter', {}).get('probe', 0)
-                    }
-                }, f, indent=2)
-            
-            print(f"[FIB Panel] Saved {len(markers_data)} markers to {filename}")
-            return True
-            
-        except Exception as e:
-            print(f"[FIB Panel] Error saving to JSON: {e}")
-            return False
+        """Save markers to JSON file (Phase 2 refactoring: delegated to FibFileManager)"""
+        return self.file_manager.save_markers_to_json(
+            self.markers_list,
+            filename,
+            marker_notes_dict=self.marker_notes_dict,
+            marker_counters=self.state.marker_counters
+        )
     
     def load_markers_from_json(self, filename):
-        """Load markers from JSON file"""
+        """Load markers from JSON file (Phase 2 refactoring: using FibFileManager)"""
         try:
-            import json
-            import os
-            
-            # Handle relative paths - look in home directory
-            if not os.path.isabs(filename):
-                home_dir = os.path.expanduser("~")
-                full_path = os.path.join(home_dir, filename)
-                if os.path.exists(full_path):
-                    filename = full_path
-                    print(f"[FIB Panel] Loading from home directory: {filename}")
-                elif not os.path.exists(filename):
-                    print(f"[FIB Panel] File not found in current dir, trying home: {full_path}")
-                    filename = full_path
-            
-            # Load from file
-            with open(filename, 'r') as f:
-                data = json.load(f)
-            
+            # Phase 2 refactoring: Use FibFileManager to load data
+            markers_data, notes_dict, counters = self.file_manager.load_markers_from_json(filename)
+
+            if markers_data is None:
+                return False
+
             # Clear current markers
             self.on_new_project()
-            
+
             # Load centralized notes dictionary
-            if 'marker_notes_dict' in data:
-                self.marker_notes_dict = data['marker_notes_dict']
-                print(f"[FIB Panel] Loaded notes dict: {self.marker_notes_dict}")
-            else:
-                self.marker_notes_dict = {}
-            
-            # Load marker counters
-            if 'marker_counters' in data:
-                counters = data['marker_counters']
-                if 'marker_counter' in sys.modules['__main__'].__dict__:
-                    global_counter = sys.modules['__main__'].__dict__['marker_counter']
-                    global_counter['cut'] = counters.get('cut', 0)
-                    global_counter['connect'] = counters.get('connect', 0)
-                    global_counter['probe'] = counters.get('probe', 0)
+            self.marker_notes_dict = notes_dict
+            print(f"[FIB Panel] Loaded notes dict: {self.marker_notes_dict}")
+
+            # Load marker counters into FibGlobalState
+            self.state.marker_counters.update(counters)
+            print(f"[FIB Panel] Loaded marker counters: {self.state.marker_counters}")
             
             # Get current view and cell for drawing
             main_window = pya.Application.instance().main_window()
@@ -1566,9 +1409,9 @@ class FIBPanel(pya.QDockWidget):
                 multipoint_available = False
                 print("[FIB Panel] Multi-point markers not available for loading")
             
-            # Load markers
+            # Load markers (using data from FibFileManager)
             loaded_count = 0
-            for marker_data in data.get('markers', []):
+            for marker_data in markers_data:
                 try:
                     marker_type = marker_data['type']
                     marker_id = marker_data['id']
@@ -1752,13 +1595,11 @@ class FIBPanel(pya.QDockWidget):
             # If PDF conversion failed, just keep the HTML
             if not pdf_created:
                 print(f"[FIB Panel] PDF conversion tools not available. HTML report saved instead.")
-                pya.MessageBox.info("FIB Panel", 
-                    f"PDF conversion tools not installed.\n\n"
+                FibDialogManager.info(f"PDF conversion tools not installed.\n\n"
                     f"HTML report with screenshots saved to:\n{html_filename}\n\n"
                     f"To enable PDF export, install:\n"
                     f"  pip install weasyprint\n"
-                    f"or install wkhtmltopdf",
-                    pya.MessageBox.Ok)
+                    f"or install wkhtmltopdf", "FIB Panel")
                 
                 # Ask user if they want to open the HTML file
                 self._ask_to_open_html(html_filename)
