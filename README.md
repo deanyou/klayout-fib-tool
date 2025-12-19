@@ -207,7 +207,8 @@ Run in KLayout Macro Development (F5) / 在 KLayout 宏开发窗口运行:
 
 ```python
 # Load FIB Tool / 加载 FIB Tool
-exec(open('/home/meow/git/klayout-fib-tool/load_fib_tool.py', encoding='utf-8').read())
+FIB_TOOL_PATH = '/home/meow/git'  # Set your path / 设置你的路径
+exec(open(FIB_TOOL_PATH + '/klayout-fib-tool/load_fib_tool.py', encoding='utf-8').read())
 ```
 
 ## Roadmap / 路线图
