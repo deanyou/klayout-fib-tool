@@ -696,9 +696,15 @@ class FIBPanel(pya.QDockWidget):
             success = self.export_markers(export_dir, current_view)
 
             if success:
-                FibDialogManager.info(f"HTML report exported successfully to:\\n{export_dir}\\n\\n{len(self.markers_list)} markers included\\n\\nLog file: {export_dir}/export_log.txt", "FIB Panel")
+                # Construct HTML file path
+                html_file = os.path.join(export_dir, "fib_markers_report.html")
+
+                # Show success message and ask to open in browser (combined dialog)
+                if FibDialogManager.confirm("HTML Export Success",
+                                            f"HTML report exported successfully to:\n{export_dir}\n\n{len(self.markers_list)} markers included\n\nWould you like to open it in your browser?"):
+                    self._open_html_in_browser(html_file)
             else:
-                FibDialogManager.warning(f"Failed to export HTML.\\n\\nPlease check the log file for details:\\n{export_dir}/export_log.txt", "FIB Panel")
+                FibDialogManager.warning(f"Failed to export HTML.\n\nPlease check the log file for details:\n{export_dir}/export_log.txt", "FIB Panel")
 
         except Exception as e:
             # Try to write to a log file in the export directory if available
@@ -1326,12 +1332,12 @@ class FIBPanel(pya.QDockWidget):
                 subprocess.run(["open", html_filename])
                 
             else:  # Linux
-                # Linux: Try Edge > Chrome > Firefox
+                # Linux: Try Edge > Chrome > Firefox (priority order per user requirement)
                 browsers = [
                     "microsoft-edge",
                     "google-chrome",
-                    "chromium-browser",
-                    "firefox"
+                    "firefox",           # Moved before chromium
+                    "chromium-browser"   # Fallback
                 ]
                 
                 for browser in browsers:
