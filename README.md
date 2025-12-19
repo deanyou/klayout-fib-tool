@@ -1,7 +1,7 @@
 # KLayout FIB Tool / KLayout FIB 标注工具
 
 <div align="center">
-  <img src="docs/images/fib_icon.png" alt="FIB Tool Icon" width="200"/>
+  <img src="docs/images/fib_icon.jpg" alt="FIB Tool Icon" width="200"/>
 </div>
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
