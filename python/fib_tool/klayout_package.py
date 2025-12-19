@@ -22,7 +22,7 @@ def init_fib_tool():
     Initialize FIB Tool plugin system.
     
     This function:
-    1. Checks and creates required layers (317, 318, 319)
+    1. Checks and creates required layers (337, 338, 339)
     2. Registers plugin factories for toolbar buttons
     3. Creates and docks the FIB Panel
     

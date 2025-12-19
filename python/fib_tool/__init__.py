@@ -10,7 +10,7 @@ License: MIT
 
 Features:
 - CUT, CONNECT, PROBE markers with multi-point support
-- Automatic layer creation (317, 318, 319)
+- Automatic layer creation (337, 338, 339)
 - PDF export with 3-level screenshots
 - Coordinate jump and display
 - Right-click menu operations

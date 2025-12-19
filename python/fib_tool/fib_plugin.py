@@ -906,7 +906,7 @@ else:
 # Print usage instructions
 print("\n=== FIB Tool Usage ===")
 print("Version: 3.0")
-print("Layers: CUT=317, CONNECT=318, PROBE=319, COORDINATES=319")
+print("Layers: CUT=337, CONNECT=338, PROBE=339, COORDINATES=339")
 print("Line width: 0.2um")
 print("PROBE marker: Circle (radius: 0.5um)")
 print()
@@ -926,8 +926,8 @@ print()
 print("=== Features ===")
 print("- [OK] Fixed 0.2um line width for all markers")
 print("- [OK] PROBE markers are circular (0.5um radius)")
-print("- [OK] Markers use layers: 317 (CUT), 318 (CONNECT), 319 (PROBE)")
-print("- [OK] Coordinate texts on layer 319 (same as PROBE)")
+print("- [OK] Markers use layers: 337 (CUT), 338 (CONNECT), 339 (PROBE)")
+print("- [OK] Coordinate texts on layer 339 (same as PROBE)")
 print("- [WIP] Automatic layer detection (under development)")
 print("- [OK] Sequential marker naming (CUT_0, CONNECT_1, PROBE_2)")
 print("- [OK] Coordinate text at each click position")
@@ -1066,7 +1066,7 @@ def activate_fib_mode(mode):
 sys.modules['__main__'].activate_fib_mode = activate_fib_mode
 
 print("\n=== Additional Functions ===")
-print("clear_coordinate_texts() - Clear all coordinate text labels (Layer 319)")
+print("clear_coordinate_texts() - Clear all coordinate text labels (Layer 339)")
 
 # Create FIB Panel (delayed import to avoid circular dependency)
 print("\n=== FIB Panel Integration ===")
