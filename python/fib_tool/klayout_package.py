@@ -38,7 +38,24 @@ def init_fib_tool():
         print("\n" + "=" * 60)
         print("FIB TOOL - SALT Package Initialization")
         print("=" * 60)
-        
+
+        # Check for active layout (warning only, don't prevent loading)
+        try:
+            import pya
+            main_window = pya.Application.instance().main_window()
+            current_view = main_window.current_view()
+
+            if not current_view or not current_view.active_cellview().is_valid():
+                print("\n[FIB Tool] ⚠️  WARNING: No GDS file is currently open")
+                print("[FIB Tool] Some features (export, screenshots) require an active layout")
+                print("[FIB Tool] Please open a GDS file before using export functions\n")
+            else:
+                cellview = current_view.active_cellview()
+                cell_name = cellview.cell.name if cellview.cell else "unknown"
+                print(f"\n[FIB Tool] ✓ Active layout detected: {cell_name}\n")
+        except Exception as check_error:
+            print(f"[FIB Tool] Layout check warning: {check_error}")
+
         # Import and execute the main plugin
         # This will register plugin factories and create the panel
         from . import fib_plugin

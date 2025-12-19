@@ -506,6 +506,9 @@ def take_marker_screenshots(marker, view, output_dir):
             # Save screenshot
             overview_filename = f"{marker.id}_overview.png"
             overview_path = os.path.join(output_dir, overview_filename)
+            print(f"[Screenshot] Attempting to save: {overview_path}")
+            print(f"[Screenshot]   View state: valid={view.is_valid()}, box={view.box()}")
+            print(f"[Screenshot]   Cellview: valid={cellview.is_valid()}, cell={cellview.cell.name if cellview.cell else 'None'}")
             view.save_image(overview_path, 800, 600)
 
             # Verify file was actually created
@@ -520,7 +523,8 @@ def take_marker_screenshots(marker, view, output_dir):
             
         except Exception as e:
             print(f"[Screenshot]   ✗ Overview failed: {e}")
-        
+            raise
+
         # === Screenshot 2: Zoom 2x (medium zoom) ===
         try:
             view.clear_annotations()
@@ -546,6 +550,9 @@ def take_marker_screenshots(marker, view, output_dir):
             # Save screenshot
             zoom2_filename = f"{marker.id}_zoom2x.png"
             zoom2_path = os.path.join(output_dir, zoom2_filename)
+            print(f"[Screenshot] Attempting to save: {zoom2_path}")
+            print(f"[Screenshot]   View state: valid={view.is_valid()}, box={view.box()}")
+            print(f"[Screenshot]   Cellview: valid={cellview.is_valid()}, cell={cellview.cell.name if cellview.cell else 'None'}")
             view.save_image(zoom2_path, 800, 600)
 
             # Verify file was actually created
@@ -560,7 +567,8 @@ def take_marker_screenshots(marker, view, output_dir):
             
         except Exception as e:
             print(f"[Screenshot]   ✗ Zoom 2x failed: {e}")
-        
+            raise
+
         # === Screenshot 3: Detail (close-up) ===
         try:
             view.clear_annotations()
@@ -586,6 +594,9 @@ def take_marker_screenshots(marker, view, output_dir):
             # Save screenshot
             detail_filename = f"{marker.id}_detail.png"
             detail_path = os.path.join(output_dir, detail_filename)
+            print(f"[Screenshot] Attempting to save: {detail_path}")
+            print(f"[Screenshot]   View state: valid={view.is_valid()}, box={view.box()}")
+            print(f"[Screenshot]   Cellview: valid={cellview.is_valid()}, cell={cellview.cell.name if cellview.cell else 'None'}")
             view.save_image(detail_path, 800, 600)
 
             # Verify file was actually created
@@ -600,7 +611,8 @@ def take_marker_screenshots(marker, view, output_dir):
             
         except Exception as e:
             print(f"[Screenshot]   ✗ Detail failed: {e}")
-        
+            raise
+
         # Restore original view and clear selection
         view.clear_annotations()
         view.clear_selection()  # Clear marker path selection
@@ -619,18 +631,44 @@ def take_marker_screenshots(marker, view, output_dir):
 def export_markers_with_screenshots(markers, view, output_dir):
     """
     Export all markers with screenshots
-    
+
     Args:
         markers: List of marker objects
         view: LayoutView object
         output_dir: Output directory path
-    
+
     Returns:
         dict: Dictionary mapping marker.id to list of screenshots
     """
     all_screenshots = {}
 
     try:
+        # ===== VIEW STATE VALIDATION =====
+        print("\n" + "=" * 70)
+        print("[Screenshot Export] View State Validation")
+        print("=" * 70)
+
+        # Validate view
+        if view is None:
+            raise ValueError("View is None - no active KLayout window")
+        print(f"[Screenshot] ✓ View object exists")
+
+        if not view.is_valid():
+            raise ValueError("View not valid - KLayout view not initialized")
+        print(f"[Screenshot] ✓ View is valid")
+
+        cellview = view.active_cellview()
+        if not cellview.is_valid():
+            raise ValueError("No active cellview - open a GDS file first")
+        print(f"[Screenshot] ✓ Cellview is valid")
+
+        if cellview.cell is None:
+            raise ValueError("Active cellview has no cell - layout not loaded")
+        print(f"[Screenshot] ✓ Cell is loaded: {cellview.cell.name}")
+
+        print("=" * 70 + "\n")
+        # ===== END VALIDATION =====
+
         # Diagnostic output for debugging
         print("[Screenshot] ========================================")
         print(f"[Screenshot] Python module file: {__file__}")
