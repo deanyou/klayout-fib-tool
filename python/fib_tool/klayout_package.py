@@ -46,30 +46,30 @@ def init_fib_tool():
             current_view = main_window.current_view()
 
             if not current_view or not current_view.active_cellview().is_valid():
-                print("\n[FIB Tool] ⚠️  WARNING: No GDS file is currently open")
+                print("\n[FIB Tool] [WARNING] No GDS file is currently open")
                 print("[FIB Tool] Some features (export, screenshots) require an active layout")
                 print("[FIB Tool] Please open a GDS file before using export functions\n")
             else:
                 cellview = current_view.active_cellview()
                 cell_name = cellview.cell.name if cellview.cell else "unknown"
-                print(f"\n[FIB Tool] ✓ Active layout detected: {cell_name}\n")
+                print(f"\n[FIB Tool] [OK] Active layout detected: {cell_name}\n")
         except Exception as check_error:
             print(f"[FIB Tool] Layout check warning: {check_error}")
 
         # Import and execute the main plugin
         # This will register plugin factories and create the panel
         from . import fib_plugin
-        
+
         # Mark as initialized
         _FIB_TOOL_INITIALIZED = True
-        
+
         print("=" * 60)
-        print("✓ FIB Tool initialized successfully")
+        print("[OK] FIB Tool initialized successfully")
         print("=" * 60)
         print()
-        
+
     except Exception as e:
-        print(f"✗ Error initializing FIB Tool: {e}")
+        print(f"[X] Error initializing FIB Tool: {e}")
         import traceback
         traceback.print_exc()
 

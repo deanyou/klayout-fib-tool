@@ -70,12 +70,12 @@ def _generate_operation_html(marker, index: int, output_dir: Path, view) -> str:
     if isinstance(marker, CutMarker):
         layer1_info = f" [{marker.layer1}]" if hasattr(marker, 'layer1') and marker.layer1 else ""
         layer2_info = f" [{marker.layer2}]" if hasattr(marker, 'layer2') and marker.layer2 else ""
-        position = f"({marker.x1:.3f}, {marker.y1:.3f}){layer1_info} → ({marker.x2:.3f}, {marker.y2:.3f}){layer2_info}"
+        position = f"({marker.x1:.3f}, {marker.y1:.3f}){layer1_info} -> ({marker.x2:.3f}, {marker.y2:.3f}){layer2_info}"
         details = f"Layer: {marker.layer}"
     elif isinstance(marker, ConnectMarker):
         layer1_info = f" [{marker.layer1}]" if hasattr(marker, 'layer1') and marker.layer1 else ""
         layer2_info = f" [{marker.layer2}]" if hasattr(marker, 'layer2') and marker.layer2 else ""
-        position = f"({marker.x1:.3f}, {marker.y1:.3f}){layer1_info} → ({marker.x2:.3f}, {marker.y2:.3f}){layer2_info}"
+        position = f"({marker.x1:.3f}, {marker.y1:.3f}){layer1_info} -> ({marker.x2:.3f}, {marker.y2:.3f}){layer2_info}"
         details = f"Layer: {marker.layer}"
     elif isinstance(marker, ProbeMarker):
         layer_info = f" [{marker.target_layer}]" if hasattr(marker, 'target_layer') and marker.target_layer else ""

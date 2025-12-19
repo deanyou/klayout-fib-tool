@@ -13,7 +13,7 @@ class FibExportManager:
     """Manages export operations for markers
 
     This class provides a unified interface for exporting markers
-    to different formats (PDF, HTML, etc.)
+    to HTML reports with screenshots
     """
 
     @staticmethod

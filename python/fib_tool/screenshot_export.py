@@ -232,7 +232,7 @@ def create_crosshair_annotation(view, marker_center, layout_bbox):
     Create crosshair annotation pointing to marker center
     
     Note: Annotation color is controlled by KLayout view settings.
-    To change to white, go to: File → Setup → Display → Rulers/Annotations
+    To change to white, go to: File -> Setup -> Display -> Rulers/Annotations
     and set the color to white (RGB: 255, 255, 255).
     
     Args:
@@ -513,7 +513,12 @@ def take_marker_screenshots(marker, view, output_dir):
 
     def log(message):
         """Log to both console and file"""
-        print(message)
+        # Replace Unicode symbols with ASCII equivalents for Windows GBK compatibility
+        ascii_message = message.replace('✓', '[OK]').replace('✗', '[X]').replace('ℹ', '[i]')
+        try:
+            print(ascii_message)
+        except:
+            pass
         if log_file:
             try:
                 with open(log_file, 'a', encoding='utf-8') as f:
@@ -710,7 +715,12 @@ def export_markers_with_screenshots(markers, view, output_dir):
 
     def log(message):
         """Log to both console and file"""
-        print(message)
+        # Replace Unicode symbols with ASCII equivalents for Windows GBK compatibility
+        ascii_message = message.replace('✓', '[OK]').replace('✗', '[X]').replace('ℹ', '[i]')
+        try:
+            print(ascii_message)
+        except:
+            pass
         if log_file:
             try:
                 with open(log_file, 'a', encoding='utf-8') as f:
@@ -820,7 +830,7 @@ def _get_marker_coordinates(marker):
                 if hasattr(marker, 'point_layers') and i < len(marker.point_layers) and marker.point_layers[i]:
                     layer_info = f" [{marker.point_layers[i]}]"
                 point_strs.append(f"({p[0]:.3f},{p[1]:.3f}){layer_info}")
-            return f"{len(marker.points)} points: " + " → ".join(point_strs)
+            return f"{len(marker.points)} points: " + " -> ".join(point_strs)
         else:
             # Show first 3, ..., last 2
             first_points = []
@@ -840,7 +850,7 @@ def _get_marker_coordinates(marker):
                     layer_info = f" [{marker.point_layers[idx]}]"
                 last_points.append(f"({p[0]:.3f},{p[1]:.3f}){layer_info}")
 
-            return f"{len(marker.points)} points: " + " → ".join(first_points) + " → ... → " + " → ".join(last_points)
+            return f"{len(marker.points)} points: " + " -> ".join(first_points) + " -> ... -> " + " -> ".join(last_points)
 
     elif hasattr(marker, 'x1'):
         # 2-point marker
@@ -1005,7 +1015,12 @@ def generate_html_report_with_screenshots(markers, screenshots_dict, output_path
 
     def log(message):
         """Log to both console and file"""
-        print(message)
+        # Replace Unicode symbols with ASCII equivalents for Windows GBK compatibility
+        ascii_message = message.replace('✓', '[OK]').replace('✗', '[X]').replace('ℹ', '[i]')
+        try:
+            print(ascii_message)
+        except:
+            pass
         if log_file:
             try:
                 with open(log_file, 'a', encoding='utf-8') as f:

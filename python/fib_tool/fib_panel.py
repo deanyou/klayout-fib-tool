@@ -741,7 +741,12 @@ class FIBPanel(pya.QDockWidget):
 
         def log(message):
             """Log to both console and file"""
-            print(message)
+            # Replace Unicode symbols with ASCII equivalents for Windows GBK compatibility
+            ascii_message = message.replace('✓', '[OK]').replace('✗', '[X]').replace('ℹ', '[i]')
+            try:
+                print(ascii_message)
+            except:
+                pass
             if log_file:
                 try:
                     with open(log_file, 'a', encoding='utf-8') as f:
@@ -1571,7 +1576,7 @@ class FIBPanel(pya.QDockWidget):
                                     if hasattr(marker, 'point_layers') and i < len(marker.point_layers) and marker.point_layers[i]:
                                         layer_info = f" [{marker.point_layers[i]}]"
                                     point_strs.append(f"({p[0]:.3f},{p[1]:.3f}){layer_info}")
-                                coords = f"{len(marker.points)} pts: " + " → ".join(point_strs)
+                                coords = f"{len(marker.points)} pts: " + " -> ".join(point_strs)
                             else:
                                 # For more than 3 points, show first 2, ..., last 1 with layer info (shorter for panel)
                                 first_points = []
@@ -1589,7 +1594,7 @@ class FIBPanel(pya.QDockWidget):
                                     last_layer_info = f" [{marker.point_layers[-1]}]"
                                 last_point = f"({last_p[0]:.3f},{last_p[1]:.3f}){last_layer_info}"
                                 
-                                coords = f"{len(marker.points)} pts: " + " → ".join(first_points) + " → ... → " + last_point
+                                coords = f"{len(marker.points)} pts: " + " -> ".join(first_points) + " -> ... -> " + last_point
                         else:
                             coords = "No points"
                     else:
