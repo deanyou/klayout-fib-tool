@@ -142,6 +142,23 @@ else
     echo "✗ pymacros/ not found"
 fi
 
+# Verify templates directory (critical for HTML export with screenshots)
+if [ -d "$TARGET_DIR/python/fib_tool/templates" ]; then
+    TMPL_COUNT=$(ls -1 "$TARGET_DIR/python/fib_tool/templates"/*.{html,js} 2>/dev/null | wc -l)
+    if [ "$TMPL_COUNT" -ge 2 ]; then
+        echo "✓ templates/ found ($TMPL_COUNT files)"
+    else
+        echo "⚠  WARNING: templates/ found but incomplete ($TMPL_COUNT files, expected 2)"
+        echo "   HTML export will use fallback mode (limited features)"
+    fi
+else
+    echo "⚠  WARNING: templates/ directory not found"
+    echo "   HTML export will use fallback mode (limited features)"
+    echo "   For full features, ensure python/fib_tool/templates/ contains:"
+    echo "   - report_template.html"
+    echo "   - report_script.js"
+fi
+
 echo ""
 echo "=========================================="
 echo "✓ Installation Complete!"
