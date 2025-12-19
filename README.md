@@ -203,14 +203,11 @@ For details / 详细哲学: [LinusTorvalds.md](LinusTorvalds.md)
 
 ## Testing / 测试
 
-Run diagnostics in KLayout Macro Development (F5) / 在 KLayout 宏开发窗口运行诊断:
+Run in KLayout Macro Development (F5) / 在 KLayout 宏开发窗口运行:
 
 ```python
-# Diagnose panel activation / 诊断面板激活
-exec(open('/path/to/diagnose_panel_activation.py', encoding='utf-8').read())
-
-# Diagnose layer creation / 诊断图层创建
-exec(open('/path/to/diagnose_layer_creation.py', encoding='utf-8').read())
+# Load FIB Tool / 加载 FIB Tool
+exec(open('/home/meow/git/klayout-fib-tool/load_fib_tool.py', encoding='utf-8').read())
 ```
 
 ## Roadmap / 路线图
