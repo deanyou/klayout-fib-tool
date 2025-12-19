@@ -56,7 +56,7 @@ Or manually / 或手动安装:
 cp -r python/fib_tool ~/.klayout/salt/fib-tool/python/
 cp -r pymacros/*.lym ~/.klayout/salt/fib-tool/pymacros/
 
-# Windows - Open File Explorer and navigate to / 打开文件资源管理器，导航到:
+# 建议！Windows - Open File Explorer and navigate to / 打开文件资源管理器，导航到:
 C:\Users\<Your Username>\KLayout\salt\fib-tool\
 # Then copy klayout-fib-tool/* to the fib-tool folder / 然后复制klayout-fib-tool/*下所有文件 到fib-tool文件夹
 ```
