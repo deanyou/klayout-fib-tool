@@ -697,6 +697,80 @@ class FIBPanel(pya.QDockWidget):
             traceback.print_exc()
             FibDialogManager.warning(f"Error exporting HTML: {e}", "FIB Panel")
 
+    def export_html_only(self, output_dir, view):
+        """Export markers to HTML report with screenshots (no PDF conversion)
+
+        Args:
+            output_dir: Directory to save all output files (HTML, screenshots)
+            view: Current KLayout view
+
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        print("=" * 80)
+        print("[FIB Panel] export_html_only() CALLED")
+        print("=" * 80)
+        print(f"[FIB Panel] Output directory: {output_dir}")
+        print(f"[FIB Panel] Number of markers: {len(self.markers_list)}")
+        print(f"[FIB Panel] View: {view}")
+
+        try:
+            print("[FIB Panel] Importing screenshot_export module...")
+            import os
+            from .screenshot_export import (
+                export_markers_with_screenshots,
+                generate_html_report_with_screenshots
+            )
+            print("[FIB Panel] Import successful")
+
+            print(f"[FIB Panel] Starting HTML export with screenshots...")
+
+            # Generate screenshots for all markers
+            print(f"[FIB Panel] Calling export_markers_with_screenshots with {len(self.markers_list)} markers...")
+            try:
+                screenshots_dict = export_markers_with_screenshots(
+                    self.markers_list,
+                    view,
+                    output_dir
+                )
+                print(f"[FIB Panel] Screenshots generated: {len(screenshots_dict)} markers")
+            except Exception as screenshot_error:
+                print(f"[FIB Panel] ERROR in export_markers_with_screenshots: {screenshot_error}")
+                import traceback
+                traceback.print_exc()
+                return False
+
+            # Define output filename
+            html_filename = os.path.join(output_dir, "fib_markers_report.html")
+
+            # Generate HTML report with screenshots
+            print(f"[FIB Panel] Calling generate_html_report_with_screenshots...")
+            try:
+                success = generate_html_report_with_screenshots(
+                    self.markers_list,
+                    screenshots_dict,
+                    html_filename
+                )
+
+                if not success:
+                    print(f"[FIB Panel] Failed to generate HTML report (returned False)")
+                    return False
+
+                print(f"[FIB Panel] HTML report saved to: {html_filename}")
+                return True
+
+            except Exception as html_error:
+                print(f"[FIB Panel] ERROR in generate_html_report_with_screenshots: {html_error}")
+                import traceback
+                traceback.print_exc()
+                return False
+
+        except Exception as e:
+            print(f"[FIB Panel] Error in export_html_only: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
     def on_export_pdf(self):
         """Handle Export PDF - with auto-numbered directory creation"""
         try:
