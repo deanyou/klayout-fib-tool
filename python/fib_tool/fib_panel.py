@@ -696,9 +696,29 @@ class FIBPanel(pya.QDockWidget):
             success = self.export_markers(export_dir, current_view)
 
             if success:
-                FibDialogManager.info(f"HTML report exported successfully to:\\n{export_dir}\\n\\n{len(self.markers_list)} markers included\\n\\nLog file: {export_dir}/export_log.txt", "FIB Panel")
+                # Get the HTML file path - check both possible names
+                html_file = os.path.join(export_dir, "fib_markers_report.html")
+                if not os.path.exists(html_file):
+                    html_file = os.path.join(export_dir, "index.html")
+                
+                FibDialogManager.info(
+                    f"HTML report exported successfully to:\n{export_dir}\n\n"
+                    f"{len(self.markers_list)} markers included\n\n"
+                    f"Log file: {export_dir}/export_log.txt", 
+                    "FIB Panel"
+                )
+                
+                # Ask user if they want to open the HTML file
+                if os.path.exists(html_file):
+                    self._ask_to_open_html(html_file)
+                else:
+                    print(f"[FIB Panel] Warning: HTML file not found at {html_file}")
             else:
-                FibDialogManager.warning(f"Failed to export HTML.\\n\\nPlease check the log file for details:\\n{export_dir}/export_log.txt", "FIB Panel")
+                FibDialogManager.warning(
+                    f"Failed to export HTML.\n\n"
+                    f"Please check the log file for details:\n{export_dir}/export_log.txt", 
+                    "FIB Panel"
+                )
 
         except Exception as e:
             # Try to write to a log file in the export directory if available
@@ -708,7 +728,7 @@ class FIBPanel(pya.QDockWidget):
                     f.write(f"[FIB Panel] Error in export HTML: {e}\n")
                     import traceback
                     f.write(traceback.format_exc() + "\n")
-                error_msg = f"Error exporting HTML: {e}\\n\\nError log saved to: {log_file}"
+                error_msg = f"Error exporting HTML: {e}\n\nError log saved to: {log_file}"
             except:
                 error_msg = f"Error exporting HTML: {e}"
 
@@ -1731,8 +1751,17 @@ class FIBPanel(pya.QDockWidget):
         try:
             print(f"[FIB Panel] Rebuilding UI list from {len(self.markers_list)} markers")
             
-            # Clear the UI list
-            self.marker_list.clear()
+            # Clear the UI list - handle both method and property
+            try:
+                self.marker_list.clear()
+            except TypeError:
+                # If clear is not callable, manually remove all items
+                try:
+                    list_count = self.marker_list.count()
+                except TypeError:
+                    list_count = self.marker_list.count
+                for i in range(list_count - 1, -1, -1):
+                    self.marker_list.takeItem(i)
             
             # Re-add all markers in the current order
             for marker in self.markers_list:
@@ -1773,10 +1802,19 @@ class FIBPanel(pya.QDockWidget):
                         coords = f"({marker.x:.3f},{marker.y:.3f}) {target_layer_str}"
                 
                 item_text = f"{marker.id} - {marker_type} - {coords}"
-                self.marker_list.addItem(item_text)
+                try:
+                    self.marker_list.addItem(item_text)
+                except Exception as add_error:
+                    print(f"[FIB Panel] Error adding item: {add_error}")
                 print(f"[FIB Panel] Added to UI: {item_text}")
             
-            print(f"[FIB Panel] UI list rebuilt with {self.marker_list.count()} items")
+            # Get count safely - handle both method and property
+            try:
+                list_count = self.marker_list.count()
+            except TypeError:
+                list_count = self.marker_list.count
+            
+            print(f"[FIB Panel] UI list rebuilt with {list_count} items")
             
         except Exception as e:
             print(f"[FIB Panel] Error rebuilding UI list: {e}")
@@ -1916,7 +1954,10 @@ class FIBPanel(pya.QDockWidget):
                     try:
                         item = self.marker_list.item(row - 1)
                         if item:
-                            item.setSelected(True)
+                            try:
+                                item.setSelected(True)
+                            except Exception as select_error:
+                                print(f"[FIB Panel] Error setting selection: {select_error}")
                     except:
                         pass
             
@@ -1979,7 +2020,10 @@ class FIBPanel(pya.QDockWidget):
                     try:
                         item = self.marker_list.item(row + 1)
                         if item:
-                            item.setSelected(True)
+                            try:
+                                item.setSelected(True)
+                            except Exception as select_error:
+                                print(f"[FIB Panel] Error setting selection: {select_error}")
                     except:
                         pass
             

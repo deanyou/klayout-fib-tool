@@ -39,6 +39,7 @@ class MarkerContextMenu:
                 action_fit = menu.addAction("Zoom to Fit")
                 action_copy = menu.addAction("Copy Coordinates")
                 action_rename = menu.addAction("Rename Marker")
+                action_rearrange = menu.addAction("Rearrange New Order")
                 
                 # Add separator
                 menu.addSeparator()
@@ -52,6 +53,7 @@ class MarkerContextMenu:
                 action_fit = None
                 action_copy = None
                 action_rename = None
+                action_rearrange = None
                 action_move_up = None
                 action_move_down = None
                 
@@ -82,6 +84,8 @@ class MarkerContextMenu:
                     self.add_notes()
                 elif selected_action == action_rename:
                     self.rename_marker()
+                elif selected_action == action_rearrange:
+                    self.rearrange_markers()
                 elif selected_action == action_move_up:
                     self.move_marker_up()
                 elif selected_action == action_move_down:
@@ -415,6 +419,139 @@ class MarkerContextMenu:
                 
         except Exception as e:
             print(f"[Marker Menu] Error renaming marker: {e}")
+    
+    def rearrange_markers(self):
+        """Rearrange markers by type and renumber them from 0 based on current list order"""
+        try:
+            # Group markers by type based on current list order
+            marker_groups = {
+                'CUT': [],
+                'CONNECT': [],
+                'PROBE': []
+            }
+            
+            # Iterate through markers in current list order
+            for marker in self.panel.markers_list:
+                marker_class = marker.__class__.__name__.lower()
+                
+                # Determine marker type
+                if 'cut' in marker_class:
+                    marker_type = 'CUT'
+                elif 'connect' in marker_class:
+                    marker_type = 'CONNECT'
+                elif 'probe' in marker_class:
+                    marker_type = 'PROBE'
+                else:
+                    print(f"[Marker Menu] Unknown marker type: {marker_class}")
+                    continue
+                
+                marker_groups[marker_type].append(marker)
+            
+            # Count how many markers will be renamed
+            total_renames = sum(len(markers) for markers in marker_groups.values())
+            
+            if total_renames == 0:
+                pya.MessageBox.info("Rearrange Markers", "No markers to rearrange.", pya.MessageBox.Ok)
+                return
+            
+            # Show confirmation dialog
+            message_lines = ["Rearrange markers by type and renumber from 0?\n"]
+            for marker_type, markers in marker_groups.items():
+                if markers:
+                    message_lines.append(f"  {marker_type}: {len(markers)} markers")
+            message_lines.append(f"\nTotal: {total_renames} markers will be renumbered.")
+            
+            result = pya.MessageBox.question(
+                "Rearrange Markers",
+                "\n".join(message_lines),
+                pya.MessageBox.Yes | pya.MessageBox.No
+            )
+            
+            if result != pya.MessageBox.Yes:
+                print("[Marker Menu] Rearrange cancelled by user")
+                return
+            
+            # Perform renumbering for each type using two-phase approach to avoid conflicts
+            # Phase 1: Rename ALL markers to temporary names (TEMP_TYPE_index)
+            # Phase 2: Rename ALL from temporary to final names (TYPE_index)
+            # Phase 3: Clean up any remaining TEMP_ prefixes (safety net)
+            rename_count = 0
+            all_temp_ids = []  # Track all temp IDs for cleanup
+            
+            for marker_type, markers in marker_groups.items():
+                if not markers:
+                    continue
+                
+                print(f"[Marker Menu] Rearranging {len(markers)} {marker_type} markers")
+                
+                # Phase 1: Rename ALL to temporary names (even if final name is same)
+                temp_mappings = []  # Store (marker, old_id, temp_id, final_id)
+                
+                for index, marker in enumerate(markers):
+                    old_id = marker.id
+                    temp_id = f"TEMP_{marker_type}_{index}"
+                    final_id = f"{marker_type}_{index}"
+                    
+                    # Always rename to temp first to avoid any conflicts
+                    marker.id = temp_id
+                    all_temp_ids.append(temp_id)
+                    self.update_coordinate_text_in_gds(marker, old_id, temp_id)
+                    
+                    temp_mappings.append((marker, old_id, temp_id, final_id))
+                    print(f"[Marker Menu] Phase 1: {old_id} -> {temp_id}")
+                
+                # Phase 2: Rename ALL from temporary to final names
+                for marker, old_id, temp_id, final_id in temp_mappings:
+                    print(f"[Marker Menu] Phase 2 START: Processing {temp_id} -> {final_id} (original: {old_id})")
+                    print(f"[Marker Menu] Phase 2: Current marker.id = '{marker.id}'")
+                    
+                    marker.id = final_id
+                    result = self.update_coordinate_text_in_gds(marker, temp_id, final_id)
+                    
+                    print(f"[Marker Menu] Phase 2 END: marker.id now = '{marker.id}', GDS update result = {result}")
+                    
+                    # Only count as rename if the final ID is different from original
+                    if old_id != final_id:
+                        rename_count += 1
+            
+            # Phase 3: Safety cleanup - remove any remaining TEMP_ prefixes in GDS
+            # This handles edge cases where string replacement might have failed
+            print("[Marker Menu] Phase 3: Cleaning up any remaining TEMP_ prefixes")
+            self.cleanup_temp_markers_in_gds(all_temp_ids)
+            
+            # Refresh the marker list display
+            self.refresh_marker_list()
+            
+            # Reset smart counters after rearrange
+            if hasattr(self.panel, 'smart_counter'):
+                self.panel.smart_counter.reset_counters()
+            
+            # Show success message
+            pya.MessageBox.info(
+                "Rearrange Complete",
+                f"Successfully renumbered {rename_count} markers.\n\n"
+                f"CUT: {len(marker_groups['CUT'])} markers\n"
+                f"CONNECT: {len(marker_groups['CONNECT'])} markers\n"
+                f"PROBE: {len(marker_groups['PROBE'])} markers",
+                pya.MessageBox.Ok
+            )
+            
+            try:
+                pya.MainWindow.instance().message(f"Rearranged {rename_count} markers", UI_TIMEOUTS['message_short'])
+            except:
+                pass
+            
+            print(f"[Marker Menu] Rearrange complete: {rename_count} markers renumbered")
+            
+        except Exception as e:
+            print(f"[Marker Menu] Error rearranging markers: {e}")
+            import traceback
+            traceback.print_exc()
+            pya.MessageBox.warning(
+                "Rearrange Error",
+                f"Error rearranging markers: {e}",
+                pya.MessageBox.Ok
+            )
     
     def _safe_call(self, obj, method_name, *args):
         """Safely call a method that might be a property in some Qt versions
@@ -806,7 +943,11 @@ class MarkerContextMenu:
             print(f"[Marker Menu] Error refreshing marker list: {e}")
     
     def update_coordinate_text_in_gds(self, marker, old_id, new_id):
-        """Update coordinate text in GDS layout using search and replace on ALL layers"""
+        """Update coordinate text in GDS layout using exact matching with boundaries
+        
+        This ensures we only replace complete marker IDs, not partial matches.
+        Uses word boundary matching on BOTH sides to prevent matching substrings.
+        """
         try:
             # Get current view and layout
             main_window = pya.Application.instance().main_window()
@@ -840,9 +981,18 @@ class MarkerContextMenu:
                         text_obj = shape.text
                         text_string = text_obj.string
                         
-                        # Simple string replacement: if text contains old_id, replace it
+                        # Use exact matching with word boundaries on BOTH sides
                         if old_id in text_string:
-                            new_text_string = text_string.replace(old_id, new_id)
+                            import re
+                            # Pattern: NOT preceded by word char, then old_id, then NOT followed by word char
+                            # (?<!\w) = negative lookbehind for word character
+                            # (?=\W|$) = positive lookahead for non-word char or end
+                            pattern = r'(?<!\w)' + re.escape(old_id) + r'(?=\W|$)'
+                            new_text_string = re.sub(pattern, new_id, text_string)
+                            
+                            # Fallback: if regex didn't work and text exactly equals old_id
+                            if new_text_string == text_string and text_string == old_id:
+                                new_text_string = new_id
                             
                             if new_text_string != text_string:
                                 # Mark for replacement
@@ -872,7 +1022,7 @@ class MarkerContextMenu:
                 except:
                     pass
             else:
-                print(f"[Marker Menu] No texts found containing '{old_id}' - this might be normal if texts don't include marker IDs")
+                print(f"[Marker Menu] WARNING: No texts found containing '{old_id}' - check if text format matches!")
             
             return total_updated > 0
             
@@ -881,3 +1031,82 @@ class MarkerContextMenu:
             import traceback
             traceback.print_exc()
             return False
+    
+    def cleanup_temp_markers_in_gds(self, temp_ids):
+        """Clean up any remaining TEMP_ prefixed marker texts in GDS layout
+        
+        This is a safety net to handle edge cases where string replacement might fail.
+        It searches for any text containing TEMP_ prefix and removes the prefix.
+        Uses regex for precise matching.
+        """
+        try:
+            # Get current view and layout
+            main_window = pya.Application.instance().main_window()
+            current_view = main_window.current_view()
+            
+            if not current_view or not current_view.active_cellview().is_valid():
+                print("[Marker Menu] No active layout found for cleanup")
+                return
+            
+            cellview = current_view.active_cellview()
+            cell = cellview.cell
+            layout = cellview.layout()
+            
+            print(f"[Marker Menu] Cleanup Phase 3: Searching for remaining TEMP_ prefixes")
+            print(f"[Marker Menu] Expected temp IDs were: {temp_ids}")
+            
+            total_cleaned = 0
+            
+            # Search ALL layers for text objects with TEMP_ prefix
+            for layer_info in layout.layer_infos():
+                layer_index = layout.layer(layer_info)
+                if layer_index < 0:
+                    continue
+                
+                shapes = cell.shapes(layer_index)
+                shapes_to_remove = []
+                shapes_to_add = []
+                
+                for shape in shapes.each():
+                    if shape.is_text():
+                        text_obj = shape.text
+                        text_string = text_obj.string
+                        
+                        # Check if text contains TEMP_ prefix
+                        if "TEMP_" in text_string:
+                            # Use regex to replace TEMP_ prefix more precisely
+                            # Pattern: TEMP_ followed by marker type and number
+                            import re
+                            # Replace TEMP_CUT_, TEMP_CONNECT_, TEMP_PROBE_ with just CUT_, CONNECT_, PROBE_
+                            new_text_string = re.sub(r'TEMP_(CUT|CONNECT|PROBE)_', r'\1_', text_string)
+                            
+                            if new_text_string != text_string:
+                                # Mark for replacement
+                                shapes_to_remove.append(shape)
+                                new_text_obj = pya.Text(new_text_string, text_obj.trans)
+                                shapes_to_add.append(new_text_obj)
+                                
+                                print(f"[Marker Menu] Cleanup Layer {layer_info.layer}/{layer_info.datatype}: '{text_string}' -> '{new_text_string}'")
+                                total_cleaned += 1
+                
+                # Apply changes for this layer
+                for shape in shapes_to_remove:
+                    shapes.erase(shape)
+                
+                for text_obj in shapes_to_add:
+                    shapes.insert(text_obj)
+            
+            if total_cleaned > 0:
+                print(f"[Marker Menu] Cleanup completed: {total_cleaned} TEMP_ prefixes removed")
+                # Show message to user
+                try:
+                    pya.MainWindow.instance().message(f"Cleaned up {total_cleaned} temp markers", UI_TIMEOUTS['message_short'])
+                except:
+                    pass
+            else:
+                print(f"[Marker Menu] Cleanup completed: No TEMP_ prefixes found (good!)")
+            
+        except Exception as e:
+            print(f"[Marker Menu] Error in cleanup: {e}")
+            import traceback
+            traceback.print_exc()
