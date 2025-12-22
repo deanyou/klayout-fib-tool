@@ -32,13 +32,7 @@
 
 ### Installation / 安装
 
-**Method 1: SALT Package Manager (Recommended) / 方式 1: SALT 包管理器（推荐）**
-```
-Tools → Manage Packages → Install from URL
-Enter GitHub Release URL / 输入 GitHub Release URL
-```
-
-**Method 2: Manual Installation / 方式 2: 手动安装**
+**Method 1: Manual Installation / 方式 1: 手动安装**
 
 **Linux/Mac:**
 ```bash
@@ -61,10 +55,16 @@ C:\Users\<Your Username>\KLayout\salt\fib-tool\
 # Then copy klayout-fib-tool/* to the fib-tool folder / 然后复制klayout-fib-tool/*下所有文件 到fib-tool文件夹
 ```
 
-> **Windows Note / Windows 说明**: 
+> **Windows Note / Windows 说明**:
 > - KLayout SALT directory is at / KLayout SALT 目录位于: `%APPDATA%\KLayout\salt\`
 > - If using portable version / 如果使用便携版: `<KLayout folder>\salt\`
 > - Restart KLayout after installation / 安装后重启 KLayout
+
+**Method 2: SALT Package Manager (Recommended) / 方式 2: SALT 包管理器（推荐）**
+```
+Tools → Manage Packages → Install from URL
+Enter GitHub Release URL / 输入 GitHub Release URL
+```
 
 **Method 3: Development Mode / 方式 3: 开发模式**
 
