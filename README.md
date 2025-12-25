@@ -91,6 +91,28 @@ For detailed instructions / 详细说明: [HOW_TO_LOAD.md](HOW_TO_LOAD.md) | [IN
 - **Status Bar**: Real-time feedback on current mode and operations
 - **Layer Toolbox**: Displays FIB layers (337, 338, 339) with recommended colors
 
+**Video Tutorial / 视频教程:**
+
+A comprehensive video tutorial demonstrating the full functionality of the KLayout FIB Tool is available at:
+
+- **Location**: `docs/klayout-fib-tool.wmv`
+- **Content**: Step-by-step demonstration of all marker types, workflows, and features
+- **Duration**: Complete walkthrough covering installation to report generation
+- **Format**: Windows Media Video (WMV) - compatible with most media players
+
+**How to access / 如何访问:**
+1. Navigate to the `docs/` folder in the project directory
+2. Double-click `klayout-fib-tool.wmv` to play
+3. For optimal viewing, use a media player that supports WMV format (e.g., VLC Media Player, Windows Media Player, QuickTime)
+
+The video covers:
+- Installation and setup
+- Marker creation (Cut/Connect/Probe)
+- Multi-point mode usage
+- Note-taking functionality
+- Report generation
+- Troubleshooting tips
+
 **Basic Workflow / 基本流程:**
 1. Open a GDS file / 打开 GDS 文件
 2. Launch FIB Tool (use any method above) / 启动 FIB Tool（使用上述任一方式）
