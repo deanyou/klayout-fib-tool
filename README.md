@@ -85,6 +85,12 @@ For detailed instructions / 详细说明: [HOW_TO_LOAD.md](HOW_TO_LOAD.md) | [IN
 - **Method 2 / 方式 2**: Shortcut `Ctrl+Shift+F` / 快捷键 `Ctrl+Shift+F`
 - **Method 3 / 方式 3**: Toolbar buttons (Cut/Connect/Probe) / 工具栏按钮
 
+**Interface Overview / 界面概览:**
+- **Main Panel**: Dockable panel with marker tree and mode controls
+- **Toolbar**: Quick access buttons for Cut/Connect/Probe modes
+- **Status Bar**: Real-time feedback on current mode and operations
+- **Layer Toolbox**: Displays FIB layers (337, 338, 339) with recommended colors
+
 **Basic Workflow / 基本流程:**
 1. Open a GDS file / 打开 GDS 文件
 2. Launch FIB Tool (use any method above) / 启动 FIB Tool（使用上述任一方式）
@@ -101,6 +107,267 @@ Setup / 设置方法: View → Layer Toolbox → Right-click layer → Propertie
 查看 → 图层工具箱 → 右键图层 → 属性 → 设置颜色
 
 For details / 详细说明: [Layer Color Setup / 图层颜色设置](docs/LAYER_COLOR_SETUP.md)
+
+## Detailed Usage Guide / 详细使用指南
+
+### Marker Types and Usage / 标记类型与使用
+
+#### 1. CUT Marker / CUT 标记
+
+**Purpose**: Create cutting paths with direction indicators
+**Layer**: 337
+**Visual**: X symbol with direction arrow
+
+**Standard Mode (2 Points) / 标准模式（2点）:**
+1. Click the **Cut** button (turns green when active)
+2. **First click**: Set center position on the layout
+3. **Second click**: Set direction of the cut
+4. Marker is created with automatic ID (e.g., CUT_0)
+
+**Multi-Point Mode / 多点模式:**
+1. Click the dropdown next to **Cut** button
+2. Select **Multi Points** from the dropdown
+3. Click the **Cut** button to activate multi-point mode
+4. **Left-click** to add multiple vertices
+5. **Right-click** to finish (standard CAD workflow)
+6. Minimum 2 points required
+7. Result: CUT marker with continuous path through all points
+
+#### 2. CONNECT Marker / CONNECT 标记
+
+**Purpose**: Create connection paths between points
+**Layer**: 338
+**Visual**: Line with endpoint circles
+
+**Standard Mode (2 Points) / 标准模式（2点）:**
+1. Click the **Connect** button (turns green when active)
+2. **First click**: Set start point on the layout
+3. **Second click**: Set end point
+4. Marker is created with automatic ID (e.g., CONNECT_0)
+
+**Multi-Point Mode / 多点模式:**
+1. Click the dropdown next to **Connect** button
+2. Select **Multi Points** from the dropdown
+3. Click the **Connect** button to activate multi-point mode
+4. **Left-click** to add multiple junction points
+5. **Right-click** to finish
+6. Minimum 2 points required
+7. Result: CONNECT marker with path through all points
+8. Visual: Large circles at endpoints, small circles at junctions
+
+#### 3. PROBE Marker / PROBE 标记
+
+**Purpose**: Mark probe test points
+**Layer**: 339
+**Visual**: Downward arrow
+
+**Standard Mode / 标准模式:**
+1. Click the **Probe** button (turns green when active)
+2. **Single click**: Set probe position on the layout
+3. Marker is created with automatic ID (e.g., PROBE_0)
+
+### Context Menu Operations / 右键菜单操作
+
+**Right-click on any marker** to access the context menu:
+1. **Zoom to Fit**: Center and zoom to the marker
+2. **Copy Coordinates**: Copy marker coordinates to clipboard
+3. **Add Notes**: Add descriptive notes to the marker
+4. **Rename Marker**: Customize marker ID
+5. **Delete Marker**: Remove the marker
+
+### Adding Notes / 添加备注
+
+**Step-by-step**: 
+1. Right-click on any marker
+2. Select **Add Notes** from the context menu
+3. Enter descriptive text in the dialog box
+4. Click **OK** to save
+5. Notes are automatically saved with the marker
+
+**Example notes**: 
+- "Beam 30kV, 10pA, Dwell 1us"
+- "Device A - Metal layer 3"
+- "GND test point"
+
+### Data Management / 数据管理
+
+#### Saving and Loading / 保存与加载
+
+**Save Project / 保存项目:**
+1. Click the **Save** button in the FIB Panel
+2. Select XML file location
+3. All markers, notes, and settings are saved
+
+**Load Project / 加载项目:**
+1. Click the **Load** button in the FIB Panel
+2. Select XML file
+3. All markers are restored to their original positions
+
+#### Exporting Reports / 导出报告
+
+**Generate HTML Report / 生成 HTML 报告:**
+1. Click the **Export HTML** button in the FIB Panel
+2. Select output directory
+3. The tool generates:
+   - HTML report with marker details
+   - Screenshots of each marker
+   - Notes and coordinates for each marker
+   - Layer information
+   - Project metadata
+
+**Report Features / 报告特点:**
+- Interactive marker list
+- Zoomable screenshots
+- Searchable content
+- Responsive design for different screen sizes
+
+### Advanced Features / 高级功能
+
+#### Auto Layer Creation / 自动图层创建
+- Tool automatically creates FIB layers (337, 338, 339) if they don't exist
+- Layer names: FIB_CUT, FIB_CONNECT, FIB_PROBE
+- No manual layer setup required
+
+#### Smart Numbering / 智能编号
+- Automatic incrementing marker IDs
+- Customizable prefixes (CUT_, CONNECT_, PROBE_)
+- Maintains sequential numbering after deletions
+
+#### Layer Detection / 图层检测
+- Automatically detects layers at click positions
+- Displays layer information in status bar
+- Useful for identifying target layers
+
+#### Coordinate Display / 坐标显示
+- Real-time coordinate feedback during marker creation
+- Coordinate texts show at each click position
+- Formatted as (X, Y) in microns
+
+### Troubleshooting / 故障排除
+
+**Common Issues and Solutions / 常见问题与解决方案:**
+
+1. **Buttons not appearing / 按钮不显示**
+   - Ensure GDS file is open first
+   - Check console for error messages
+   - Restart KLayout
+
+2. **Markers not visible / 标记不可见**
+   - Check Layer Toolbox: Ensure FIB layers are visible
+   - Use "Zoom to Fit" on a marker
+   - Verify layer colors are set correctly
+
+3. **Multi-point mode not working / 多点模式不工作**
+   - Ensure minimum 2 points are added
+   - Right-click to finish (not double-click)
+   - Check mode indicator in status bar
+
+4. **Cannot save/load project / 无法保存/加载项目**
+   - Check file permissions
+   - Ensure XML file is not corrupted
+   - Verify file path is valid
+
+5. **HTML export fails / HTML 导出失败**
+   - Check screenshot dependencies
+   - Ensure output directory exists
+   - Check console for error messages
+
+For more troubleshooting / 更多故障排除: [GitHub Issues](https://github.com/yourusername/klayout-fib-tool/issues)
+
+## Tips and Best Practices / 提示与最佳实践
+
+### Workflow Efficiency / 工作流程效率
+
+1. **Use keyboard shortcuts**: `Ctrl+Shift+F` to toggle the FIB Panel
+2. **Double-click markers**: Quickly zoom to any marker
+3. **Right-click to cancel**: Exit mode without creating a marker
+4. **Batch operations**: Create multiple markers in sequence
+5. **Regular saves**: Save your project frequently to avoid data loss
+
+### Precision and Accuracy / 精度与准确性
+
+1. **Zoom in**: For precise point placement
+2. **Use grid**: Enable KLayout's grid for alignment
+3. **Check coordinates**: Verify marker positions in the panel
+4. **Layer visibility**: Ensure only relevant layers are visible
+5. **Coordinate text**: Use visible coordinate texts for verification
+
+### Organization / 组织管理
+
+1. **Descriptive notes**: Add clear notes to each marker
+2. **Logical naming**: Customize marker IDs when needed
+3. **Group markers**: Organize markers by function or area
+4. **Consistent colors**: Follow recommended layer color scheme
+5. **Version control**: Save different project versions with meaningful names
+
+### Performance / 性能
+
+1. **Limit marker count**: Keep under 1000 markers for optimal performance
+2. **Close unused windows**: Free up memory
+3. **Regular restarts**: Refresh KLayout occasionally during long sessions
+4. **Optimize GDS**: Use simplified GDS files for FIB marking
+5. **Update KLayout**: Ensure you're using KLayout 0.28 or later
+
+## Example Workflow / 示例工作流程
+
+### Typical FIB Marking Session / 典型 FIB 标注流程
+
+1. **Preparation / 准备**
+   - Open GDS file
+   - Launch FIB Tool via menu or shortcut
+   - Set recommended layer colors
+
+2. **CUT Markers / CUT 标记**
+   - Select **Cut** mode
+   - Create 5-10 CUT markers with direction indicators
+   - Add notes for beam settings
+
+3. **CONNECT Markers / CONNECT 标记**
+   - Select **Connect** mode
+   - Create connection paths between test points
+   - Use multi-point mode for complex paths
+
+4. **PROBE Markers / PROBE 标记**
+   - Select **Probe** mode
+   - Mark probe test locations
+   - Add device identification notes
+
+5. **Verification / 验证**
+   - Review all markers in the panel
+   - Check coordinates and notes
+   - Zoom to each marker for visual inspection
+
+6. **Documentation / 文档**
+   - Save project as XML
+   - Generate HTML report with screenshots
+   - Share report with team members
+
+7. **Export / 导出**
+   - Ensure all layers are visible
+   - Export final GDS with FIB markers
+   - Prepare for FIB machine input
+
+## Visual Reference / 视觉参考
+
+### Toolbar and Panel / 工具栏与面板
+
+![FIB Tool Interface](docs/images/screenshot.png)
+
+*Main interface showing toolbar, panel, and markers in a GDS file*
+
+### Marker Types / 标记类型
+
+| Marker Type | Layer | Color | Visual Representation |
+|-------------|-------|-------|----------------------|
+| CUT         | 337   | Pink  | X symbol + direction arrow |
+| CONNECT     | 338   | Yellow | Line with endpoint circles |
+| PROBE       | 339   | White | Downward arrow |
+
+### Layer Setup / 图层设置
+
+![Layer Toolbox](docs/images/refesh_fib_layers.png)
+
+*Recommended layer configuration in KLayout Layer Toolbox*
 
 ## Project Structure / 项目结构
 
