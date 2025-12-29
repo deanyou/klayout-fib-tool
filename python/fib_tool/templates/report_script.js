@@ -132,6 +132,9 @@ function clearAllCustomImages() {
 
     // Also clear notes for this report
     localStorage.removeItem('fib-notes-' + timestamp);
+    
+    // Also clear schematic images
+    clearSchematicImages();
 
     updateStorageInfo();
     alert('当前报告的所有自定义图片已清除！');
@@ -145,9 +148,10 @@ function updateStorageInfo() {
     var keys = Object.keys(localStorage);
     var prefix = 'fib-custom-images-' + timestamp + '-';
     var notesKey = 'fib-notes-' + timestamp;
+    var schematicKey = 'fib-schematic-images-' + timestamp;
     
     for (var i = 0; i < keys.length; i++) {
-        if (keys[i].startsWith(prefix) || keys[i] === notesKey) {
+        if (keys[i].startsWith(prefix) || keys[i] === notesKey || keys[i] === schematicKey) {
             totalSize += localStorage[keys[i]].length;
         }
     }
@@ -175,13 +179,36 @@ function exportHTMLWithImages() {
         reportNotes.textContent = reportNotes.value;
     }
     
+    // Sync schematic caption inputs to DOM
+    var captionInputs = document.querySelectorAll('.schematic-image-item .caption-input');
+    for (var i = 0; i < captionInputs.length; i++) {
+        captionInputs[i].setAttribute('value', captionInputs[i].value);
+    }
+    
+    // Make sure schematic section is visible in export if it has content
+    var schematicSection = document.getElementById('schematic-section');
+    var schematicContainer = document.getElementById('schematic-images-container');
+    var hadSchematicContent = schematicContainer && schematicContainer.children.length > 0;
+    
     // Clone current document
     var clone = document.documentElement.cloneNode(true);
 
     // Remove export buttons and file inputs from clone
-    var elementsToRemove = clone.querySelectorAll('.save-btn, .export-btn, .load-btn, .clear-btn, input[type="file"], .add-image-btn button');
+    var elementsToRemove = clone.querySelectorAll('.save-btn, .export-btn, .load-btn, .clear-btn, input[type="file"], .add-image-btn button, .schematic-add-btn, .schematic-controls');
     for (var i = 0; i < elementsToRemove.length; i++) {
         elementsToRemove[i].remove();
+    }
+    
+    // Remove remove buttons from schematic images
+    var schematicRemoveBtns = clone.querySelectorAll('.schematic-image-item .remove-btn');
+    for (var i = 0; i < schematicRemoveBtns.length; i++) {
+        schematicRemoveBtns[i].remove();
+    }
+    
+    // Make schematic section visible in export if it has content
+    var clonedSchematicSection = clone.querySelector('#schematic-section');
+    if (clonedSchematicSection && hadSchematicContent) {
+        clonedSchematicSection.style.display = 'block';
     }
 
     // Generate complete HTML
@@ -287,10 +314,220 @@ function autoSaveNotes() {
     saveNotesTimeout = setTimeout(saveNotes, 1000);
 }
 
+// ==================== Schematic Changes Section ====================
+
+var MAX_SCHEMATIC_IMAGES = 10;
+
+function toggleSchematicSection() {
+    var section = document.getElementById('schematic-section');
+    var btn = document.getElementById('schematic-toggle-btn');
+    
+    if (section.style.display === 'none') {
+        section.style.display = 'block';
+        btn.classList.add('expanded');
+        btn.innerHTML = '📋 Hide Schematic Changes';
+    } else {
+        section.style.display = 'none';
+        btn.classList.remove('expanded');
+        btn.innerHTML = '📋 Add Schematic Changes';
+    }
+}
+
+function handleSchematicImageUpload(files) {
+    var currentCount = getSchematicImageCount();
+    var remaining = MAX_SCHEMATIC_IMAGES - currentCount;
+    
+    if (remaining <= 0) {
+        alert('已达到最大图片数量限制 (10张)');
+        return;
+    }
+    
+    var filesToProcess = Math.min(files.length, remaining);
+    
+    for (var i = 0; i < filesToProcess; i++) {
+        var file = files[i];
+        if (file.type.startsWith('image/')) {
+            var reader = new FileReader();
+            reader.onload = (function(f) {
+                return function(e) {
+                    var base64 = e.target.result;
+                    var imageId = 'schematic-img-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+                    displaySchematicImage(imageId, base64, f.name, '');
+                    saveSchematicImage(imageId, base64, f.name, '');
+                    updateSchematicCount();
+                    updateSchematicAddButton();
+                };
+            })(file);
+            reader.readAsDataURL(file);
+        }
+    }
+    
+    // Clear file input
+    document.getElementById('schematic-file-input').value = '';
+    
+    if (files.length > filesToProcess) {
+        alert('只添加了 ' + filesToProcess + ' 张图片，已达到最大限制 (10张)');
+    }
+}
+
+function displaySchematicImage(imageId, base64, filename, caption) {
+    var container = document.getElementById('schematic-images-container');
+    
+    var itemDiv = document.createElement('div');
+    itemDiv.className = 'schematic-image-item';
+    itemDiv.id = imageId;
+    itemDiv.innerHTML =
+        '<img src="' + base64 + '" alt="Schematic image" onclick="openLightbox(this.src)">' +
+        '<button onclick="removeSchematicImage(\'' + imageId + '\')" class="remove-btn" title="删除此图片">x</button>' +
+        '<input type="text" class="caption-input" placeholder="输入图片说明..." value="' + escapeHtml(caption) + '" onchange="updateSchematicCaption(\'' + imageId + '\', this.value)">';
+    
+    container.appendChild(itemDiv);
+}
+
+function escapeHtml(text) {
+    var div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML.replace(/"/g, '&quot;');
+}
+
+function saveSchematicImage(imageId, base64, filename, caption) {
+    var timestamp = getReportTimestamp();
+    var storageKey = 'fib-schematic-images-' + timestamp;
+    var images = JSON.parse(localStorage.getItem(storageKey) || '[]');
+    
+    images.push({
+        id: imageId,
+        filename: filename,
+        data: base64,
+        caption: caption,
+        timestamp: new Date().toISOString()
+    });
+    
+    localStorage.setItem(storageKey, JSON.stringify(images));
+    updateStorageInfo();
+}
+
+function updateSchematicCaption(imageId, caption) {
+    var timestamp = getReportTimestamp();
+    var storageKey = 'fib-schematic-images-' + timestamp;
+    var images = JSON.parse(localStorage.getItem(storageKey) || '[]');
+    
+    for (var i = 0; i < images.length; i++) {
+        if (images[i].id === imageId) {
+            images[i].caption = caption;
+            break;
+        }
+    }
+    
+    localStorage.setItem(storageKey, JSON.stringify(images));
+}
+
+function removeSchematicImage(imageId) {
+    var element = document.getElementById(imageId);
+    if (element) {
+        element.remove();
+    }
+    
+    var timestamp = getReportTimestamp();
+    if (!timestamp) return;
+    
+    var storageKey = 'fib-schematic-images-' + timestamp;
+    var images = JSON.parse(localStorage.getItem(storageKey) || '[]');
+    images = images.filter(function(img) {
+        return img.id !== imageId;
+    });
+    localStorage.setItem(storageKey, JSON.stringify(images));
+    
+    updateSchematicCount();
+    updateSchematicAddButton();
+    updateStorageInfo();
+}
+
+function loadSchematicChanges() {
+    var timestamp = getReportTimestamp();
+    if (!timestamp) {
+        console.warn('No report timestamp found, skipping schematic load');
+        return;
+    }
+    
+    var storageKey = 'fib-schematic-images-' + timestamp;
+    var images = JSON.parse(localStorage.getItem(storageKey) || '[]');
+    
+    if (images.length > 0) {
+        // Auto-expand section if there are saved images
+        var section = document.getElementById('schematic-section');
+        var btn = document.getElementById('schematic-toggle-btn');
+        section.style.display = 'block';
+        btn.classList.add('expanded');
+        btn.innerHTML = '📋 Hide Schematic Changes';
+        
+        for (var i = 0; i < images.length; i++) {
+            var img = images[i];
+            displaySchematicImage(img.id, img.data, img.filename, img.caption || '');
+        }
+    }
+    
+    updateSchematicCount();
+    updateSchematicAddButton();
+}
+
+function getSchematicImageCount() {
+    var container = document.getElementById('schematic-images-container');
+    return container ? container.children.length : 0;
+}
+
+function updateSchematicCount() {
+    var count = getSchematicImageCount();
+    var countElement = document.getElementById('schematic-image-count');
+    if (countElement) {
+        countElement.textContent = count;
+    }
+}
+
+function updateSchematicAddButton() {
+    var count = getSchematicImageCount();
+    var addButton = document.getElementById('schematic-add-button');
+    
+    if (addButton) {
+        if (count >= MAX_SCHEMATIC_IMAGES) {
+            addButton.disabled = true;
+            addButton.innerHTML = '<span>已达到最大图片数量 (10张)</span>';
+        } else {
+            addButton.disabled = false;
+            addButton.innerHTML = 
+                '<span class="plus-icon">+</span>' +
+                '<span>添加原理图图片</span>' +
+                '<span class="hint">支持 PNG, JPG, GIF (最多10张)</span>';
+        }
+    }
+}
+
+function clearSchematicImages() {
+    var timestamp = getReportTimestamp();
+    if (!timestamp) return;
+    
+    // Remove from DOM
+    var container = document.getElementById('schematic-images-container');
+    if (container) {
+        container.innerHTML = '';
+    }
+    
+    // Clear localStorage
+    var storageKey = 'fib-schematic-images-' + timestamp;
+    localStorage.removeItem(storageKey);
+    
+    updateSchematicCount();
+    updateSchematicAddButton();
+    updateStorageInfo();
+}
+
+// ==================== End Schematic Changes Section ====================
+
 // Load custom images on page load
 window.addEventListener('DOMContentLoaded', function() {
     loadCustomImages();
     loadNotes();
+    loadSchematicChanges();
     updateStorageInfo();
     attachLightboxToImages();
 
