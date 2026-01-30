@@ -6,6 +6,7 @@ and CSV export for markers.
 
 import json
 import os
+from ..ui.dialog_manager import FibDialogManager
 
 
 class FibFileManager:
@@ -146,10 +147,28 @@ class FibFileManager:
             print(f"[File Manager] Loaded {len(markers_data)} markers from {filename}")
             return (markers_data, marker_notes_dict, marker_counters)
 
+        except json.JSONDecodeError as e:
+            # Specific handling for JSON format errors
+            error_msg = f"Invalid JSON format at line {e.lineno}"
+            print(f"[File Manager] JSONDecodeError: {error_msg}")
+            FibDialogManager.show_error_json_parse(filename, error_msg)
+            return (None, None, None)
+        except FileNotFoundError:
+            # File not found error
+            print(f"[File Manager] File not found: {filename}")
+            FibDialogManager.show_error_file_not_found(filename)
+            return (None, None, None)
+        except PermissionError:
+            # Permission denied error
+            print(f"[File Manager] Permission denied: {filename}")
+            FibDialogManager.show_error_permission_denied(filename, "read")
+            return (None, None, None)
         except Exception as e:
+            # Other errors
             print(f"[File Manager] Error loading from JSON: {e}")
             import traceback
             traceback.print_exc()
+            FibDialogManager.show_error_invalid_file(filename, str(e))
             return (None, None, None)
 
     @staticmethod

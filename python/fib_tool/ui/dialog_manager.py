@@ -317,3 +317,126 @@ class FibDialogManager:
             )
             return filepath if filepath else ""
         return ""
+
+    # --------------------------------------------------------------------------
+    # MVF Error Handlers (Linus-style minimal additions)
+    # --------------------------------------------------------------------------
+
+    @staticmethod
+    def show_error_screenshot_failed(marker_id, zoom_level, reason="", parent=None):
+        """Screenshot capture failed (overview/zoom2x/detail)
+
+        Args:
+            marker_id (str): ID of marker for which screenshot failed
+            zoom_level (str): Zoom level that failed (e.g., "overview", "zoom2x")
+            reason (str): Optional reason for failure
+            parent: Parent widget (optional)
+        """
+        import os
+        message = f"Failed to capture screenshot for marker '{marker_id}'\nZoom level: {zoom_level}"
+        if reason:
+            message += f"\n\nReason: {reason}"
+        message += "\n\nPlease check:\n• Layout is open and valid\n• Marker is visible in current view"
+        FibDialogManager.error(message, parent)
+
+    @staticmethod
+    def show_error_active_view_required(parent=None):
+        """No active KLayout view found
+
+        Args:
+            parent: Parent widget (optional)
+        """
+        message = "No active layout view found"
+        message += "\n\nPlease:\n• Open a GDS/OASIS file\n• Ensure a cell is loaded"
+        FibDialogManager.error(message, parent)
+
+    @staticmethod
+    def show_error_directory_creation(dir_path, reason="", parent=None):
+        """Directory creation failed
+
+        Args:
+            dir_path (str): Path to directory that failed to create
+            reason (str): Optional reason for failure
+            parent: Parent widget (optional)
+        """
+        import os
+        dir_name = os.path.basename(dir_path)
+        message = f"Failed to create export directory:\n{dir_name}"
+        if reason:
+            message += f"\n\nReason: {reason}"
+        message += "\n\nPlease check:\n• Parent directory exists\n• Write permissions\n• Disk space available"
+        FibDialogManager.error(message, parent)
+
+    @staticmethod
+    def show_error_json_parse(filepath, reason="", parent=None):
+        """JSON file format error
+
+        Args:
+            filepath (str): Path to invalid JSON file
+            reason (str): Optional reason for failure
+            parent: Parent widget (optional)
+        """
+        import os
+        filename = os.path.basename(filepath)
+        message = f"Invalid JSON file: {filename}"
+        if reason:
+            message += f"\n\nReason: {reason}"
+        message += "\n\nThe file may be:\n• Corrupted\n• Not a valid FIB Tool export\n• From incompatible version"
+        FibDialogManager.error(message, parent)
+
+    @staticmethod
+    def show_error_permission_denied(filepath, operation="access", parent=None):
+        """File permission denied
+
+        Args:
+            filepath (str): Path to file with permission issue
+            operation (str): Operation that was denied (e.g., "read", "write")
+            parent: Parent widget (optional)
+        """
+        import os
+        filename = os.path.basename(filepath)
+        message = f"Permission denied: Cannot {operation} file\n{filename}"
+        message += "\n\nPlease check:\n• File permissions\n• File is not locked by another program\n• You have necessary access rights"
+        FibDialogManager.error(message, parent)
+
+    @staticmethod
+    def show_error_layer_creation_failed(layer_num, reason="", parent=None):
+        """FIB layer creation failed
+
+        Args:
+            layer_num (int): Layer number that failed to create
+            reason (str): Optional reason for failure
+            parent: Parent widget (optional)
+        """
+        message = f"Failed to create FIB layer {layer_num}"
+        if reason:
+            message += f"\n\nReason: {reason}"
+        message += "\n\nPlease:\n• Ensure a layout is open\n• Check if layer already exists with different properties"
+        FibDialogManager.error(message, parent)
+
+    @staticmethod
+    def show_error_marker_not_found(marker_id, parent=None):
+        """Marker not found
+
+        Args:
+            marker_id (str): ID of marker that was not found
+            parent: Parent widget (optional)
+        """
+        message = f"Marker not found: '{marker_id}'"
+        message += "\n\nThe marker may have been:\n• Deleted\n• Renamed\n• Not yet saved"
+        FibDialogManager.error(message, parent)
+
+    @staticmethod
+    def show_error_insufficient_points(marker_id, required=2, actual=0, parent=None):
+        """Marker has insufficient points
+
+        Args:
+            marker_id (str): ID of marker with insufficient points
+            required (int): Number of points required
+            actual (int): Actual number of points
+            parent: Parent widget (optional)
+        """
+        message = f"Marker '{marker_id}' has insufficient points"
+        message += f"\n\nRequired: {required} points\nActual: {actual} points"
+        message += "\n\nPlease add more points to complete this marker."
+        FibDialogManager.error(message, parent)

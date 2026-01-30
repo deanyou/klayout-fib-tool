@@ -7,6 +7,7 @@ Automatically detects and creates required layers if they don't exist.
 
 import pya
 from .config import LAYERS, LAYER_COLORS, LAYER_MARKER_CONFIG
+from .ui.dialog_manager import FibDialogManager
 
 
 # ============================================================================
@@ -699,30 +700,39 @@ def ensure_fib_layers():
         
         if missing_layers:
             print(f"[Layer Manager] [!] WARNING: {len(missing_layers)} layer(s) still missing after creation attempt: {missing_layers}")
-        
+
+        # Show error dialogs for failed layers (Linus MVF: minimal, targeted fix)
+        if failed_count > 0:
+            failed_layers = [num for num, status in layer_status.items() if status == 'failed']
+            for layer_num in failed_layers:
+                reason = "Layer creation methods failed"
+                FibDialogManager.show_error_layer_creation_failed(layer_num, reason)
+
         if created_count > 0:
             message = f"FIB Tool: Created {created_count} new layer(s), {existed_count} layer(s) already existed"
             if failed_count > 0:
                 message += f", {failed_count} failed"
             print(f"[Layer Manager] {message}")
-            
+
             # Show color setup instructions
             print("[Layer Manager] Showing color setup instructions...")
             show_color_instructions()
-            
+
             try:
                 pya.MainWindow.instance().message(message, 3000)
-            except:
-                pass
+            except Exception as e:
+                print(f"[Layer Manager] Could not show message: {e}")
         else:
             print(f"[Layer Manager] All {existed_count} FIB layers already exist")
-        
+
         return len(missing_layers) == 0
-        
+
     except Exception as e:
         print(f"[Layer Manager] Error in ensure_fib_layers: {e}")
         import traceback
         traceback.print_exc()
+        # Don't show error dialog here - ensure_fib_layers runs at startup
+        # User will see console output in F5 mode
         return False
 
 

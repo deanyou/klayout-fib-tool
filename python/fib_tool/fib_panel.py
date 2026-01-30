@@ -686,10 +686,10 @@ class FIBPanel(pya.QDockWidget):
                     except:
                         pass
                 except Exception as e:
-                    FibDialogManager.warning(f"Failed to create directory:\n{export_dir}\n\nError: {str(e)}", "FIB Panel")
+                    FibDialogManager.show_error_directory_creation(export_dir, str(e))
                     return
             except Exception as e:
-                FibDialogManager.warning(f"Failed to create directory:\n{export_dir}\n\nError: {str(e)}", "FIB Panel")
+                FibDialogManager.show_error_directory_creation(export_dir, str(e))
                 return
 
             # Export HTML with screenshots
@@ -801,10 +801,21 @@ class FIBPanel(pya.QDockWidget):
                     output_dir
                 )
                 log(f"[FIB Panel] Screenshots generated: {len(screenshots_dict)} markers")
+            except ValueError as screenshot_error:
+                # Active view errors - show user-friendly message
+                log(f"[FIB Panel] Active view error: {screenshot_error}")
+                FibDialogManager.show_error_active_view_required()
+                return False
             except Exception as screenshot_error:
+                # Other screenshot errors - show detailed message
                 log(f"[FIB Panel] ERROR in export_markers_with_screenshots: {screenshot_error}")
                 import traceback
                 log(traceback.format_exc())
+                # Extract marker ID if possible from error context
+                marker_id = "unknown"
+                if self.markers_list:
+                    marker_id = self.markers_list[0].id  # First marker as fallback
+                FibDialogManager.show_error_screenshot_failed(marker_id, "export", str(screenshot_error))
                 return False
 
             # Define output filename

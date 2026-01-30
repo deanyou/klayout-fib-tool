@@ -121,17 +121,11 @@ def get_marker_bbox(marker):
             return pya.DBox(marker.x - r, marker.y - r, marker.x + r, marker.y + r)
         
         else:
-            try:
-                print(f"[Screenshot] Warning: Unknown marker type for {marker.id}")
-            except:
-                pass
+            print(f"[Screenshot] Warning: Unknown marker type for {marker.id}")
             return pya.DBox(0, 0, 10, 10)
 
     except Exception as e:
-        try:
-            print(f"[Screenshot] Error getting bbox for {marker.id}: {e}")
-        except:
-            pass
+        print(f"[Screenshot] Error getting bbox for {marker.id}: {e}")
         return pya.DBox(0, 0, 10, 10)
 
 
