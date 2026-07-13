@@ -233,18 +233,10 @@ def get_layers_at_point(x, y, search_radius=None):
             if (layer_info.layer, layer_info.datatype) not in visible_layers:
                 continue
             
-            # Check if any shapes touch the search box
-            shapes = cell.shapes(layer_index)
-            if shapes.size() == 0:
-                continue
-            
-            # Use each_touching for efficient search
-            has_shape = False
-            for shape in shapes.each_touching(search_box):
-                has_shape = True
-                break
-            
-            if has_shape:
+            # Search recursively so shapes inside child cell instances are included.
+            shape_iter = cell.begin_shapes_rec_touching(layer_index, search_box)
+
+            if not shape_iter.at_end():
                 # Get layer name if available
                 layer_name = layer_info.name if layer_info.name else None
                 print(f"[Layer Tap] Layer {layer_info.layer}/{layer_info.datatype}: name='{layer_info.name}', type={type(layer_info.name)}")
@@ -387,8 +379,9 @@ def get_layer_at_point_with_selection(x, y, search_radius=None, position_label="
     Strategy:
     1. Search for layers at the click position
     2. If single layer found: use it directly
-    3. If multiple layers found: use the layer selected in Layer Panel
-    4. If no layers found: try to use Layer Panel selection as fallback
+    3. If multiple layers found: use the Layer Panel selection only when it
+       matches one of the layers at the click position
+    4. If no unambiguous layer is found: return None
     
     Args:
         x: X coordinate in microns
@@ -402,15 +395,9 @@ def get_layer_at_point_with_selection(x, y, search_radius=None, position_label="
     # Step 1: Search for layers at the position
     layers = get_layers_at_point(x, y, search_radius)
     
-    # Case 1: No layers found at position - try Layer Panel as fallback
+    # Case 1: No layers found at position
     if not layers:
         print(f"[Layer Tap] No layers found at ({x:.3f}, {y:.3f})")
-        print(f"[Layer Tap] Trying Layer Panel selection as fallback...")
-        selected_layer = get_selected_layer_from_panel()
-        if selected_layer:
-            print(f"[Layer Tap] Using Layer Panel selection: {selected_layer}")
-            return selected_layer
-        print(f"[Layer Tap] No Layer Panel selection either, returning None")
         return None
     
     # Case 2: Single layer found - use it directly
@@ -426,21 +413,17 @@ def get_layer_at_point_with_selection(x, y, search_radius=None, position_label="
     # Try to get the selected layer from Layer Panel
     selected_layer = get_selected_layer_from_panel()
     
-    if selected_layer:
-        # Check if the selected layer is among the found layers
-        for layer in layers:
-            if layer.layer == selected_layer.layer and layer.datatype == selected_layer.datatype:
-                print(f"[Layer Tap] Using Layer Panel selection (matched): {selected_layer}")
-                return selected_layer
-        
-        # Selected layer is not at this position, but still use it
-        # (user explicitly selected it, so respect their choice)
-        print(f"[Layer Tap] Layer Panel selection {selected_layer} not at position, but using it anyway")
+    if selected_layer in layers:
+        print(f"[Layer Tap] Using Layer Panel selection (matched): {selected_layer}")
         return selected_layer
-    
-    # No layer selected in panel - use the first found layer as fallback
-    print(f"[Layer Tap] No Layer Panel selection, using first found: {layers[0]}")
-    return layers[0]
+
+    if selected_layer:
+        print(f"[Layer Tap] Layer Panel selection {selected_layer} is not at position")
+    else:
+        print("[Layer Tap] No Layer Panel selection for overlapping layers")
+
+    print("[Layer Tap] Layer selection is ambiguous, returning None")
+    return None
 
 
 def format_layer_for_display(layer_info):

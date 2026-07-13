@@ -256,9 +256,12 @@ For details / 详细说明: [Layer Color Setup / 图层颜色设置](docs/LAYER_
 - Maintains sequential numbering after deletions
 
 #### Layer Detection / 图层检测
-- Automatically detects layers at click positions
-- Displays layer information in status bar
-- Useful for identifying target layers
+- Automatically detects visible, non-FIB layers at CUT/CONNECT click positions
+- Detects shapes in child-cell instances as well as the active cell
+- One detected layer: selects it automatically
+- Multiple detected layers: uses the Layer Panel selection only when it is also under the click point; otherwise leaves the result unresolved to avoid assigning the wrong layer
+- No detected layer: does not substitute the current Layer Panel selection
+- Displays layer information in the status bar and marker list
 
 #### Coordinate Display / 坐标显示
 - Real-time coordinate feedback during marker creation

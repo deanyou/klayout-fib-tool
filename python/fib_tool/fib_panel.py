@@ -6,6 +6,7 @@ Integrates with fib_plugin.py to provide a comprehensive FIB workflow interface
 
 import sys
 import os
+import re
 
 # Add the current directory to Python path
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -26,11 +27,26 @@ from .business.marker_transformer import FibMarkerTransformer
 from .business.file_manager import FibFileManager
 from .business.export_manager import FibExportManager
 
+
+def _format_layer_for_panel(layer_info):
+    """Show the layer name and one layer/datatype reference in the marker list."""
+    if not layer_info:
+        return "N/A"
+
+    match = re.match(
+        r"^(?P<prefix>.*?)(?P<layer>\d+/\d+):(?P=layer)$", layer_info
+    )
+    if match:
+        return f"{match.group('prefix')}{match.group('layer')}"
+
+    return layer_info
+
+
 class FIBPanel(pya.QDockWidget):
     """Main FIB Panel - Dockable widget for KLayout"""
     
     def __init__(self, parent=None):
-        super().__init__("FIB Panel", parent)
+        super().__init__("FIB Panel v1.0.1", parent)
         self.markers_list = []  # Global marker list
         self.active_mode = None
         self.marker_notes_dict = {}  # Centralized notes storage: marker_id -> notes
@@ -1605,7 +1621,7 @@ class FIBPanel(pya.QDockWidget):
                                 for i, p in enumerate(marker.points):
                                     layer_info = ""
                                     if hasattr(marker, 'point_layers') and i < len(marker.point_layers) and marker.point_layers[i]:
-                                        layer_info = f" [{marker.point_layers[i]}]"
+                                        layer_info = f" [{_format_layer_for_panel(marker.point_layers[i])}]"
                                     point_strs.append(f"({p[0]:.3f},{p[1]:.3f}){layer_info}")
                                 coords = f"{len(marker.points)} pts: " + " -> ".join(point_strs)
                             else:
@@ -1615,14 +1631,14 @@ class FIBPanel(pya.QDockWidget):
                                     p = marker.points[i]
                                     layer_info = ""
                                     if hasattr(marker, 'point_layers') and i < len(marker.point_layers) and marker.point_layers[i]:
-                                        layer_info = f" [{marker.point_layers[i]}]"
+                                        layer_info = f" [{_format_layer_for_panel(marker.point_layers[i])}]"
                                     first_points.append(f"({p[0]:.3f},{p[1]:.3f}){layer_info}")
                                 
                                 # Last point
                                 last_p = marker.points[-1]
                                 last_layer_info = ""
                                 if hasattr(marker, 'point_layers') and len(marker.point_layers) > 0 and marker.point_layers[-1]:
-                                    last_layer_info = f" [{marker.point_layers[-1]}]"
+                                    last_layer_info = f" [{_format_layer_for_panel(marker.point_layers[-1])}]"
                                 last_point = f"({last_p[0]:.3f},{last_p[1]:.3f}){last_layer_info}"
                                 
                                 coords = f"{len(marker.points)} pts: " + " -> ".join(first_points) + " -> ... -> " + last_point
@@ -1634,12 +1650,12 @@ class FIBPanel(pya.QDockWidget):
                         
                         if hasattr(marker, 'x1'):  # CUT or CONNECT
                             # Get layer info for display
-                            layer1_str = getattr(marker, 'layer1', None) or 'N/A'
-                            layer2_str = getattr(marker, 'layer2', None) or 'N/A'
+                            layer1_str = _format_layer_for_panel(getattr(marker, 'layer1', None))
+                            layer2_str = _format_layer_for_panel(getattr(marker, 'layer2', None))
                             coords = f"({marker.x1:.3f},{marker.y1:.3f}) {layer1_str} to ({marker.x2:.3f},{marker.y2:.3f}) {layer2_str}"
                         else:  # PROBE
                             # Get layer info for display
-                            target_layer_str = getattr(marker, 'target_layer', None) or 'N/A'
+                            target_layer_str = _format_layer_for_panel(getattr(marker, 'target_layer', None))
                             coords = f"({marker.x:.3f},{marker.y:.3f}) {target_layer_str}"
                     
                     item_text = f"{marker.id} - {marker_type} - {coords}"
@@ -1804,12 +1820,12 @@ class FIBPanel(pya.QDockWidget):
                     
                     if hasattr(marker, 'x1'):  # CUT or CONNECT
                         # Get layer info for display
-                        layer1_str = getattr(marker, 'layer1', None) or 'N/A'
-                        layer2_str = getattr(marker, 'layer2', None) or 'N/A'
+                        layer1_str = _format_layer_for_panel(getattr(marker, 'layer1', None))
+                        layer2_str = _format_layer_for_panel(getattr(marker, 'layer2', None))
                         coords = f"({marker.x1:.3f},{marker.y1:.3f}) {layer1_str} to ({marker.x2:.3f},{marker.y2:.3f}) {layer2_str}"
                     else:  # PROBE
                         # Get layer info for display
-                        target_layer_str = getattr(marker, 'target_layer', None) or 'N/A'
+                        target_layer_str = _format_layer_for_panel(getattr(marker, 'target_layer', None))
                         coords = f"({marker.x:.3f},{marker.y:.3f}) {target_layer_str}"
                 
                 item_text = f"{marker.id} - {marker_type} - {coords}"
