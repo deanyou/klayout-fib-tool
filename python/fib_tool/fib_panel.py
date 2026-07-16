@@ -21,7 +21,7 @@ from .smart_counter import SmartCounter
 from .file_dialog_helper import FileDialogHelper
 
 # Phase 2 refactoring: Import new modular components
-from .core.global_state import FibGlobalState
+from .core.global_state import get_global_state
 from .core.logging_utils import safe_print as print
 from .ui.dialog_manager import FibDialogManager
 from .business.marker_transformer import FibMarkerTransformer
@@ -53,7 +53,7 @@ class FIBPanel(pya.QDockWidget):
         self.marker_notes_dict = {}  # Centralized notes storage: marker_id -> notes
 
         # Phase 2 refactoring: Initialize global state and business logic modules
-        self.state = FibGlobalState()
+        self.state = get_global_state()
         self.transformer = FibMarkerTransformer()
         self.file_manager = FibFileManager()
         self.export_manager = FibExportManager()
@@ -1021,21 +1021,6 @@ class FIBPanel(pya.QDockWidget):
                 import traceback
                 traceback.print_exc()
             
-            # PRIORITY 2: Try __main__ namespace (fallback for exec() loading)
-            print(f"[FIB Panel] Step 4: Checking __main__ namespace...")
-            if 'activate_fib_mode' in sys.modules['__main__'].__dict__:
-                print(f"[FIB Panel] [OK] Found activate_fib_mode in __main__")
-                activate_fib_mode = sys.modules['__main__'].__dict__['activate_fib_mode']
-                print(f"[FIB Panel] Calling __main__.activate_fib_mode('{mode}')...")
-                result = activate_fib_mode(mode)
-                print(f"[FIB Panel] __main__ result: {result}")
-                if result:
-                    print(f"[FIB Panel] [OK] SUCCESS via __main__")
-                    print("=" * 80)
-                    return True
-            else:
-                print(f"[FIB Panel] [X] activate_fib_mode not found in __main__")
-            
             # If everything failed, show error
             print(f"[FIB Panel] [X] ALL METHODS FAILED")
             print("=" * 80)
@@ -1098,15 +1083,8 @@ class FIBPanel(pya.QDockWidget):
     def clear_pending_points(self):
         """Clear pending points from all plugin instances"""
         try:
-            # Access global plugin instances and clear their temp_points
-            if 'current_plugins' in sys.modules['__main__'].__dict__:
-                current_plugins = sys.modules['__main__'].__dict__['current_plugins']
-                for plugin_mode, plugin in current_plugins.items():
-                    if plugin and hasattr(plugin, 'temp_points'):
-                        plugin.temp_points = []
-                        plugin.last_click_time = 0
-                        plugin.last_click_pos = None
-                        print(f"[FIB Panel] Cleared temp_points and double-click state for {plugin_mode} plugin")
+            from . import fib_plugin
+            fib_plugin.clear_pending_points()
         except Exception as e:
             print(f"[FIB Panel] Error clearing pending points: {e}")
     
@@ -1249,25 +1227,9 @@ class FIBPanel(pya.QDockWidget):
     def clear_coordinate_texts(self):
         """Clear all coordinate text labels"""
         try:
-            # Use the global function if available
-            if 'clear_coordinate_texts' in sys.modules['__main__'].__dict__:
-                clear_func = sys.modules['__main__'].__dict__['clear_coordinate_texts']
-                clear_func()
-                print("[FIB Panel] Coordinate texts cleared via global function")
-            else:
-                # Fallback: clear coordinate layer directly
-                main_window = pya.Application.instance().main_window()
-                current_view = main_window.current_view()
-                
-                if current_view and current_view.active_cellview().is_valid():
-                    cellview = current_view.active_cellview()
-                    cell = cellview.cell
-                    layout = cellview.layout()
-                    
-                    from .config import LAYERS
-                    coord_layer = layout.layer(LAYERS['coordinates'], 0)
-                    cell.shapes(coord_layer).clear()
-                    print("[FIB Panel] Coordinate texts cleared directly")
+            from . import fib_plugin
+            fib_plugin.clear_coordinate_texts()
+            print("[FIB Panel] Coordinate texts cleared")
                     
         except Exception as e:
             print(f"[FIB Panel] Error clearing coordinate texts: {e}")
@@ -1483,16 +1445,7 @@ class FIBPanel(pya.QDockWidget):
             cell = cellview.cell
             layout = cellview.layout()
             
-            # Import marker classes and drawing function
-            from .markers import CutMarker, ConnectMarker, ProbeMarker
-            
-            # Try to import multi-point markers
-            try:
-                from .multipoint_markers import MultiPointCutMarker, MultiPointConnectMarker
-                multipoint_available = True
-            except ImportError:
-                multipoint_available = False
-                print("[FIB Panel] Multi-point markers not available for loading")
+            from .business.marker_codec import marker_from_record
             
             # Load markers (using data from FibFileManager)
             loaded_count = 0
@@ -1501,24 +1454,7 @@ class FIBPanel(pya.QDockWidget):
                     marker_type = marker_data['type']
                     marker_id = marker_data['id']
                     
-                    # Create marker object
-                    if marker_type == 'multipoint_cut' and multipoint_available:
-                        points = marker_data.get('points', [])
-                        marker = MultiPointCutMarker(marker_id, points, LAYERS['cut'])
-                    elif marker_type == 'multipoint_connect' and multipoint_available:
-                        points = marker_data.get('points', [])
-                        marker = MultiPointConnectMarker(marker_id, points, LAYERS['connect'])
-                    elif marker_type == 'cut':
-                        marker = CutMarker(marker_id, marker_data['x1'], marker_data['y1'], 
-                                         marker_data['x2'], marker_data['y2'], 6)
-                    elif marker_type == 'connect':
-                        marker = ConnectMarker(marker_id, marker_data['x1'], marker_data['y1'], 
-                                             marker_data['x2'], marker_data['y2'], 6)
-                    elif marker_type == 'probe':
-                        marker = ProbeMarker(marker_id, marker_data['x'], marker_data['y'], 6)
-                    else:
-                        print(f"[FIB Panel] Unknown marker type: {marker_type}")
-                        continue
+                    marker = marker_from_record(marker_data)
                     
                     # Set additional properties
                     # Try to get notes from dict first, then from marker_data
@@ -1536,24 +1472,6 @@ class FIBPanel(pya.QDockWidget):
                             elif marker_type == 'probe':
                                 loaded_notes = DEFAULT_MARKER_NOTES['probe']
                         marker.notes = loaded_notes
-                    
-                    marker.screenshots = marker_data.get('screenshots', [])
-                    marker.target_layers = marker_data.get('target_layers', [])
-                    
-                    # Restore layer information
-                    if marker_type == 'multipoint_cut' or marker_type == 'multipoint_connect':
-                        # Multi-point markers
-                        marker.point_layers = marker_data.get('point_layers', [])
-                        print(f"[FIB Panel] Restored point_layers for {marker_id}: {marker.point_layers}")
-                    elif marker_type == 'cut' or marker_type == 'connect':
-                        # Two-point markers
-                        marker.layer1 = marker_data.get('layer1', None)
-                        marker.layer2 = marker_data.get('layer2', None)
-                        print(f"[FIB Panel] Restored layer info for {marker_id}: layer1={marker.layer1}, layer2={marker.layer2}")
-                    elif marker_type == 'probe':
-                        # Probe markers
-                        marker.target_layer = marker_data.get('target_layer', None)
-                        print(f"[FIB Panel] Restored target_layer for {marker_id}: {marker.target_layer}")
                     
                     # Draw marker to GDS
                     from .config import LAYERS

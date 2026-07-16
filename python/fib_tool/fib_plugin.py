@@ -18,6 +18,7 @@ Version: 1.0.0
 import sys
 import os
 from .core.logging_utils import safe_print as print
+from .core.global_state import get_global_state
 
 # Add the current directory to Python path
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -74,12 +75,8 @@ def get_or_create_layer(layout, layer_num, datatype=0, layer_name=None):
 # FIB Tool - Version 3.0
 # This version uses KLayout's Plugin system for mouse handling
 
-# Global marker counter
-marker_counter = {
-    'cut': 0,
-    'connect': 0,
-    'probe': 0
-}
+# Backward-compatible alias backed by the shared runtime state.
+marker_counter = get_global_state().marker_counters
 
 # Global variables to store plugin instances for panel access
 current_plugins = {
@@ -177,7 +174,8 @@ def create_cut_marker(x1, y1, x2, y2, layer1=None, layer2=None):
         layer2: Layer info string for point 2 (e.g., "M2" or "2/0")
     """
     print(f"[DEBUG] create_cut_marker called with: x1={x1}, y1={y1}, x2={x2}, y2={y2}, layer1={layer1}, layer2={layer2}")
-    marker = _create_marker_internal('cut', CutMarker, x1, y1, x2, y2, 6, layer1=layer1, layer2=layer2)
+    marker = _create_marker_internal('cut', CutMarker, x1, y1, x2, y2,
+                                     LAYERS['cut'], layer1=layer1, layer2=layer2)
     print(f"[DEBUG] Created marker: {marker.id} from ({x1}, {y1}) [{layer1 or 'N/A'}] to ({x2}, {y2}) [{layer2 or 'N/A'}]")
     return marker
 
@@ -190,7 +188,8 @@ def create_connect_marker(x1, y1, x2, y2, layer1=None, layer2=None):
         layer1: Layer info string for point 1 (e.g., "M1" or "1/0")
         layer2: Layer info string for point 2 (e.g., "M2" or "2/0")
     """
-    marker = _create_marker_internal('connect', ConnectMarker, x1, y1, x2, y2, 6, layer1=layer1, layer2=layer2)
+    marker = _create_marker_internal('connect', ConnectMarker, x1, y1, x2, y2,
+                                     LAYERS['connect'], layer1=layer1, layer2=layer2)
     print(f"[DEBUG] Created marker: {marker.id} from ({x1}, {y1}) [{layer1 or 'N/A'}] to ({x2}, {y2}) [{layer2 or 'N/A'}]")
     return marker
 
@@ -201,7 +200,8 @@ def create_probe_marker(x, y, target_layer=None):
         x, y: Probe point coordinates (microns)
         target_layer: Layer info string at probe point (e.g., "M1" or "1/0")
     """
-    marker = _create_marker_internal('probe', ProbeMarker, x, y, 6, target_layer=target_layer)
+    marker = _create_marker_internal('probe', ProbeMarker, x, y, LAYERS['probe'],
+                                     target_layer=target_layer)
     print(f"[DEBUG] Created marker: {marker.id} at ({x}, {y}) [{target_layer or 'N/A'}]")
     return marker
 
@@ -361,6 +361,7 @@ class FIBToolPlugin(pya.Plugin):
         
         # Set global state
         current_mode = self.mode
+        get_global_state().set_mode(self.mode)
         active_plugin = self
         
         # Determine if this is a multi-point mode
@@ -389,6 +390,7 @@ class FIBToolPlugin(pya.Plugin):
         # Clear global state only if this plugin was active
         if active_plugin == self:
             current_mode = None
+            get_global_state().set_mode(None)
             active_plugin = None
         
         # Reset all state
@@ -867,10 +869,14 @@ def clear_coordinate_texts():
     except Exception as e:
         print(f"[DEBUG] Error clearing coordinate texts: {e}")
 
-# Add functions and variables to global namespace
-sys.modules['__main__'].clear_coordinate_texts = clear_coordinate_texts
-sys.modules['__main__'].marker_counter = marker_counter
-sys.modules['__main__'].current_plugins = current_plugins
+def clear_pending_points():
+    """Reset unfinished point input for every registered plugin."""
+    for plugin in current_plugins.values():
+        if not plugin or not hasattr(plugin, 'temp_points'):
+            continue
+        plugin.temp_points = []
+        plugin.last_click_time = 0
+        plugin.last_click_pos = None
 
 # Global function for panel to activate plugin modes
 def activate_fib_mode(mode):
@@ -900,16 +906,12 @@ def activate_fib_mode(mode):
         
         print(f"[FIB Plugin] Step 2: Clearing temp points from all plugins...")
         # Clear temp_points and double-click state from all plugins when switching modes
-        for plugin_mode, plugin in current_plugins.items():
-            if plugin and hasattr(plugin, 'temp_points'):
-                plugin.temp_points = []
-                plugin.last_click_time = 0
-                plugin.last_click_pos = None
-                print(f"[FIB Plugin]   Cleared {plugin_mode} plugin state")
+        clear_pending_points()
         
         print(f"[FIB Plugin] Step 3: Setting global mode to '{mode}'")
         # Set global mode
         current_mode = mode
+        get_global_state().set_mode(mode)
         
         # Get base mode for plugin lookup (remove _multi suffix)
         base_mode = mode.replace('_multi', '')
@@ -962,9 +964,6 @@ def activate_fib_mode(mode):
         traceback.print_exc()
         print("=" * 80)
         return False
-
-# Add to global namespace
-sys.modules['__main__'].activate_fib_mode = activate_fib_mode
 
 print("\n=== Additional Functions ===")
 print("clear_coordinate_texts() - Clear all coordinate text labels (Layer 339)")

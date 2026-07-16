@@ -19,6 +19,7 @@ from pathlib import Path
 import pya
 from .markers import CutMarker, ConnectMarker, ProbeMarker
 from .config import REPORT_TEMPLATE, SCREENSHOT_DPI, SCREENSHOT_MARGIN
+from .core.logging_utils import error
 
 
 def generate_report(markers: List[Union[CutMarker, ConnectMarker, ProbeMarker]],
@@ -39,6 +40,8 @@ def generate_report(markers: List[Union[CutMarker, ConnectMarker, ProbeMarker]],
         operations_html = []
         for i, marker in enumerate(markers):
             op_html = _generate_operation_html(marker, i, output_dir, view)
+            if op_html is None:
+                return False
             operations_html.append(op_html)
         
         # Fill template
@@ -57,7 +60,7 @@ def generate_report(markers: List[Union[CutMarker, ConnectMarker, ProbeMarker]],
         return True
         
     except (IOError, OSError) as e:
-        print(f"Error generating report: {e}")
+        error("Report", f"Error generating report: {e}")
         return False
 
 
@@ -88,7 +91,8 @@ def _generate_operation_html(marker, index: int, output_dir: Path, view) -> str:
     # Take screenshot
     screenshot_file = f"{marker.id}.png"
     screenshot_path = output_dir / screenshot_file
-    _take_screenshot(marker, screenshot_path, view)
+    if not _take_screenshot(marker, screenshot_path, view):
+        return None
     
     # Generate HTML
     html = f"""
@@ -110,15 +114,19 @@ def _take_screenshot(marker, output_path: Path, view):
     Simple 1:1 zoom for MVP. No fancy multi-level views yet.
     """
     if view is None:
-        return
+        return False
     
     try:
         # Calculate bounding box around marker
         margin = SCREENSHOT_MARGIN
         
         if isinstance(marker, CutMarker):
-            x, y = marker.x, marker.y
-            bbox = pya.DBox(x - margin, y - margin, x + margin, y + margin)
+            bbox = pya.DBox(
+                min(marker.x1, marker.x2) - margin,
+                min(marker.y1, marker.y2) - margin,
+                max(marker.x1, marker.x2) + margin,
+                max(marker.y1, marker.y2) + margin,
+            )
         elif isinstance(marker, ConnectMarker):
             x1, y1, x2, y2 = marker.x1, marker.y1, marker.x2, marker.y2
             bbox = pya.DBox(
@@ -129,11 +137,13 @@ def _take_screenshot(marker, output_path: Path, view):
             x, y = marker.x, marker.y
             bbox = pya.DBox(x - margin, y - margin, x + margin, y + margin)
         else:
-            return
+            return False
         
         # Zoom to area and take screenshot
         view.zoom_box(bbox)
         view.save_image(str(output_path), SCREENSHOT_DPI)
+        return True
         
     except Exception as e:
-        print(f"Error taking screenshot: {e}")
+        error("Report", f"Error taking screenshot: {e}")
+        return False

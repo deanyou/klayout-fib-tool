@@ -9,6 +9,8 @@ This eliminates ~20% code duplication by centralizing conversion logic.
 
 from ..markers import CutMarker, ConnectMarker, ProbeMarker
 from ..core.validation_utils import validate_conversion
+from ..config import LAYERS
+from ..core.logging_utils import warning
 
 # Check if multipoint markers module exists
 try:
@@ -56,7 +58,7 @@ class FibMarkerTransformer:
         # Validate conversion
         can_convert, error = FibMarkerTransformer.can_convert(marker, 'cut')
         if not can_convert:
-            print(f"[Transformer] Cannot convert to CUT: {error}")
+            warning("Transformer", f"Cannot convert to CUT: {error}")
             return None
 
         marker_id = getattr(marker, 'id', 'CUT_0')
@@ -75,7 +77,7 @@ class FibMarkerTransformer:
                 x1, y1 = marker.points[0]
                 x2, y2 = marker.points[1]
             else:
-                print(f"[Transformer] MultiPoint marker has insufficient points")
+                warning("Transformer", "MultiPoint marker has insufficient points")
                 return None
         else:
             # Connect or other two-point marker
@@ -83,7 +85,8 @@ class FibMarkerTransformer:
             x2, y2 = marker.x2, marker.y2
 
         # Create new CUT marker
-        new_marker = CutMarker(marker_id, x1, y1, x2, y2, line_width)
+        new_marker = CutMarker(id=marker_id, x1=x1, y1=y1, x2=x2, y2=y2,
+                               layer=LAYERS['cut'])
 
         # Preserve layer information if available
         if hasattr(marker, 'layer1'):
@@ -107,7 +110,7 @@ class FibMarkerTransformer:
         # Validate conversion
         can_convert, error = FibMarkerTransformer.can_convert(marker, 'connect')
         if not can_convert:
-            print(f"[Transformer] Cannot convert to CONNECT: {error}")
+            warning("Transformer", f"Cannot convert to CONNECT: {error}")
             return None
 
         marker_id = getattr(marker, 'id', 'CONNECT_0')
@@ -124,7 +127,7 @@ class FibMarkerTransformer:
                 x1, y1 = marker.points[0]
                 x2, y2 = marker.points[1]
             else:
-                print(f"[Transformer] MultiPoint marker has insufficient points")
+                warning("Transformer", "MultiPoint marker has insufficient points")
                 return None
         else:
             # Cut or other two-point marker
@@ -132,7 +135,8 @@ class FibMarkerTransformer:
             x2, y2 = marker.x2, marker.y2
 
         # Create new CONNECT marker
-        new_marker = ConnectMarker(marker_id, x1, y1, x2, y2, line_width)
+        new_marker = ConnectMarker(id=marker_id, x1=x1, y1=y1, x2=x2, y2=y2,
+                                   layer=LAYERS['connect'])
 
         # Preserve layer information if available
         if hasattr(marker, 'layer1'):
@@ -156,7 +160,7 @@ class FibMarkerTransformer:
         # Validate conversion
         can_convert, error = FibMarkerTransformer.can_convert(marker, 'probe')
         if not can_convert:
-            print(f"[Transformer] Cannot convert to PROBE: {error}")
+            warning("Transformer", f"Cannot convert to PROBE: {error}")
             return None
 
         marker_id = getattr(marker, 'id', 'PROBE_0')
@@ -167,14 +171,14 @@ class FibMarkerTransformer:
             if hasattr(marker, 'points') and len(marker.points) >= 1:
                 x, y = marker.points[0]
             else:
-                print(f"[Transformer] MultiPoint marker has no points")
+                warning("Transformer", "MultiPoint marker has no points")
                 return None
         else:
             # Two-point marker: use first point
             x, y = marker.x1, marker.y1
 
         # Create new PROBE marker
-        new_marker = ProbeMarker(marker_id, x, y, line_width)
+        new_marker = ProbeMarker(id=marker_id, x=x, y=y, layer=LAYERS['probe'])
 
         # Preserve target layer if available
         if hasattr(marker, 'target_layer'):
@@ -197,13 +201,13 @@ class FibMarkerTransformer:
             MultiPointMarker: New MULTIPOINT marker or None if conversion fails
         """
         if not MULTIPOINT_AVAILABLE:
-            print(f"[Transformer] MultiPoint markers not available")
+            warning("Transformer", "MultiPoint markers not available")
             return None
 
         # Validate conversion
         can_convert, error = FibMarkerTransformer.can_convert(marker, 'multipoint')
         if not can_convert:
-            print(f"[Transformer] Cannot convert to MULTIPOINT: {error}")
+            warning("Transformer", f"Cannot convert to MULTIPOINT: {error}")
             return None
 
         marker_id = getattr(marker, 'id', 'MULTIPOINT_0')
@@ -225,11 +229,13 @@ class FibMarkerTransformer:
 
         # Create appropriate multipoint marker
         if marker_type.lower() == 'cut':
-            new_marker = MultiPointCutMarker(marker_id, points, line_width)
+            new_marker = MultiPointCutMarker(id=marker_id, points=points,
+                                             layer=LAYERS['cut'])
         elif marker_type.lower() == 'connect':
-            new_marker = MultiPointConnectMarker(marker_id, points, line_width)
+            new_marker = MultiPointConnectMarker(id=marker_id, points=points,
+                                                 layer=LAYERS['connect'])
         else:
-            print(f"[Transformer] Unknown multipoint type: {marker_type}")
+            warning("Transformer", f"Unknown multipoint type: {marker_type}")
             return None
 
         return new_marker

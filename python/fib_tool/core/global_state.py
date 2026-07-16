@@ -8,7 +8,7 @@ It manages marker counters, active marker list, screenshots, and current mode.
 class FibGlobalState:
     """Centralized state manager for FIB Tool
 
-    This class replaces all sys.modules['__main__'] global state accesses.
+    This class replaces the legacy main-namespace global state accesses.
     It provides a clean, testable interface for managing application state.
 
     Attributes:
@@ -117,9 +117,9 @@ class FibGlobalState:
 
     def clear_markers(self):
         """Clear all markers and reset state"""
-        self.markers = []
-        self.screenshots = {}
-        self._marker_id_set = set()
+        self.markers.clear()
+        self.screenshots.clear()
+        self._marker_id_set.clear()
 
     def get_marker_by_id(self, marker_id):
         """Get marker by ID
@@ -206,3 +206,29 @@ class FibGlobalState:
             str: Current mode or None
         """
         return self.current_mode
+
+
+_global_state = None
+
+
+def get_global_state():
+    """Return the process-wide runtime state shared by panel and plugins."""
+    global _global_state
+    if _global_state is None:
+        _global_state = FibGlobalState()
+    return _global_state
+
+
+def reset_global_state():
+    """Replace the shared state; intended for clean reloads and tests."""
+    global _global_state
+    if _global_state is None:
+        _global_state = FibGlobalState()
+        return _global_state
+    _global_state.marker_counters.clear()
+    _global_state.marker_counters.update(
+        {'cut': 0, 'connect': 0, 'probe': 0, 'multipoint': 0}
+    )
+    _global_state.clear_markers()
+    _global_state.current_mode = None
+    return _global_state

@@ -40,53 +40,8 @@ class FibFileManager:
                 filename = os.path.join(home_dir, filename)
                 print(f"[File Manager] Saving to home directory: {filename}")
 
-            # Prepare marker data
-            markers_data = []
-            for marker in markers:
-                marker_class_name = marker.__class__.__name__
-
-                # Handle multi-point markers
-                if 'MultiPoint' in marker_class_name:
-                    if 'Cut' in marker_class_name:
-                        marker_type = 'multipoint_cut'
-                    elif 'Connect' in marker_class_name:
-                        marker_type = 'multipoint_connect'
-                    else:
-                        marker_type = 'multipoint'
-
-                    marker_dict = {
-                        'id': marker.id,
-                        'type': marker_type,
-                        'points': marker.points if hasattr(marker, 'points') else [],
-                        'notes': getattr(marker, 'notes', ''),
-                        'screenshots': getattr(marker, 'screenshots', []),
-                        'target_layers': getattr(marker, 'target_layers', []),
-                        'point_layers': getattr(marker, 'point_layers', [])
-                    }
-                else:
-                    # Regular markers
-                    marker_dict = {
-                        'id': marker.id,
-                        'type': marker_class_name.replace('Marker', '').lower(),
-                        'notes': getattr(marker, 'notes', ''),
-                        'screenshots': getattr(marker, 'screenshots', []),
-                        'target_layers': getattr(marker, 'target_layers', [])
-                    }
-
-                    # Add coordinates based on marker type
-                    if hasattr(marker, 'x1'):  # CUT or CONNECT
-                        marker_dict['x1'] = marker.x1
-                        marker_dict['y1'] = marker.y1
-                        marker_dict['x2'] = marker.x2
-                        marker_dict['y2'] = marker.y2
-                        marker_dict['layer1'] = getattr(marker, 'layer1', None)
-                        marker_dict['layer2'] = getattr(marker, 'layer2', None)
-                    else:  # PROBE
-                        marker_dict['x'] = marker.x
-                        marker_dict['y'] = marker.y
-                        marker_dict['target_layer'] = getattr(marker, 'target_layer', None)
-
-                markers_data.append(marker_dict)
+            from .marker_codec import marker_to_record
+            markers_data = [marker_to_record(marker) for marker in markers]
 
             # Save to file
             with open(filename, 'w') as f:

@@ -59,6 +59,7 @@ class FileDialogHelper:
             fallback_name = default_name if default_name else "project1_markers.json"
             fallback_path = os.path.join(home_dir, fallback_name)
             print(f"[File Dialog] Using fallback path: {fallback_path}")
+            return fallback_path
     
     @staticmethod
     def _generate_default_json_name(parent):
