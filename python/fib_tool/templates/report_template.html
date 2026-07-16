@@ -448,6 +448,167 @@
             margin-top: 5px;
         }
 
+        /* Linear-inspired report theme */
+        :root {
+            color-scheme: dark;
+            --bg: #08090a;
+            --surface: #111318;
+            --surface-raised: #16181e;
+            --border: #272a32;
+            --border-soft: #1d2027;
+            --text: #f1f2f4;
+            --muted: #8a8f98;
+            --accent: #5e6ad2;
+            --accent-hover: #6f7ae8;
+            --danger: #e5484d;
+        }
+        * { box-sizing: border-box; }
+        html { background: var(--bg); }
+        body {
+            max-width: 1440px;
+            margin: 0 auto;
+            padding: 48px 32px 72px;
+            background:
+                radial-gradient(circle at 50% -15%, rgba(94,106,210,.16), transparent 34%),
+                var(--bg);
+            color: var(--text);
+            font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        .header {
+            position: relative;
+            overflow: hidden;
+            margin-bottom: 16px;
+            padding: 34px 36px;
+            background: linear-gradient(145deg, rgba(22,24,30,.98), rgba(14,15,19,.98));
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            box-shadow: 0 24px 80px rgba(0,0,0,.28);
+        }
+        .header::after {
+            content: "";
+            position: absolute;
+            inset: 0 0 auto;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(139,148,255,.75), transparent);
+        }
+        .header-eyebrow {
+            margin: 0 0 10px;
+            color: #aeb5ff;
+            font-size: 11px;
+            font-weight: 650;
+            letter-spacing: .14em;
+            text-transform: uppercase;
+        }
+        h1 { font-size: clamp(28px, 4vw, 42px); letter-spacing: -.04em; font-weight: 650; }
+        .header-meta { display: flex; gap: 18px; margin-top: 14px; color: var(--muted); }
+        .header p { margin: 0; }
+        .summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 0 0 16px; }
+        .summary-box {
+            margin: 0;
+            padding: 18px 20px;
+            text-align: left;
+            background: rgba(17,19,24,.88);
+            border: 1px solid var(--border-soft);
+            border-radius: 12px;
+            box-shadow: none;
+        }
+        .summary-box h3 { color: var(--muted); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+        .summary-box .number { margin: 5px 0 0; color: var(--text); font-size: 30px; font-weight: 620; letter-spacing: -.04em; }
+        .notes-section, .global-controls, .schematic-controls, .schematic-section, .marker-section {
+            background: rgba(17,19,24,.92);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-shadow: none;
+        }
+        .notes-section { padding: 18px 20px; margin-bottom: 10px; }
+        .notes-section label { color: var(--muted); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+        .notes-textarea, .caption-input {
+            color: var(--text);
+            background: #0d0f12;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+        .notes-textarea:focus, .caption-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(94,106,210,.18); }
+        .global-controls {
+            position: sticky;
+            top: 12px;
+            z-index: 50;
+            gap: 8px;
+            margin-bottom: 10px;
+            padding: 10px;
+            background: rgba(17,19,24,.76);
+            backdrop-filter: blur(18px);
+        }
+        .save-btn, .export-btn, .load-btn, .clear-btn, .schematic-btn {
+            padding: 8px 12px;
+            color: #c9cbd1;
+            background: var(--surface-raised);
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            font-size: 12px;
+            font-weight: 560;
+            transition: background .15s ease, border-color .15s ease, color .15s ease, transform .15s ease;
+        }
+        .save-btn:hover, .load-btn:hover, .schematic-btn:hover { color: #fff; background: #1d2027; border-color: #3a3e49; box-shadow: none; }
+        .export-btn { color: #fff; background: var(--accent); border-color: #747fe8; }
+        .export-btn:hover { background: var(--accent-hover); box-shadow: 0 6px 24px rgba(94,106,210,.24); transform: translateY(-1px); }
+        .clear-btn { color: #f3a6a8; background: transparent; }
+        .clear-btn:hover { color: #fff; background: rgba(229,72,77,.15); border-color: rgba(229,72,77,.35); box-shadow: none; }
+        .storage-info { color: var(--muted); font-size: 11px; }
+        .schematic-controls { padding: 10px; margin-bottom: 16px; }
+        .schematic-section { padding: 20px; border-left: 1px solid var(--border); }
+        .schematic-header { border-color: var(--border); }
+        .schematic-header h3, .screenshot h4 { color: var(--text); }
+        .schematic-count, .screenshot p { color: var(--muted); }
+        .marker-section { padding: 22px; margin-bottom: 12px; page-break-inside: avoid; }
+        .marker-section h2 {
+            margin: 0 0 16px;
+            padding: 0 0 14px;
+            color: var(--text);
+            border-bottom: 1px solid var(--border);
+            font-size: 18px;
+            font-weight: 620;
+            letter-spacing: -.02em;
+        }
+        .marker-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 0;
+            margin-bottom: 18px;
+            padding: 0;
+            background: transparent;
+            border: 1px solid var(--border-soft);
+            border-radius: 9px;
+            overflow: hidden;
+        }
+        .marker-info p { margin: 0; padding: 11px 13px; border-right: 1px solid var(--border-soft); color: #c7c9cf; }
+        .marker-info strong { display: block; margin-bottom: 2px; color: var(--muted); font-size: 10px; letter-spacing: .07em; text-transform: uppercase; }
+        .screenshots { gap: 10px; margin-top: 0; }
+        .screenshot { padding: 10px; background: #0d0f12; border: 1px solid var(--border-soft); border-radius: 10px; }
+        .screenshot img, .custom-image img { border: 1px solid var(--border); border-radius: 7px; box-shadow: none; transition: border-color .15s ease, transform .2s ease; }
+        .screenshot img:hover { opacity: 1; border-color: #454a57; transform: translateY(-1px); }
+        .add-image-btn button, .schematic-add-btn button {
+            min-height: 150px;
+            color: var(--muted);
+            background: transparent;
+            border: 1px dashed #3a3e49;
+            border-radius: 8px;
+        }
+        .add-image-btn button:hover, .schematic-add-btn button:hover { color: var(--text); background: rgba(94,106,210,.08); border-color: var(--accent); transform: none; box-shadow: none; }
+        .plus-icon { font-size: 26px; }
+        .footer { color: #626772; border-color: var(--border-soft); font-size: 11px; }
+        .lightbox { background: rgba(3,4,6,.94); backdrop-filter: blur(12px); }
+        .lightbox img { border-radius: 10px; box-shadow: 0 32px 120px rgba(0,0,0,.65); }
+        @media (max-width: 720px) {
+            body { padding: 20px 14px 48px; }
+            .header { padding: 26px 22px; }
+            .summary { grid-template-columns: 1fr; }
+            .global-controls { position: static; flex-wrap: wrap; }
+            .storage-info { width: 100%; margin-left: 2px; }
+        }
+
         @media print {
             .marker-section {
                 page-break-inside: avoid;
@@ -474,9 +635,12 @@
     </div>
 
     <div class="header">
+        <p class="header-eyebrow">KLayout · Focused Ion Beam Operations</p>
         <h1>FIB Markers Report with Screenshots</h1>
-        <p>Generated: {generation_datetime}</p>
-        <p>Total Markers: {total_markers}</p>
+        <div class="header-meta">
+            <p>Generated {generation_datetime}</p>
+            <p>{total_markers} total markers</p>
+        </div>
     </div>
     
     <div class="summary">
@@ -501,16 +665,16 @@
 
     <div class="global-controls">
         <button onclick="if(saveNotes()) alert('✅ Notes 已保存到浏览器缓存！'); else alert('❌ 保存失败，请检查控制台');" class="save-btn" title="保存 Notes 到浏览器缓存">
-            💾 保存 Notes
+            保存 Notes
         </button>
         <button onclick="exportHTMLWithImages()" class="export-btn" title="将当前页面（包括自定义图片和 Notes）导出为独立 HTML 文件">
-            📤 导出 HTML
+            导出 HTML
         </button>
         <button onclick="loadCustomImages()" class="load-btn" title="从浏览器缓存加载之前保存的自定义图片">
-            📥 加载已保存图片
+            加载已保存图片
         </button>
         <button onclick="clearAllCustomImages()" class="clear-btn">
-            🗑️ 清除所有自定义图片
+            清除自定义图片
         </button>
         <div class="storage-info">
             已使用: <span id="storage-used">0 KB</span> / 5 MB
@@ -520,7 +684,7 @@
     <!-- Schematic Changes Section -->
     <div class="schematic-controls">
         <button onclick="toggleSchematicSection()" class="schematic-btn" id="schematic-toggle-btn">
-            📋 Add Schematic Changes
+            Add Schematic Changes
         </button>
     </div>
 
