@@ -17,6 +17,7 @@ Version: 1.0.0
 
 import sys
 import os
+from .core.logging_utils import safe_print as print
 
 # Add the current directory to Python path
 script_dir = os.path.dirname(os.path.abspath(__file__))

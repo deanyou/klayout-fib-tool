@@ -5,6 +5,7 @@ File Dialog Helper - Better file save/load dialogs
 
 import os
 import pya
+from .core.logging_utils import safe_print as print
 
 class FileDialogHelper:
     """Helper class for file dialogs"""

@@ -22,6 +22,7 @@ from .file_dialog_helper import FileDialogHelper
 
 # Phase 2 refactoring: Import new modular components
 from .core.global_state import FibGlobalState
+from .core.logging_utils import safe_print as print
 from .ui.dialog_manager import FibDialogManager
 from .business.marker_transformer import FibMarkerTransformer
 from .business.file_manager import FibFileManager

@@ -5,6 +5,7 @@ Automatically finds the next available number for each marker type
 """
 
 import re
+from .core.logging_utils import safe_print as print
 
 class SmartCounter:
     """Smart counter that finds the next available number for each marker type"""

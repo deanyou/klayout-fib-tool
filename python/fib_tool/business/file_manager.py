@@ -6,6 +6,7 @@ and CSV export for markers.
 
 import json
 import os
+from ..core.logging_utils import safe_print as print
 from ..ui.dialog_manager import FibDialogManager
 
 
