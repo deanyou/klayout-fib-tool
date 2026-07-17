@@ -1,4 +1,31 @@
 // Get current HTML timestamp
+var THEME_STORAGE_KEY = 'fib-report-theme';
+
+function applyTheme(theme) {
+    var normalized = theme === 'light' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', normalized);
+    var button = document.getElementById('theme-toggle');
+    if (button) {
+        button.textContent = normalized === 'light' ? '☾' : '☀';
+        button.setAttribute('aria-label', normalized === 'light' ? '切换到深色主题' : '切换到明亮主题');
+        button.title = button.getAttribute('aria-label');
+    }
+}
+
+function initializeTheme() {
+    var saved = null;
+    try { saved = localStorage.getItem(THEME_STORAGE_KEY); } catch (error) {}
+    var current = document.documentElement.getAttribute('data-theme');
+    applyTheme(saved || current || 'dark');
+}
+
+function toggleTheme() {
+    var current = document.documentElement.getAttribute('data-theme');
+    var next = current === 'light' ? 'dark' : 'light';
+    try { localStorage.setItem(THEME_STORAGE_KEY, next); } catch (error) {}
+    applyTheme(next);
+}
+
 function getReportTimestamp() {
     var meta = document.getElementById('report-timestamp');
     if (meta) {
@@ -525,6 +552,7 @@ function clearSchematicImages() {
 
 // Load custom images on page load
 window.addEventListener('DOMContentLoaded', function() {
+    initializeTheme();
     loadCustomImages();
     loadNotes();
     loadSchematicChanges();

@@ -4,6 +4,14 @@
     <meta charset="UTF-8">
     <meta name="report-timestamp" content="{timestamp}" id="report-timestamp">
     <title>FIB Markers Report with Screenshots</title>
+    <script>
+        (function () {
+            var saved = null;
+            try { saved = localStorage.getItem('fib-report-theme'); } catch (error) {}
+            var system = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', saved || system);
+        })();
+    </script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -462,6 +470,19 @@
             --accent-hover: #6f7ae8;
             --danger: #e5484d;
         }
+        html[data-theme="light"] {
+            color-scheme: light;
+            --bg: #FFFFFF;
+            --surface: #FFFFFF;
+            --surface-raised: #FFEEED;
+            --border: #6D3961;
+            --border-soft: rgba(109,57,97,.20);
+            --text: #4D1A4C;
+            --muted: #6D3961;
+            --accent: #4D1A4C;
+            --accent-hover: #6D3961;
+            --danger: #b4232a;
+        }
         * { box-sizing: border-box; }
         html { background: var(--bg); }
         body {
@@ -486,6 +507,23 @@
             border-radius: 16px;
             box-shadow: 0 24px 80px rgba(0,0,0,.28);
         }
+        .theme-toggle {
+            position: absolute;
+            top: 24px;
+            right: 24px;
+            z-index: 2;
+            width: 36px;
+            height: 36px;
+            padding: 0;
+            color: var(--text);
+            background: var(--surface-raised);
+            border: 1px solid var(--border);
+            border-radius: 9px;
+            cursor: pointer;
+            font-size: 17px;
+            transition: transform .15s ease, background .15s ease;
+        }
+        .theme-toggle:hover { transform: translateY(-1px); }
         .header::after {
             content: "";
             position: absolute;
@@ -601,6 +639,32 @@
         .footer { color: #626772; border-color: var(--border-soft); font-size: 11px; }
         .lightbox { background: rgba(3,4,6,.94); backdrop-filter: blur(12px); }
         .lightbox img { border-radius: 10px; box-shadow: 0 32px 120px rgba(0,0,0,.65); }
+        html[data-theme="light"] body {
+            background: radial-gradient(circle at 50% -15%, #FFEEED, transparent 36%), #FFFFFF;
+        }
+        html[data-theme="light"] .header {
+            background: linear-gradient(145deg, #FFFFFF, #FFEEED);
+            box-shadow: 0 24px 80px rgba(77,26,76,.10);
+        }
+        html[data-theme="light"] .header::after { background: linear-gradient(90deg, transparent, #3FBC8E, transparent); }
+        html[data-theme="light"] .header-eyebrow { color: #6D3961; }
+        html[data-theme="light"] .summary-box,
+        html[data-theme="light"] .notes-section,
+        html[data-theme="light"] .schematic-controls,
+        html[data-theme="light"] .schematic-section,
+        html[data-theme="light"] .marker-section { background: #FFFFFF; }
+        html[data-theme="light"] .global-controls { background: rgba(255,255,255,.82); }
+        html[data-theme="light"] .notes-textarea,
+        html[data-theme="light"] .caption-input { color: #4D1A4C; background: #FFFFFF; }
+        html[data-theme="light"] .save-btn,
+        html[data-theme="light"] .load-btn,
+        html[data-theme="light"] .schematic-btn { color: #4D1A4C; background: #FFEEED; }
+        html[data-theme="light"] .export-btn { color: #FFFFFF; background: #3FBC8E; border-color: #3FBC8E; }
+        html[data-theme="light"] .clear-btn { color: #6D3961; }
+        html[data-theme="light"] .marker-info p { color: #4D1A4C; }
+        html[data-theme="light"] .screenshot,
+        html[data-theme="light"] .schematic-image-item { background: #FFEEED; }
+        html[data-theme="light"] .footer { color: #6D3961; }
         @media (max-width: 720px) {
             body { padding: 20px 14px 48px; }
             .header { padding: 26px 22px; }
@@ -616,6 +680,7 @@
             .global-controls, .add-image-btn, .schematic-controls, .schematic-add-btn {
                 display: none;
             }
+            .theme-toggle { display: none; }
             .notes-textarea, .caption-input {
                 border: none;
                 padding: 5px 0;
@@ -635,6 +700,7 @@
     </div>
 
     <div class="header">
+        <button id="theme-toggle" class="theme-toggle" type="button" onclick="toggleTheme()" aria-label="切换明暗主题" title="切换明暗主题">◐</button>
         <p class="header-eyebrow">KLayout · Focused Ion Beam Operations</p>
         <h1>FIB Markers Report with Screenshots</h1>
         <div class="header-meta">
