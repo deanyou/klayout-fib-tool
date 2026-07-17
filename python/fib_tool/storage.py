@@ -14,9 +14,45 @@ if script_dir not in sys.path:
     sys.path.insert(0, script_dir)
 
 import xml.etree.ElementTree as ET
+import json
 from datetime import datetime
 from typing import List, Union
 from .markers import CutMarker, ConnectMarker, ProbeMarker
+from .business.marker_codec import marker_from_record, marker_to_record
+
+
+_FLOAT_FIELDS = {'x', 'y', 'x1', 'y1', 'x2', 'y2'}
+_JSON_FIELDS = {'points', 'point_layers', 'screenshots', 'target_layers'}
+
+
+def _record_to_element(record):
+    elem = ET.Element(record['type'])
+    for key, value in record.items():
+        if key == 'type' or value is None:
+            continue
+        elem.set(key, json.dumps(value) if key in _JSON_FIELDS else str(value))
+    return elem
+
+
+def _element_to_record(elem):
+    record = {'type': elem.tag}
+    for key, value in elem.attrib.items():
+        if key in _JSON_FIELDS:
+            try:
+                record[key] = json.loads(value)
+            except json.JSONDecodeError:
+                record[key] = value
+        elif key in _FLOAT_FIELDS:
+            record[key] = float(value)
+        elif key == 'layer':
+            record[key] = int(value)
+        else:
+            record[key] = value
+    # Accept the original semicolon-separated multipoint XML representation.
+    if isinstance(record.get('points'), str):
+        record['points'] = [tuple(map(float, point.split(',')))
+                            for point in record['points'].split(';') if point]
+    return record
 
 
 def save_markers(markers: List[Union[CutMarker, ConnectMarker, ProbeMarker]], 
@@ -43,9 +79,7 @@ def save_markers(markers: List[Union[CutMarker, ConnectMarker, ProbeMarker]],
         # Markers
         markers_elem = ET.SubElement(root, 'markers')
         for marker in markers:
-            # Each marker knows how to serialize itself
-            marker_xml = ET.fromstring(marker.to_xml())
-            markers_elem.append(marker_xml)
+            markers_elem.append(_record_to_element(marker_to_record(marker)))
         
         # Write to file
         tree = ET.ElementTree(root)
@@ -82,17 +116,11 @@ def load_markers(filename: str) -> tuple:
         if markers_elem is None:
             return markers, library, cell
         
-        # Dispatch to appropriate marker class based on tag name
-        marker_types = {
-            'cut': CutMarker.from_xml,
-            'connect': ConnectMarker.from_xml,
-            'probe': ProbeMarker.from_xml,
-        }
-        
         for elem in markers_elem:
-            factory = marker_types.get(elem.tag)
-            if factory:
-                markers.append(factory(elem))
+            try:
+                markers.append(marker_from_record(_element_to_record(elem)))
+            except (KeyError, TypeError, ValueError):
+                continue
         
         return markers, library, cell
         

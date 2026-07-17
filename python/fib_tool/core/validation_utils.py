@@ -152,7 +152,14 @@ def validate_conversion(source_marker, target_type):
         return (False, "Source marker is None")
 
     # Get source type
-    source_type = getattr(source_marker, 'marker_type', 'unknown').lower()
+    source_type = getattr(source_marker, 'marker_type', None)
+    if source_type is None:
+        class_name = source_marker.__class__.__name__.lower()
+        if 'multipoint' in class_name:
+            source_type = 'multipoint'
+        else:
+            source_type = class_name.replace('marker', '')
+    source_type = source_type.lower()
 
     # Normalize target type
     target_type = target_type.lower()
@@ -161,8 +168,10 @@ def validate_conversion(source_marker, target_type):
     if source_type == target_type:
         return (False, f"Marker is already type '{target_type}'")
 
-    # Probe markers (single point) can convert to anything
+    # A multipoint marker requires at least two points.
     if source_type == 'probe':
+        if target_type == 'multipoint':
+            return (False, "A probe has only one point")
         return (True, None)
 
     # Two-point markers (cut, connect) can convert between each other and to multipoint

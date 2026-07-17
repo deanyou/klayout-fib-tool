@@ -16,7 +16,7 @@ from .validation_utils import (
     validate_file_path,
     validate_conversion
 )
-from .global_state import FibGlobalState
+from .global_state import FibGlobalState, get_global_state
 
 __all__ = [
     'calculate_distance',
@@ -28,4 +28,5 @@ __all__ = [
     'validate_file_path',
     'validate_conversion',
     'FibGlobalState',
+    'get_global_state',
 ]

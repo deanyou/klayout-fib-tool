@@ -43,7 +43,7 @@ class SmartCounter:
                 
                 # Extract number from marker ID using regex
                 # Pattern: TYPE_NUMBER or TYPE_NUMBER_LAYER_INFO
-                pattern = f"^{marker_type.upper()}_(\d+)"
+                pattern = rf"^{marker_type.upper()}_(\d+)"
                 match = re.match(pattern, marker_id)
                 
                 if match:
@@ -57,29 +57,14 @@ class SmartCounter:
         return existing_numbers
     
     def get_fallback_counter(self, marker_type):
-        """Fallback counter using global marker_counter"""
-        try:
-            import sys
-            if 'marker_counter' in sys.modules['__main__'].__dict__:
-                global_counter = sys.modules['__main__'].__dict__['marker_counter']
-                return global_counter.get(marker_type, 0)
-            else:
-                return 0
-        except (KeyError, AttributeError) as e:
-            print(f"[Smart Counter] Fallback counter error: {e}")
-            return 0
+        """Read the counter from the panel's shared runtime state."""
+        return self.panel.state.marker_counters.get(marker_type, 0)
     
     def update_global_counter(self, marker_type, number):
-        """Update the global counter to be at least the given number + 1"""
-        try:
-            import sys
-            if 'marker_counter' in sys.modules['__main__'].__dict__:
-                global_counter = sys.modules['__main__'].__dict__['marker_counter']
-                # Set counter to be at least number + 1
-                global_counter[marker_type] = max(global_counter.get(marker_type, 0), number + 1)
-                print(f"[Smart Counter] Updated global {marker_type} counter to: {global_counter[marker_type]}")
-        except Exception as e:
-            print(f"[Smart Counter] Error updating global counter: {e}")
+        """Advance the shared counter without moving it backwards."""
+        counters = self.panel.state.marker_counters
+        counters[marker_type] = max(counters.get(marker_type, 0), number + 1)
+        print(f"[Smart Counter] Updated global {marker_type} counter to: {counters[marker_type]}")
     
     def reset_counters(self):
         """Reset all counters to start from existing markers"""
@@ -121,7 +106,7 @@ class SmartCounter:
                     continue
                 
                 # Extract number
-                pattern = f"^{marker_type.upper()}_(\d+)"
+                pattern = rf"^{marker_type.upper()}_(\d+)"
                 match = re.match(pattern, marker_id)
                 
                 if match:
