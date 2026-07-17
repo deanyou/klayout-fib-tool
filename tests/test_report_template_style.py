@@ -50,6 +50,10 @@ class ReportTemplateStyleTests(unittest.TestCase):
         self.assertIn('.theme-toggle {\n            position: static;', html)
         self.assertIn('.summary { grid-column: 1 / -1; }', html)
 
+    def test_summary_labels_stay_on_one_line(self):
+        html = TEMPLATE.read_text(encoding="utf-8")
+        self.assertIn('white-space: nowrap;', html)
+
 
 if __name__ == "__main__":
     unittest.main()

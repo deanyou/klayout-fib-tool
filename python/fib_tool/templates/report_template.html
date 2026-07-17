@@ -568,7 +568,7 @@
             box-shadow: none;
         }
         .summary-box:last-child { border-right: 0; }
-        .summary-box h3 { color: var(--muted); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+        .summary-box h3 { color: var(--muted); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }
         .summary-box .number { margin: 5px 0 0; color: var(--text); font-size: 30px; font-weight: 620; letter-spacing: -.04em; }
         .notes-section, .global-controls, .schematic-controls, .schematic-section, .marker-section {
             background: rgba(17,19,24,.92);
@@ -691,6 +691,7 @@
             .header { padding: 24px 20px; }
             .summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
             .summary-box { padding: 14px 12px; }
+            .summary-box h3 { font-size: 10px; letter-spacing: .06em; }
             .global-controls { position: static; flex-wrap: wrap; }
             .storage-info { width: 100%; margin-left: 2px; }
         }
