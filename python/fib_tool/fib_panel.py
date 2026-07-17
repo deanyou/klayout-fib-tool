@@ -170,7 +170,7 @@ class FIBPanel(pya.QDockWidget):
             grid_layout.setSpacing(2)  # Further reduced spacing for height compression
             
             # Create all widgets with identical sizing and styling (very compact layout)
-            widget_height = 24  # Reduced from 32 to 24 for height compression
+            widget_height = 16  # Reduced from 24 to 16 (1/3 smaller) for tighter markers area
             widget_min_width = 75  # Compact width, using "MP" abbreviation for Multi Points
             
             # Cut button with explicit styling
