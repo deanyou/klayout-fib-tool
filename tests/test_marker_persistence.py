@@ -65,6 +65,38 @@ class MarkerPersistenceTests(unittest.TestCase):
             self.assertEqual(marker.layer, restored.layer)
             self.assertEqual("note", restored.notes)
 
+    def test_marker_type_name_uses_exact_marker_classes(self):
+        codec = importlib.import_module("fib_tool.business.marker_codec")
+        samples = [
+            (self.markers.CutMarker("CUT_1", 1, 2, 3, 4, 337), "cut"),
+            (self.markers.ConnectMarker("CONNECT_1", 1, 2, 3, 4, 338), "connect"),
+            (self.markers.ProbeMarker("PROBE_1", 5, 6, 339), "probe"),
+            (
+                self.multipoint.MultiPointCutMarker("CUT_2", [(1, 2), (3, 4)], 337),
+                "multipoint_cut",
+            ),
+            (
+                self.multipoint.MultiPointConnectMarker(
+                    "CONNECT_2", [(1, 2), (3, 4)], 338
+                ),
+                "multipoint_connect",
+            ),
+        ]
+        for marker, expected in samples:
+            self.assertEqual(expected, codec.marker_type_name(marker))
+
+        with self.assertRaises(TypeError):
+            codec.marker_type_name(type("ExecuteMarker", (), {})())
+
+    def test_marker_id_parser_rejects_substring_matches(self):
+        codec = importlib.import_module("fib_tool.business.marker_codec")
+        self.assertEqual("cut", codec.marker_id_to_type("CUT_12_M1"))
+        self.assertEqual(12, codec.marker_id_number("CUT_12_M1"))
+        with self.assertRaises(ValueError):
+            codec.marker_id_to_type("EXECUTE_12")
+        with self.assertRaises(ValueError):
+            codec.marker_id_number("CUT_not-a-number")
+
     def test_json_uses_canonical_records(self):
         codec = importlib.import_module("fib_tool.business.marker_codec")
         file_manager = importlib.import_module("fib_tool.business.file_manager")

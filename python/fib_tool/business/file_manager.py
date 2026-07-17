@@ -140,6 +140,7 @@ class FibFileManager:
         """
         try:
             import csv
+            from .marker_codec import marker_type_name
 
             with open(filename, 'w', newline='') as csvfile:
                 fieldnames = ['ID', 'Type', 'X1', 'Y1', 'X2', 'Y2', 'Notes']
@@ -147,8 +148,7 @@ class FibFileManager:
 
                 writer.writeheader()
                 for marker in markers:
-                    marker_class = marker.__class__.__name__
-                    marker_type = marker_class.replace('Marker', '').upper()
+                    marker_type = marker_type_name(marker).replace('_', ' ').upper()
 
                     row = {
                         'ID': marker.id,

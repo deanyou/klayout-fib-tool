@@ -61,6 +61,32 @@ class RuntimeStateTests(unittest.TestCase):
             source = (FIB_TOOL / relative_path).read_text(encoding="utf-8")
             self.assertNotIn("sys.modules['__main__']", source, relative_path)
 
+    def test_fib_plugin_does_not_expose_mutable_runtime_aliases(self):
+        source = (FIB_TOOL / "fib_plugin.py").read_text(encoding="utf-8")
+        for declaration in (
+            "marker_counter =",
+            "current_plugins =",
+            "active_plugin =",
+            "current_mode =",
+        ):
+            self.assertNotIn(declaration, source)
+
+    def test_marker_type_callers_do_not_sniff_class_names(self):
+        for relative_path in (
+            "fib_plugin.py",
+            "fib_panel.py",
+            "smart_counter.py",
+            "report.py",
+            "marker_menu.py",
+            "core/validation_utils.py",
+            "business/file_manager.py",
+            "business/marker_transformer.py",
+            "screenshot_export.py",
+            "storage.py",
+        ):
+            source = (FIB_TOOL / relative_path).read_text(encoding="utf-8")
+            self.assertNotIn("__class__.__name__", source, relative_path)
+
 
 if __name__ == "__main__":
     unittest.main()

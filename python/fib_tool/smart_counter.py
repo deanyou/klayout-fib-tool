@@ -4,8 +4,12 @@ Smart Counter - Intelligent marker numbering system
 Automatically finds the next available number for each marker type
 """
 
-import re
 from .core.logging_utils import safe_print as print
+from .business.marker_codec import (
+    marker_id_number,
+    marker_id_to_type,
+    marker_type_name,
+)
 
 class SmartCounter:
     """Smart counter that finds the next available number for each marker type"""
@@ -40,16 +44,14 @@ class SmartCounter:
             # Check all markers in the panel
             for marker in self.panel.markers_list:
                 marker_id = marker.id
-                
-                # Extract number from marker ID using regex
-                # Pattern: TYPE_NUMBER or TYPE_NUMBER_LAYER_INFO
-                pattern = rf"^{marker_type.upper()}_(\d+)"
-                match = re.match(pattern, marker_id)
-                
-                if match:
-                    number = int(match.group(1))
-                    existing_numbers.add(number)
-                    print(f"[Smart Counter] Found existing {marker_type} number: {number} (ID: {marker_id})")
+                try:
+                    if marker_id_to_type(marker_id) != marker_type:
+                        continue
+                    number = marker_id_number(marker_id)
+                except (TypeError, ValueError):
+                    continue
+                existing_numbers.add(number)
+                print(f"[Smart Counter] Found existing {marker_type} number: {number} (ID: {marker_id})")
             
         except Exception as e:
             print(f"[Smart Counter] Error parsing existing numbers: {e}")
@@ -93,29 +95,19 @@ class SmartCounter:
         try:
             for marker in self.panel.markers_list:
                 marker_id = marker.id
-                
-                # Determine marker type from class name
-                marker_class = marker.__class__.__name__.lower()
-                if 'cut' in marker_class:
-                    marker_type = 'cut'
-                elif 'connect' in marker_class:
-                    marker_type = 'connect'
-                elif 'probe' in marker_class:
-                    marker_type = 'probe'
-                else:
+                try:
+                    marker_type = marker_type_name(marker).replace('multipoint_', '')
+                    if marker_id_to_type(marker_id) != marker_type:
+                        continue
+                    number = marker_id_number(marker_id)
+                except (TypeError, ValueError):
                     continue
-                
-                # Extract number
-                pattern = rf"^{marker_type.upper()}_(\d+)"
-                match = re.match(pattern, marker_id)
-                
-                if match:
-                    number = int(match.group(1))
-                    info[marker_type].append({
-                        'id': marker_id,
-                        'number': number,
-                        'marker': marker
-                    })
+
+                info[marker_type].append({
+                    'id': marker_id,
+                    'number': number,
+                    'marker': marker
+                })
             
             # Sort by number
             for marker_type in info:

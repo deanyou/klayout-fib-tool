@@ -14,6 +14,7 @@ import os
 import pya
 from pathlib import Path
 from .config import SCREENSHOT_CONFIG
+from .business.marker_codec import marker_type_name
 
 
 # =============================================================================
@@ -334,15 +335,7 @@ def select_marker_path(view, marker, log_func=None):
         dbu = layout.dbu
 
         # Get marker layer
-        marker_class = marker.__class__.__name__.lower()
-        if 'cut' in marker_class:
-            layer_key = 'cut'
-        elif 'connect' in marker_class:
-            layer_key = 'connect'
-        elif 'probe' in marker_class:
-            layer_key = 'probe'
-        else:
-            layer_key = 'cut'  # fallback
+        layer_key = marker_type_name(marker).replace('multipoint_', '')
 
         from .config import LAYERS
         fib_layer_num = LAYERS[layer_key]
@@ -894,18 +887,14 @@ def _get_marker_dimensions(marker):
 
 def _generate_marker_section_html(marker, screenshots_dict):
     """Generate HTML for a single marker section (helper function)"""
-    marker_class = marker.__class__.__name__
+    canonical_type = marker_type_name(marker)
+    base_type = canonical_type.replace('multipoint_', '')
 
     # Determine marker type
-    if 'MultiPoint' in marker_class:
-        if 'Cut' in marker_class:
-            marker_type = "CUT (Multi-Point)"
-        elif 'Connect' in marker_class:
-            marker_type = "CONNECT (Multi-Point)"
-        else:
-            marker_type = "Multi-Point"
+    if canonical_type.startswith('multipoint_'):
+        marker_type = base_type.upper() + " (Multi-Point)"
     else:
-        marker_type = marker_class.replace('Marker', '').upper()
+        marker_type = base_type.upper()
 
     # Get coordinates and dimensions
     coords = _get_marker_coordinates(marker)
@@ -914,11 +903,11 @@ def _generate_marker_section_html(marker, screenshots_dict):
     # Get notes
     notes = getattr(marker, 'notes', '')
     if not notes:
-        if 'Cut' in marker_class:
+        if base_type == 'cut':
             notes = "切断"
-        elif 'Connect' in marker_class:
+        elif base_type == 'connect':
             notes = "连接"
-        elif 'Probe' in marker_class:
+        elif base_type == 'probe':
             notes = "点测"
 
     # Build marker section HTML
@@ -1031,13 +1020,9 @@ def generate_html_report_with_screenshots(markers, screenshots_dict, output_path
         markers_by_type = {'CUT': [], 'CONNECT': [], 'PROBE': []}
 
         for marker in markers:
-            marker_class = marker.__class__.__name__
-            if 'Cut' in marker_class:
-                markers_by_type['CUT'].append(marker)
-            elif 'Connect' in marker_class:
-                markers_by_type['CONNECT'].append(marker)
-            elif 'Probe' in marker_class:
-                markers_by_type['PROBE'].append(marker)
+            base_type = marker_type_name(marker).replace('multipoint_', '').upper()
+            if base_type in markers_by_type:
+                markers_by_type[base_type].append(marker)
         
         # Generate marker sections HTML
         marker_sections_html = ""

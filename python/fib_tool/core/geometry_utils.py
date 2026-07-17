@@ -108,5 +108,9 @@ def get_marker_center(marker):
     if hasattr(marker, 'x1') and hasattr(marker, 'y1'):
         return (marker.x1, marker.y1)
 
+    # Probe markers use x/y rather than x1/y1.
+    if hasattr(marker, 'x') and hasattr(marker, 'y'):
+        return (marker.x, marker.y)
+
     # Fallback
     return (0.0, 0.0)

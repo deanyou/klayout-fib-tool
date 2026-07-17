@@ -5,8 +5,54 @@ from ..markers import CutMarker, ConnectMarker, ProbeMarker
 from ..multipoint_markers import MultiPointCutMarker, MultiPointConnectMarker
 
 
+_TYPE_BY_CLASS = (
+    (MultiPointCutMarker, "multipoint_cut"),
+    (MultiPointConnectMarker, "multipoint_connect"),
+    (CutMarker, "cut"),
+    (ConnectMarker, "connect"),
+    (ProbeMarker, "probe"),
+)
+
+_TYPE_BY_ID_PREFIX = {
+    "CUT": "cut",
+    "CONNECT": "connect",
+    "PROBE": "probe",
+    "MULTIPOINT": "multipoint",
+}
+
+
+def marker_type_name(marker):
+    """Return the canonical type name for a supported marker object."""
+    for marker_class, type_name in _TYPE_BY_CLASS:
+        if isinstance(marker, marker_class):
+            return type_name
+    raise TypeError("Unknown marker: %s" % type(marker).__name__)
+
+
+def _parse_marker_id(marker_id):
+    if not isinstance(marker_id, str):
+        raise TypeError("Marker ID must be a string")
+
+    prefix, separator, remainder = marker_id.partition("_")
+    number_text = remainder.split("_", 1)[0]
+    if not separator or prefix not in _TYPE_BY_ID_PREFIX or not number_text.isdigit():
+        raise ValueError("Invalid marker ID: %s" % marker_id)
+    return _TYPE_BY_ID_PREFIX[prefix], int(number_text)
+
+
+def marker_id_to_type(marker_id):
+    """Return the base marker type encoded in a marker ID."""
+    return _parse_marker_id(marker_id)[0]
+
+
+def marker_id_number(marker_id):
+    """Return the numeric sequence encoded in a marker ID."""
+    return _parse_marker_id(marker_id)[1]
+
+
 def marker_to_record(marker):
     """Return a JSON-safe record for a supported marker object."""
+    marker_type = marker_type_name(marker)
     record = {
         "id": marker.id,
         "layer": marker.layer,
@@ -14,25 +60,23 @@ def marker_to_record(marker):
         "screenshots": getattr(marker, "screenshots", []),
         "target_layers": getattr(marker, "target_layers", []),
     }
-    if isinstance(marker, MultiPointCutMarker):
+    if marker_type == "multipoint_cut":
         record.update(type="multipoint_cut", points=[list(p) for p in marker.points],
                       point_layers=marker.point_layers)
-    elif isinstance(marker, MultiPointConnectMarker):
+    elif marker_type == "multipoint_connect":
         record.update(type="multipoint_connect", points=[list(p) for p in marker.points],
                       point_layers=marker.point_layers)
-    elif isinstance(marker, CutMarker):
+    elif marker_type == "cut":
         record.update(type="cut", x1=marker.x1, y1=marker.y1,
                       x2=marker.x2, y2=marker.y2,
                       layer1=marker.layer1, layer2=marker.layer2)
-    elif isinstance(marker, ConnectMarker):
+    elif marker_type == "connect":
         record.update(type="connect", x1=marker.x1, y1=marker.y1,
                       x2=marker.x2, y2=marker.y2,
                       layer1=marker.layer1, layer2=marker.layer2)
-    elif isinstance(marker, ProbeMarker):
+    elif marker_type == "probe":
         record.update(type="probe", x=marker.x, y=marker.y,
                       target_layer=marker.target_layer)
-    else:
-        raise TypeError("Unsupported marker type: %s" % type(marker).__name__)
     return record
 
 

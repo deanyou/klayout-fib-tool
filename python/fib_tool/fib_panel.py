@@ -27,6 +27,7 @@ from .ui.dialog_manager import FibDialogManager
 from .business.marker_transformer import FibMarkerTransformer
 from .business.file_manager import FibFileManager
 from .business.export_manager import FibExportManager
+from .business.marker_codec import marker_type_name
 
 
 def _format_layer_for_panel(layer_info):
@@ -41,6 +42,14 @@ def _format_layer_for_panel(layer_info):
         return f"{match.group('prefix')}{match.group('layer')}"
 
     return layer_info
+
+
+def _marker_type_for_panel(marker):
+    """Return the compact display label for a supported marker."""
+    marker_type = marker_type_name(marker)
+    if marker_type.startswith('multipoint_'):
+        return marker_type.replace('multipoint_', '').upper() + " (MULTI)"
+    return marker_type.upper()
 
 
 class FIBPanel(pya.QDockWidget):
@@ -1521,17 +1530,11 @@ class FIBPanel(pya.QDockWidget):
                     _ = self.marker_list.count  # This will throw if widget is destroyed
                     
                     # Add to list widget
-                    marker_class_name = marker.__class__.__name__
+                    marker_type_name_value = marker_type_name(marker)
+                    marker_type = _marker_type_for_panel(marker)
                     
                     # Handle multi-point markers
-                    if 'MultiPoint' in marker_class_name:
-                        if 'Cut' in marker_class_name:
-                            marker_type = "CUT (MULTI)"
-                        elif 'Connect' in marker_class_name:
-                            marker_type = "CONNECT (MULTI)"
-                        else:
-                            marker_type = "MULTI"
-                        
+                    if marker_type_name_value.startswith('multipoint_'):
                         # Show complete point coordinates for multi-point markers with layer info
                         if hasattr(marker, 'points') and len(marker.points) > 0:
                             if len(marker.points) <= 3:
@@ -1565,8 +1568,6 @@ class FIBPanel(pya.QDockWidget):
                             coords = "No points"
                     else:
                         # Regular markers
-                        marker_type = marker_class_name.replace('Marker', '').upper()
-                        
                         if hasattr(marker, 'x1'):  # CUT or CONNECT
                             # Get layer info for display
                             layer1_str = _format_layer_for_panel(getattr(marker, 'layer1', None))
@@ -1711,17 +1712,11 @@ class FIBPanel(pya.QDockWidget):
             
             # Re-add all markers in the current order
             for marker in self.markers_list:
-                marker_class_name = marker.__class__.__name__
+                marker_type_name_value = marker_type_name(marker)
+                marker_type = _marker_type_for_panel(marker)
                 
                 # Handle multi-point markers
-                if 'MultiPoint' in marker_class_name:
-                    if 'Cut' in marker_class_name:
-                        marker_type = "CUT (MULTI)"
-                    elif 'Connect' in marker_class_name:
-                        marker_type = "CONNECT (MULTI)"
-                    else:
-                        marker_type = "MULTI"
-                    
+                if marker_type_name_value.startswith('multipoint_'):
                     # Show point coordinates for multi-point markers
                     if hasattr(marker, 'points') and len(marker.points) > 0:
                         if len(marker.points) <= 3:
@@ -1735,8 +1730,6 @@ class FIBPanel(pya.QDockWidget):
                         coords = "(no points)"
                 else:
                     # Regular markers
-                    marker_type = marker_class_name.replace('Marker', '').upper()
-                    
                     if hasattr(marker, 'x1'):  # CUT or CONNECT
                         # Get layer info for display
                         layer1_str = _format_layer_for_panel(getattr(marker, 'layer1', None))

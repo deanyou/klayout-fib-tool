@@ -8,6 +8,14 @@ import sys
 import os
 import pya
 from .config import GEOMETRIC_PARAMS, UI_TIMEOUTS, DEFAULT_MARKER_NOTES
+from .business.marker_codec import marker_type_name
+
+
+def _marker_display_type(marker):
+    marker_type = marker_type_name(marker)
+    if marker_type.startswith('multipoint_'):
+        return marker_type.replace('multipoint_', '').upper() + " (MULTI)"
+    return marker_type.upper()
 
 class MarkerContextMenu:
     """Context menu handler for FIB markers"""
@@ -261,13 +269,8 @@ class MarkerContextMenu:
             
             # If notes is empty, set default based on marker type
             if not current_notes:
-                marker_class = marker.__class__.__name__
-                if 'Cut' in marker_class:
-                    current_notes = DEFAULT_MARKER_NOTES['cut']
-                elif 'Connect' in marker_class:
-                    current_notes = DEFAULT_MARKER_NOTES['connect']
-                elif 'Probe' in marker_class:
-                    current_notes = DEFAULT_MARKER_NOTES['probe']
+                base_type = marker_type_name(marker).replace('multipoint_', '')
+                current_notes = DEFAULT_MARKER_NOTES.get(base_type, '')
             
             # Show input dialog for notes
             try:
@@ -432,17 +435,9 @@ class MarkerContextMenu:
             
             # Iterate through markers in current list order
             for marker in self.panel.markers_list:
-                marker_class = marker.__class__.__name__.lower()
-                
-                # Determine marker type
-                if 'cut' in marker_class:
-                    marker_type = 'CUT'
-                elif 'connect' in marker_class:
-                    marker_type = 'CONNECT'
-                elif 'probe' in marker_class:
-                    marker_type = 'PROBE'
-                else:
-                    print(f"[Marker Menu] Unknown marker type: {marker_class}")
+                marker_type = marker_type_name(marker).replace('multipoint_', '').upper()
+                if marker_type not in marker_groups:
+                    print(f"[Marker Menu] Unknown marker type: {marker_type}")
                     continue
                 
                 marker_groups[marker_type].append(marker)
@@ -823,11 +818,7 @@ class MarkerContextMenu:
     def delete_marker_geometry(self, marker, cell, layout):
         """Delete marker geometry from the appropriate FIB layer"""
         try:
-            # Get the marker layer
-            marker_type = marker.__class__.__name__.lower().replace('marker', '')
-            # Handle multi-point markers (e.g., "multipointcutmarker" -> "cut")
-            if 'multipoint' in marker_type:
-                marker_type = marker_type.replace('multipoint', '')
+            marker_type = marker_type_name(marker).replace('multipoint_', '')
             
             from .config import LAYERS
             if marker_type not in LAYERS:
@@ -904,16 +895,11 @@ class MarkerContextMenu:
             
             # Re-add all markers
             for marker in self.panel.markers_list:
-                marker_class_name = marker.__class__.__name__
-                marker_type = marker_class_name.replace('Marker', '').upper()
+                canonical_type = marker_type_name(marker)
+                marker_type = _marker_display_type(marker)
                 
                 # Handle multi-point markers
-                if 'MultiPoint' in marker_class_name:
-                    if 'Cut' in marker_class_name:
-                        marker_type = "CUT (MULTI)"
-                    elif 'Connect' in marker_class_name:
-                        marker_type = "CONNECT (MULTI)"
-                    
+                if canonical_type.startswith('multipoint_'):
                     if hasattr(marker, 'points') and len(marker.points) > 0:
                         if len(marker.points) <= 3:
                             point_strs = [f"({p[0]:.3f},{p[1]:.3f})" for p in marker.points]

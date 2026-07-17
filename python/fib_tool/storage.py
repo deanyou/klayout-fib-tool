@@ -18,7 +18,7 @@ import json
 from datetime import datetime
 from typing import List, Union
 from .markers import CutMarker, ConnectMarker, ProbeMarker
-from .business.marker_codec import marker_from_record, marker_to_record
+from .business.marker_codec import marker_from_record, marker_to_record, marker_type_name
 
 
 _FLOAT_FIELDS = {'x', 'y', 'x1', 'y1', 'x2', 'y2'}
@@ -150,7 +150,7 @@ def draw_markers_to_gds(markers: List[Union[CutMarker, ConnectMarker, ProbeMarke
     
     # Each marker draws itself
     for marker in markers:
-        marker_type = marker.__class__.__name__.lower().replace('marker', '')
+        marker_type = marker_type_name(marker).replace('multipoint_', '')
         fib_layer = fib_layers.get(marker_type)
         if fib_layer is not None:
             marker.to_gds(cell, fib_layer)

@@ -19,6 +19,7 @@ import sys
 import os
 from .core.logging_utils import safe_print as print
 from .core.global_state import get_global_state
+from .core.plugin_registry import FibPluginRegistry
 
 # Add the current directory to Python path
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -29,6 +30,7 @@ import pya
 from .markers import CutMarker, ConnectMarker, ProbeMarker
 from .config import LAYERS, GEOMETRIC_PARAMS, UI_TIMEOUTS, DEFAULT_MARKER_NOTES
 from .layer_manager import ensure_fib_layers, get_layer_info_summary, verify_layers_exist
+from .business.marker_codec import marker_type_name
 
 # Import layer tap functionality
 try:
@@ -75,19 +77,8 @@ def get_or_create_layer(layout, layer_num, datatype=0, layer_name=None):
 # FIB Tool - Version 3.0
 # This version uses KLayout's Plugin system for mouse handling
 
-# Backward-compatible alias backed by the shared runtime state.
-marker_counter = get_global_state().marker_counters
-
-# Global variables to store plugin instances for panel access
-current_plugins = {
-    'cut': None,
-    'connect': None,
-    'probe': None
-}
-
-# Global active plugin reference
-active_plugin = None
-current_mode = None
+# Plugin lifecycle state is kept behind a testable registry interface.
+_PLUGIN_REGISTRY = FibPluginRegistry()
 
 # Panel availability flag (import delayed to avoid circular dependency)
 PANEL_AVAILABLE = True
@@ -115,19 +106,24 @@ except ImportError:
     print("[FIB Plugin] Multi-point markers not available")
 
 # Marker creation functions
+def _marker_counters():
+    """Return the shared counters without leaking a mutable module alias."""
+    return get_global_state().marker_counters
+
+
 def _get_next_marker_number(marker_type):
     """Get next available marker number using smart counter with fallback"""
-    global marker_counter
+    counters = _marker_counters()
 
     try:
         if PANEL_AVAILABLE:
             panel = get_fib_panel()
             if panel and hasattr(panel, 'smart_counter'):
                 return panel.smart_counter.get_next_number(marker_type)
-        return marker_counter[marker_type]
+        return counters[marker_type]
     except (AttributeError, KeyError, TypeError) as e:
         print(f"[FIB] Smart counter error: {e}, using fallback")
-        return marker_counter[marker_type]
+        return counters[marker_type]
 
 
 def _create_marker_internal(marker_type, marker_class, *args, **kwargs):
@@ -138,14 +134,13 @@ def _create_marker_internal(marker_type, marker_class, *args, **kwargs):
         marker_class: CutMarker, ConnectMarker, or ProbeMarker class
         *args, **kwargs: Arguments passed to marker class constructor
     """
-    global marker_counter
-
     # Get next number
     next_number = _get_next_marker_number(marker_type)
     marker_id = f"{marker_type.upper()}_{next_number}"
 
     # Update global counter
-    marker_counter[marker_type] = max(marker_counter[marker_type], next_number + 1)
+    counters = _marker_counters()
+    counters[marker_type] = max(counters[marker_type], next_number + 1)
 
     # Create marker
     marker = marker_class(marker_id, *args, **kwargs)
@@ -208,20 +203,8 @@ def create_probe_marker(x, y, target_layer=None):
 # Drawing function
 def draw_marker(marker, cell, layout):
     """Draw marker to GDS and show message"""
-    # Get FIB layer based on marker type
-    marker_class_name = marker.__class__.__name__.lower()
-    
-    # Handle multi-point markers
-    if 'multipoint' in marker_class_name:
-        if 'cut' in marker_class_name:
-            layer_key = 'cut'
-        elif 'connect' in marker_class_name:
-            layer_key = 'connect'
-        else:
-            layer_key = 'cut'  # fallback
-    else:
-        # Regular markers
-        layer_key = marker_class_name.replace('marker', '')
+    # Multi-point markers share the same GDS layer as their base type.
+    layer_key = marker_type_name(marker).replace('multipoint_', '')
     
     # Get or create the FIB layer
     layer_names = {'cut': 'FIB_CUT', 'connect': 'FIB_CONNECT', 'probe': 'FIB_PROBE'}
@@ -355,14 +338,10 @@ class FIBToolPlugin(pya.Plugin):
     
     def activated(self):
         """Called when plugin is activated"""
-        global current_mode, active_plugin
-        
         print(f"[FIB Plugin] Activated, mode: {self.mode}")
         
-        # Set global state
-        current_mode = self.mode
         get_global_state().set_mode(self.mode)
-        active_plugin = self
+        _PLUGIN_REGISTRY.activate(self)
         
         # Determine if this is a multi-point mode
         self.is_multipoint_mode = self.mode.endswith('_multi')
@@ -383,15 +362,11 @@ class FIBToolPlugin(pya.Plugin):
     
     def deactivated(self):
         """Called when plugin is deactivated"""
-        global current_mode, active_plugin
-        
         print(f"[FIB Plugin] Deactivated, mode: {self.mode}")
         
         # Clear global state only if this plugin was active
-        if active_plugin == self:
-            current_mode = None
+        if _PLUGIN_REGISTRY.deactivate(self):
             get_global_state().set_mode(None)
-            active_plugin = None
         
         # Reset all state
         self.temp_points = []
@@ -400,8 +375,6 @@ class FIBToolPlugin(pya.Plugin):
     
     def mouse_click_event(self, p, buttons, prio):
         """Handle mouse click events"""
-        global current_mode, active_plugin
-        
         # Check for right-click to finish multi-point mode
         if buttons & pya.ButtonState.RightButton:
             return self._handle_right_click_finish(p, buttons, prio)
@@ -411,20 +384,21 @@ class FIBToolPlugin(pya.Plugin):
             return False
         
         # Determine which mode to use
-        if current_mode:
+        runtime_mode = get_global_state().get_mode()
+        if runtime_mode:
             # Panel activation - use global mode, but only if this plugin matches
-            base_mode = current_mode.replace('_multi', '')
+            base_mode = runtime_mode.replace('_multi', '')
             plugin_base_mode = self.mode.replace('_multi', '')
             if plugin_base_mode != base_mode:
                 return False
-            effective_mode = current_mode
+            effective_mode = runtime_mode
         else:
             # Toolbar activation - use plugin's own mode
             if not prio or not self.mode:
                 return False
             effective_mode = self.mode
         
-        print(f"[FIB Plugin] Mouse click: plugin_mode={self.mode}, global_mode={current_mode}, effective_mode={effective_mode}, prio={prio}")
+        print(f"[FIB Plugin] Mouse click: plugin_mode={self.mode}, global_mode={runtime_mode}, effective_mode={effective_mode}, prio={prio}")
         
         # Use effective mode for this event
         working_mode = effective_mode
@@ -529,15 +503,14 @@ class FIBToolPlugin(pya.Plugin):
     
     def _handle_right_click_finish(self, p, buttons, prio):
         """Handle right-click to finish multi-point input"""
-        global current_mode
-        
         # Determine which mode to use
-        if current_mode:
-            base_mode = current_mode.replace('_multi', '')
+        runtime_mode = get_global_state().get_mode()
+        if runtime_mode:
+            base_mode = runtime_mode.replace('_multi', '')
             plugin_base_mode = self.mode.replace('_multi', '')
             if plugin_base_mode != base_mode:
                 return False
-            effective_mode = current_mode
+            effective_mode = runtime_mode
         else:
             if not prio or not self.mode:
                 return False
@@ -590,6 +563,7 @@ class FIBToolPlugin(pya.Plugin):
     def _create_multipoint_cut_marker(self, cell, layout):
         """Create a multi-point cut marker"""
         try:
+            counters = _marker_counters()
             print(f"[DEBUG] _create_multipoint_cut_marker called with {len(self.temp_points)} points")
             
             # Use smart counter to get next available number
@@ -598,16 +572,16 @@ class FIBToolPlugin(pya.Plugin):
                 if panel and hasattr(panel, 'smart_counter'):
                     next_number = panel.smart_counter.get_next_number('cut')
                 else:
-                    next_number = marker_counter['cut']
+                    next_number = counters['cut']
             else:
-                next_number = marker_counter['cut']
+                next_number = counters['cut']
             
             # Create marker ID
             marker_id = f"CUT_{next_number}"
             print(f"[DEBUG] Marker ID: {marker_id}")
             
             # Update global counter
-            marker_counter['cut'] = max(marker_counter['cut'], next_number + 1)
+            counters['cut'] = max(counters['cut'], next_number + 1)
             
             # Extract points and layer info for each point
             points = [(point['x'], point['y']) for point in self.temp_points]
@@ -637,21 +611,22 @@ class FIBToolPlugin(pya.Plugin):
     def _create_multipoint_connect_marker(self, cell, layout):
         """Create a multi-point connect marker"""
         try:
+            counters = _marker_counters()
             # Use smart counter to get next available number
             if PANEL_AVAILABLE:
                 panel = get_fib_panel()
                 if panel and hasattr(panel, 'smart_counter'):
                     next_number = panel.smart_counter.get_next_number('connect')
                 else:
-                    next_number = marker_counter['connect']
+                    next_number = counters['connect']
             else:
-                next_number = marker_counter['connect']
+                next_number = counters['connect']
             
             # Create marker ID
             marker_id = f"CONNECT_{next_number}"
             
             # Update global counter
-            marker_counter['connect'] = max(marker_counter['connect'], next_number + 1)
+            counters['connect'] = max(counters['connect'], next_number + 1)
             
             # Extract points and layer info for each point
             points = [(point['x'], point['y']) for point in self.temp_points]
@@ -725,12 +700,9 @@ class FIBCutPluginFactory(pya.PluginFactory):
         self.register(-999, "fib_cut", "FIB Cut")
     
     def create_plugin(self, manager, root, view):
-        global current_plugins
         plugin = FIBToolPlugin(manager)
         plugin.mode = 'cut'
-        # Store plugin instance for panel access
-        current_plugins['cut'] = plugin
-        return plugin
+        return _PLUGIN_REGISTRY.register('cut', plugin)
 
 class FIBConnectPluginFactory(pya.PluginFactory):
     """Factory for CONNECT mode plugin"""
@@ -740,12 +712,9 @@ class FIBConnectPluginFactory(pya.PluginFactory):
         self.register(-998, "fib_connect", "FIB Connect")
     
     def create_plugin(self, manager, root, view):
-        global current_plugins
         plugin = FIBToolPlugin(manager)
         plugin.mode = 'connect'
-        # Store plugin instance for panel access
-        current_plugins['connect'] = plugin
-        return plugin
+        return _PLUGIN_REGISTRY.register('connect', plugin)
 
 class FIBProbePluginFactory(pya.PluginFactory):
     """Factory for PROBE mode plugin"""
@@ -755,12 +724,9 @@ class FIBProbePluginFactory(pya.PluginFactory):
         self.register(-997, "fib_probe", "FIB Probe")
     
     def create_plugin(self, manager, root, view):
-        global current_plugins
         plugin = FIBToolPlugin(manager)
         plugin.mode = 'probe'
-        # Store plugin instance for panel access
-        current_plugins['probe'] = plugin
-        return plugin
+        return _PLUGIN_REGISTRY.register('probe', plugin)
 
 # Create and register all plugin factories
 # This will add buttons to the toolbar automatically
@@ -871,7 +837,7 @@ def clear_coordinate_texts():
 
 def clear_pending_points():
     """Reset unfinished point input for every registered plugin."""
-    for plugin in current_plugins.values():
+    for plugin in _PLUGIN_REGISTRY.values():
         if not plugin or not hasattr(plugin, 'temp_points'):
             continue
         plugin.temp_points = []
@@ -881,8 +847,6 @@ def clear_pending_points():
 # Global function for panel to activate plugin modes
 def activate_fib_mode(mode):
     """Activate FIB plugin mode from panel"""
-    global active_plugin, current_mode
-    
     print("=" * 80)
     print(f"[FIB Plugin] activate_fib_mode() called with mode='{mode}'")
     print("=" * 80)
@@ -909,8 +873,6 @@ def activate_fib_mode(mode):
         clear_pending_points()
         
         print(f"[FIB Plugin] Step 3: Setting global mode to '{mode}'")
-        # Set global mode
-        current_mode = mode
         get_global_state().set_mode(mode)
         
         # Get base mode for plugin lookup (remove _multi suffix)
@@ -918,24 +880,24 @@ def activate_fib_mode(mode):
         print(f"[FIB Plugin] Base mode: '{base_mode}'")
         
         print(f"[FIB Plugin] Step 4: Getting or creating plugin for '{base_mode}'...")
-        print(f"[FIB Plugin] current_plugins keys: {list(current_plugins.keys())}")
-        print(f"[FIB Plugin] current_plugins['{base_mode}']: {current_plugins.get(base_mode, 'NOT FOUND')}")
+        print(f"[FIB Plugin] registered modes: {list(_PLUGIN_REGISTRY.modes())}")
+        print(f"[FIB Plugin] registered plugin for '{base_mode}': {_PLUGIN_REGISTRY.get(base_mode)}")
         
         # Get or create the plugin for this base mode
-        if base_mode in current_plugins and current_plugins[base_mode]:
-            plugin = current_plugins[base_mode]
+        plugin = _PLUGIN_REGISTRY.get(base_mode)
+        if plugin:
             print(f"[FIB Plugin] [OK] Using existing plugin: {plugin}")
         else:
             # Create a new plugin instance if needed
             print(f"[FIB Plugin] Creating new plugin instance...")
             plugin = FIBToolPlugin(None)
             plugin.mode = base_mode
-            current_plugins[base_mode] = plugin
+            _PLUGIN_REGISTRY.register(base_mode, plugin)
             print(f"[FIB Plugin] [OK] Created new plugin: {plugin}")
         
         # Set as active plugin
-        active_plugin = plugin
-        print(f"[FIB Plugin] [OK] Set active_plugin to: {active_plugin}")
+        _PLUGIN_REGISTRY.activate(plugin)
+        print(f"[FIB Plugin] [OK] Set active plugin to: {plugin}")
         
         print(f"[FIB Plugin] Step 5: Showing activation message...")
         # Show activation message

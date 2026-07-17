@@ -40,6 +40,7 @@ __license__ = "MIT"
 
 # Import new modular components (version 4.0+)
 from .core.global_state import FibGlobalState, get_global_state
+from .core.plugin_registry import FibPluginRegistry
 from .core.geometry_utils import (
     calculate_distance,
     calculate_direction,
@@ -74,6 +75,7 @@ __all__ = [
     # New modular components (version 4.0+)
     'FibGlobalState',
     'get_global_state',
+    'FibPluginRegistry',
     'calculate_distance',
     'calculate_direction',
     'get_bounding_box',

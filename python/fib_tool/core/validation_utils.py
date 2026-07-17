@@ -154,11 +154,10 @@ def validate_conversion(source_marker, target_type):
     # Get source type
     source_type = getattr(source_marker, 'marker_type', None)
     if source_type is None:
-        class_name = source_marker.__class__.__name__.lower()
-        if 'multipoint' in class_name:
+        from ..business.marker_codec import marker_type_name
+        source_type = marker_type_name(source_marker)
+        if source_type.startswith('multipoint_'):
             source_type = 'multipoint'
-        else:
-            source_type = class_name.replace('marker', '')
     source_type = source_type.lower()
 
     # Normalize target type

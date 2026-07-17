@@ -11,6 +11,7 @@ from ..markers import CutMarker, ConnectMarker, ProbeMarker
 from ..core.validation_utils import validate_conversion
 from ..config import LAYERS
 from ..core.logging_utils import warning
+from .marker_codec import marker_type_name
 
 # Check if multipoint markers module exists
 try:
@@ -64,14 +65,14 @@ class FibMarkerTransformer:
         marker_id = getattr(marker, 'id', 'CUT_0')
 
         # Get coordinates based on marker type
-        marker_class = marker.__class__.__name__
+        source_type = marker_type_name(marker)
 
-        if 'Probe' in marker_class:
+        if source_type == 'probe':
             # Probe marker: create a small horizontal cut at probe position
             x, y = marker.x, marker.y
             x1, y1 = x - 0.5, y  # 1 micron horizontal line
             x2, y2 = x + 0.5, y
-        elif 'MultiPoint' in marker_class:
+        elif source_type.startswith('multipoint_'):
             # MultiPoint: use first two points
             if hasattr(marker, 'points') and len(marker.points) >= 2:
                 x1, y1 = marker.points[0]
@@ -114,14 +115,14 @@ class FibMarkerTransformer:
             return None
 
         marker_id = getattr(marker, 'id', 'CONNECT_0')
-        marker_class = marker.__class__.__name__
+        source_type = marker_type_name(marker)
 
-        if 'Probe' in marker_class:
+        if source_type == 'probe':
             # Probe marker: create a small horizontal connect at probe position
             x, y = marker.x, marker.y
             x1, y1 = x - 0.5, y
             x2, y2 = x + 0.5, y
-        elif 'MultiPoint' in marker_class:
+        elif source_type.startswith('multipoint_'):
             # MultiPoint: use first two points
             if hasattr(marker, 'points') and len(marker.points) >= 2:
                 x1, y1 = marker.points[0]
@@ -164,9 +165,9 @@ class FibMarkerTransformer:
             return None
 
         marker_id = getattr(marker, 'id', 'PROBE_0')
-        marker_class = marker.__class__.__name__
+        source_type = marker_type_name(marker)
 
-        if 'MultiPoint' in marker_class:
+        if source_type.startswith('multipoint_'):
             # MultiPoint with single point
             if hasattr(marker, 'points') and len(marker.points) >= 1:
                 x, y = marker.points[0]
@@ -211,13 +212,13 @@ class FibMarkerTransformer:
             return None
 
         marker_id = getattr(marker, 'id', 'MULTIPOINT_0')
-        marker_class = marker.__class__.__name__
+        source_type = marker_type_name(marker)
 
         # Collect points from source marker
         points = []
-        if 'Probe' in marker_class:
+        if source_type == 'probe':
             points = [(marker.x, marker.y)]
-        elif 'MultiPoint' in marker_class:
+        elif source_type.startswith('multipoint_'):
             # Already multipoint, return copy
             if hasattr(marker, 'points'):
                 points = list(marker.points)
@@ -253,15 +254,7 @@ class FibMarkerTransformer:
         if not marker:
             return 'unknown'
 
-        marker_class = marker.__class__.__name__.lower()
-
-        if 'cut' in marker_class:
-            return 'cut'
-        elif 'connect' in marker_class:
-            return 'connect'
-        elif 'probe' in marker_class:
-            return 'probe'
-        elif 'multipoint' in marker_class:
+        source_type = marker_type_name(marker)
+        if source_type.startswith('multipoint_'):
             return 'multipoint'
-        else:
-            return 'unknown'
+        return source_type

@@ -20,6 +20,7 @@ import pya
 from .markers import CutMarker, ConnectMarker, ProbeMarker
 from .config import REPORT_TEMPLATE, SCREENSHOT_DPI, SCREENSHOT_MARGIN
 from .core.logging_utils import error
+from .business.marker_codec import marker_type_name
 
 
 def generate_report(markers: List[Union[CutMarker, ConnectMarker, ProbeMarker]],
@@ -68,7 +69,7 @@ def _generate_operation_html(marker, index: int, output_dir: Path, view) -> str:
     """Generate HTML for single operation with screenshot"""
     
     # Get marker info
-    marker_type = marker.__class__.__name__.replace('Marker', '')
+    marker_type = marker_type_name(marker).replace('_', ' ').title()
     
     if isinstance(marker, CutMarker):
         layer1_info = f" [{marker.layer1}]" if hasattr(marker, 'layer1') and marker.layer1 else ""
