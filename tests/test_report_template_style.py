@@ -25,6 +25,20 @@ class ReportTemplateStyleTests(unittest.TestCase):
         self.assertIn("fib-report-theme", script)
         self.assertIn("initializeTheme();", script)
 
+    def test_header_contains_compact_summary_and_readable_light_title(self):
+        html = TEMPLATE.read_text(encoding="utf-8")
+        self.assertIn('class="header-layout"', html)
+        self.assertIn('class="header-copy"', html)
+        self.assertIn(
+            '            </div>\n        </div>\n    </div>\n\n'
+            '    <div class="notes-section">',
+            html,
+        )
+        self.assertIn(
+            'html[data-theme="light"] .header h1 { color: #4D1A4C; }',
+            html,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

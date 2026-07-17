@@ -501,12 +501,19 @@
             position: relative;
             overflow: hidden;
             margin-bottom: 16px;
-            padding: 34px 36px;
+            padding: 28px 30px;
             background: linear-gradient(145deg, rgba(22,24,30,.98), rgba(14,15,19,.98));
             border: 1px solid var(--border);
             border-radius: 16px;
             box-shadow: 0 24px 80px rgba(0,0,0,.28);
         }
+        .header-layout {
+            display: grid;
+            grid-template-columns: minmax(0, 1.45fr) minmax(420px, 1fr);
+            gap: 32px;
+            align-items: center;
+        }
+        .header-copy { min-width: 0; padding-right: 42px; }
         .theme-toggle {
             position: absolute;
             top: 24px;
@@ -542,16 +549,26 @@
         h1 { font-size: clamp(28px, 4vw, 42px); letter-spacing: -.04em; font-weight: 650; }
         .header-meta { display: flex; gap: 18px; margin-top: 14px; color: var(--muted); }
         .header p { margin: 0; }
-        .summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 0 0 16px; }
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 0;
+            margin: 0;
+            border: 1px solid var(--border-soft);
+            border-radius: 12px;
+            overflow: hidden;
+        }
         .summary-box {
             margin: 0;
             padding: 18px 20px;
             text-align: left;
             background: rgba(17,19,24,.88);
-            border: 1px solid var(--border-soft);
-            border-radius: 12px;
+            border: 0;
+            border-right: 1px solid var(--border-soft);
+            border-radius: 0;
             box-shadow: none;
         }
+        .summary-box:last-child { border-right: 0; }
         .summary-box h3 { color: var(--muted); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
         .summary-box .number { margin: 5px 0 0; color: var(--text); font-size: 30px; font-weight: 620; letter-spacing: -.04em; }
         .notes-section, .global-controls, .schematic-controls, .schematic-section, .marker-section {
@@ -646,6 +663,7 @@
             background: linear-gradient(145deg, #FFFFFF, #FFEEED);
             box-shadow: 0 24px 80px rgba(77,26,76,.10);
         }
+        html[data-theme="light"] .header h1 { color: #4D1A4C; }
         html[data-theme="light"] .header::after { background: linear-gradient(90deg, transparent, #3FBC8E, transparent); }
         html[data-theme="light"] .header-eyebrow { color: #6D3961; }
         html[data-theme="light"] .summary-box,
@@ -665,10 +683,15 @@
         html[data-theme="light"] .screenshot,
         html[data-theme="light"] .schematic-image-item { background: #FFEEED; }
         html[data-theme="light"] .footer { color: #6D3961; }
+        @media (max-width: 900px) {
+            .header-layout { grid-template-columns: 1fr; gap: 20px; }
+            .header-copy { padding-right: 42px; }
+        }
         @media (max-width: 720px) {
             body { padding: 20px 14px 48px; }
-            .header { padding: 26px 22px; }
-            .summary { grid-template-columns: 1fr; }
+            .header { padding: 24px 20px; }
+            .summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+            .summary-box { padding: 14px 12px; }
             .global-controls { position: static; flex-wrap: wrap; }
             .storage-info { width: 100%; margin-left: 2px; }
         }
@@ -701,26 +724,29 @@
 
     <div class="header">
         <button id="theme-toggle" class="theme-toggle" type="button" onclick="toggleTheme()" aria-label="切换明暗主题" title="切换明暗主题">◐</button>
-        <p class="header-eyebrow">KLayout · Focused Ion Beam Operations</p>
-        <h1>FIB Markers Report with Screenshots</h1>
-        <div class="header-meta">
-            <p>Generated {generation_datetime}</p>
-            <p>{total_markers} total markers</p>
-        </div>
-    </div>
-    
-    <div class="summary">
-        <div class="summary-box">
-            <h3>CUT Markers</h3>
-            <div class="number">{cut_count}</div>
-        </div>
-        <div class="summary-box">
-            <h3>CONNECT Markers</h3>
-            <div class="number">{connect_count}</div>
-        </div>
-        <div class="summary-box">
-            <h3>PROBE Markers</h3>
-            <div class="number">{probe_count}</div>
+        <div class="header-layout">
+            <div class="header-copy">
+                <p class="header-eyebrow">KLayout · Focused Ion Beam Operations</p>
+                <h1>FIB Markers Report with Screenshots</h1>
+                <div class="header-meta">
+                    <p>Generated {generation_datetime}</p>
+                    <p>{total_markers} total markers</p>
+                </div>
+            </div>
+            <div class="summary">
+                <div class="summary-box">
+                    <h3>CUT Markers</h3>
+                    <div class="number">{cut_count}</div>
+                </div>
+                <div class="summary-box">
+                    <h3>CONNECT Markers</h3>
+                    <div class="number">{connect_count}</div>
+                </div>
+                <div class="summary-box">
+                    <h3>PROBE Markers</h3>
+                    <div class="number">{probe_count}</div>
+                </div>
+            </div>
         </div>
     </div>
 
