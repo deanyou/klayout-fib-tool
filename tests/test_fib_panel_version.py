@@ -9,7 +9,7 @@ class FIBPanelVersionTests(unittest.TestCase):
     def test_dock_title_includes_current_version(self):
         source = FIB_PANEL_PATH.read_text(encoding="utf-8")
 
-        self.assertIn('super().__init__("FIB Panel v1.0.1", parent)', source)
+        self.assertIn('super().__init__("FIB Panel v1.0.2", parent)', source)
 
 
 if __name__ == "__main__":

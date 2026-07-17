@@ -56,7 +56,7 @@ class FIBPanel(pya.QDockWidget):
     """Main FIB Panel - Dockable widget for KLayout"""
     
     def __init__(self, parent=None):
-        super().__init__("FIB Panel v1.0.1", parent)
+        super().__init__("FIB Panel v1.0.2", parent)
         self.markers_list = []  # Global marker list
         self.active_mode = None
         self.marker_notes_dict = {}  # Centralized notes storage: marker_id -> notes
