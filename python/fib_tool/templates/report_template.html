@@ -509,16 +509,15 @@
         }
         .header-layout {
             display: grid;
-            grid-template-columns: minmax(0, 1.45fr) minmax(420px, 1fr);
-            gap: 32px;
+            grid-template-columns: minmax(0, 1.45fr) minmax(420px, 1fr) auto;
+            gap: 24px;
             align-items: center;
         }
-        .header-copy { min-width: 0; padding-right: 42px; }
+        .header-copy { min-width: 0; }
         .theme-toggle {
-            position: absolute;
-            top: 24px;
-            right: 24px;
-            z-index: 2;
+            position: static;
+            justify-self: end;
+            align-self: start;
             width: 36px;
             height: 36px;
             padding: 0;
@@ -684,8 +683,8 @@
         html[data-theme="light"] .schematic-image-item { background: #FFEEED; }
         html[data-theme="light"] .footer { color: #6D3961; }
         @media (max-width: 900px) {
-            .header-layout { grid-template-columns: 1fr; gap: 20px; }
-            .header-copy { padding-right: 42px; }
+            .header-layout { grid-template-columns: minmax(0, 1fr) auto; gap: 20px; }
+            .summary { grid-column: 1 / -1; }
         }
         @media (max-width: 720px) {
             body { padding: 20px 14px 48px; }
@@ -723,7 +722,6 @@
     </div>
 
     <div class="header">
-        <button id="theme-toggle" class="theme-toggle" type="button" onclick="toggleTheme()" aria-label="切换明暗主题" title="切换明暗主题">◐</button>
         <div class="header-layout">
             <div class="header-copy">
                 <p class="header-eyebrow">KLayout · Focused Ion Beam Operations</p>
@@ -747,6 +745,7 @@
                     <div class="number">{probe_count}</div>
                 </div>
             </div>
+            <button id="theme-toggle" class="theme-toggle" type="button" onclick="toggleTheme()" aria-label="切换明暗主题" title="切换明暗主题">◐</button>
         </div>
     </div>
 

@@ -30,7 +30,9 @@ class ReportTemplateStyleTests(unittest.TestCase):
         self.assertIn('class="header-layout"', html)
         self.assertIn('class="header-copy"', html)
         self.assertIn(
-            '            </div>\n        </div>\n    </div>\n\n'
+            '            <button id="theme-toggle" class="theme-toggle" type="button" '
+            'onclick="toggleTheme()" aria-label="切换明暗主题" title="切换明暗主题">◐</button>'
+            '\n        </div>\n    </div>\n\n'
             '    <div class="notes-section">',
             html,
         )
@@ -38,6 +40,15 @@ class ReportTemplateStyleTests(unittest.TestCase):
             'html[data-theme="light"] .header h1 { color: #4D1A4C; }',
             html,
         )
+
+    def test_theme_toggle_uses_header_grid_instead_of_overlay(self):
+        html = TEMPLATE.read_text(encoding="utf-8")
+        self.assertIn(
+            'grid-template-columns: minmax(0, 1.45fr) minmax(420px, 1fr) auto;',
+            html,
+        )
+        self.assertIn('.theme-toggle {\n            position: static;', html)
+        self.assertIn('.summary { grid-column: 1 / -1; }', html)
 
 
 if __name__ == "__main__":
