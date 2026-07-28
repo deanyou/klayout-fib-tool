@@ -12,7 +12,7 @@ This plugin can be loaded in two ways:
    import sys; sys.path.insert(0, '/path/to/klayout-fib-tool/fib_tool')
    exec(open('/path/to/klayout-fib-tool/fib_tool/fib_plugin.py', encoding='utf-8').read())
 
-Version: 1.0.2
+Version: 1.0.3
 """
 
 import sys

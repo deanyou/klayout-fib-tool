@@ -4,7 +4,7 @@ KLayout FIB Tool
 A simple, practical tool for marking FIB operations on IC layouts.
 No over-engineering, no fancy abstractions - just what works.
 
-Version: 1.0.2
+Version: 1.0.3
 Author: Dean
 License: MIT
 
@@ -34,7 +34,7 @@ Usage:
 - Right-click on markers for operations (delete, add notes, etc.)
 """
 
-__version__ = "1.0.2"
+__version__ = "1.0.3"
 __author__ = "Dean"
 __license__ = "MIT"
 
