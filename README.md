@@ -86,7 +86,9 @@ For detailed instructions / 详细说明: [HOW_TO_LOAD.md](HOW_TO_LOAD.md) | [IN
 - **Method 3 / 方式 3**: Toolbar buttons (Cut/Connect/Probe) / 工具栏按钮
 
 **Interface Overview / 界面概览:**
-- **Main Panel**: Dockable panel with marker tree and mode controls
+- **Main Panel**: Dockable panel with marker tree and mode controls / 可停靠面板，包含标记列表和模式控制
+- **Resizable Dock**: When another right-side dock is available, the FIB Panel is placed below it with a draggable horizontal divider / 当右侧已有其他停靠面板时，FIB Panel 会置于其下方，并提供可拖动的水平分隔条
+- **Stable Controls**: Vertical resizing only changes the Markers list area; Project, Add Markers, and Coordinate retain their original height and spacing / 调整高度时仅 Markers 列表区域伸缩，Project、Add Markers 和 Coordinate 保持原有高度与间距
 - **Toolbar**: Quick access buttons for Cut/Connect/Probe modes
 - **Status Bar**: Real-time feedback on current mode and operations
 - **Layer Toolbox**: Displays FIB layers (337, 338, 339) with recommended colors
@@ -439,6 +441,7 @@ klayout-fib-tool/
 
 ### UI Features / 界面功能
 - **Panel Interface / 面板界面**: Dockable panel with marker tree / 可停靠面板，带标记树
+- **Adjustable Panel Height / 面板高度可调**: Shares the right dock area through a horizontal divider; only the Markers region expands or contracts / 通过水平分隔条共享右侧停靠区域，仅 Markers 区域随高度伸缩
 - **Context Menu / 右键菜单**: Right-click operations / 右键操作
 - **Toolbar Buttons / 工具栏按钮**: Quick access to marker modes / 快速访问标记模式
 - **Keyboard Shortcuts / 键盘快捷键**: `Ctrl+Shift+F` to toggle panel / 切换面板

@@ -57,6 +57,7 @@ class FIBPanel(pya.QDockWidget):
     
     def __init__(self, parent=None):
         super().__init__("FIB Panel v1.0.2", parent)
+        self.setObjectName("fib_tool_panel")
         self.markers_list = []  # Global marker list
         self.active_mode = None
         self.marker_notes_dict = {}  # Centralized notes storage: marker_id -> notes
@@ -106,7 +107,8 @@ class FIBPanel(pya.QDockWidget):
             # Marker list section
             self.create_marker_list_section()
             
-            # Set the widget
+            # The first three sections keep their natural height; only the
+            # marker region receives or releases space when the dock moves.
             self.setWidget(self.container)
             self.setMinimumWidth(170)  # Reduced from 250 to 170 (about 1/3 smaller)
             
@@ -122,6 +124,9 @@ class FIBPanel(pya.QDockWidget):
         """Create project management section"""
         try:
             group = pya.QGroupBox("Project")
+            group.setSizePolicy(
+                pya.QSizePolicy.Preferred, pya.QSizePolicy.Fixed
+            )
             group_layout = pya.QVBoxLayout(group)
             group_layout.setSpacing(1)  # Further reduced spacing for height compression
             group_layout.setContentsMargins(2, 1, 2, 1)  # Minimal margins for height compression
@@ -161,6 +166,9 @@ class FIBPanel(pya.QDockWidget):
         """Create marker creation section"""
         try:
             group = pya.QGroupBox("Add Markers")
+            group.setSizePolicy(
+                pya.QSizePolicy.Preferred, pya.QSizePolicy.Fixed
+            )
             group_layout = pya.QVBoxLayout(group)
             group_layout.setSpacing(1)  # Further reduced spacing for height compression
             group_layout.setContentsMargins(2, 1, 2, 1)  # Minimal margins for height compression
@@ -289,6 +297,9 @@ class FIBPanel(pya.QDockWidget):
         """Create coordinate jump section"""
         try:
             group = pya.QGroupBox("Coordinate")
+            group.setSizePolicy(
+                pya.QSizePolicy.Preferred, pya.QSizePolicy.Fixed
+            )
             group_layout = pya.QVBoxLayout(group)
             group_layout.setSpacing(1)
             group_layout.setContentsMargins(2, 1, 2, 1)
@@ -322,13 +333,20 @@ class FIBPanel(pya.QDockWidget):
     def create_marker_list_section(self):
         """Create marker list section"""
         try:
-            group = pya.QGroupBox("Markers")
-            group_layout = pya.QVBoxLayout(group)
+            self.marker_group = pya.QGroupBox("Markers")
+            self.marker_group.setSizePolicy(
+                pya.QSizePolicy.Preferred, pya.QSizePolicy.Expanding
+            )
+            group_layout = pya.QVBoxLayout(self.marker_group)
             group_layout.setSpacing(1)
             group_layout.setContentsMargins(2, 1, 2, 1)
             
             # Simple list widget that can expand with window
             self.marker_list = pya.QListWidget()
+            self.marker_list.setSizePolicy(
+                pya.QSizePolicy.Expanding, pya.QSizePolicy.Ignored
+            )
+            self.marker_list.setMinimumHeight(0)
             
             # Enable multi-selection with Ctrl/Cmd and Shift keys
             self.marker_list.setSelectionMode(pya.QAbstractItemView.ExtendedSelection)
@@ -398,7 +416,7 @@ class FIBPanel(pya.QDockWidget):
             group_layout.addWidget(btn_clear, 0)  # Stretch factor = 0, stays at bottom
             
             # Add group with stretch factor so it expands vertically
-            self.main_layout.addWidget(group, 1)  # Stretch factor = 1
+            self.main_layout.addWidget(self.marker_group, 1)  # Stretch factor = 1
             
         except Exception as e:
             print(f"[FIB Panel] Error creating marker list section: {e}")
@@ -1978,6 +1996,105 @@ class FIBPanel(pya.QDockWidget):
 # Global panel instance
 fib_panel_instance = None
 
+
+def _find_right_dock_split_target(main_window, fib_panel):
+    """Find the largest visible right-side dock that can share space."""
+    candidates = []
+
+    def consider(child):
+        if child is None or child is fib_panel:
+            return
+
+        try:
+            if not child.inherits("QDockWidget"):
+                return
+            if main_window.dockWidgetArea(child) != pya.Qt.RightDockWidgetArea:
+                return
+            if not child.isVisible():
+                return
+            if main_window.tabifiedDockWidgets(child):
+                return
+
+            height = child.height
+            height = height() if callable(height) else height
+            candidates.append((height, child))
+        except Exception:
+            return
+
+    # These object names are defined by KLayout's MainWindow implementation.
+    for object_name in (
+        "lp_dock_widget",
+        "lt_dock_widget",
+        "bookmarks_dock_widget",
+    ):
+        try:
+            consider(main_window.findChild(object_name))
+        except Exception:
+            continue
+
+    try:
+        children = main_window.findChildren()
+    except Exception as error:
+        print(f"[FIB Panel] Cannot inspect existing docks: {error}")
+        children = []
+
+    for child in children:
+        consider(child)
+
+    if not candidates:
+        return None
+
+    return max(candidates, key=lambda candidate: candidate[0])[1]
+
+
+def _dock_fib_panel(main_window, fib_panel):
+    """Dock the panel below an existing right dock when possible."""
+    split_target = _find_right_dock_split_target(main_window, fib_panel)
+    main_window.addDockWidget(pya.Qt.RightDockWidgetArea, fib_panel)
+
+    if split_target is None:
+        fib_panel.show()
+        return False
+
+    try:
+        main_window.splitDockWidget(
+            split_target,
+            fib_panel,
+            pya.Qt.Vertical,
+        )
+    except Exception as error:
+        print(f"[FIB Panel] Vertical dock split unavailable: {error}")
+        fib_panel.show()
+        return False
+
+    fib_panel.show()
+    try:
+        main_window.resizeDocks(
+            [split_target, fib_panel],
+            [2, 1],
+            pya.Qt.Vertical,
+        )
+    except Exception as error:
+        print(f"[FIB Panel] Could not set initial dock ratio: {error}")
+
+    return True
+
+
+def _schedule_fib_panel_redock(main_window, fib_panel):
+    """Reapply docking after KLayout restores its persisted window state."""
+    try:
+        timer = pya.QTimer(fib_panel)
+        timer.setInterval(0)
+        timer.setSingleShot(True)
+        timer.timeout = lambda: _dock_fib_panel(main_window, fib_panel)
+        fib_panel._fib_dock_timer = timer
+        timer.start()
+        return timer
+    except Exception as error:
+        print(f"[FIB Panel] Deferred dock split unavailable: {error}")
+        return None
+
+
 def create_fib_panel():
     """Create and show the FIB panel"""
     global fib_panel_instance
@@ -1991,11 +2108,11 @@ def create_fib_panel():
             # Keep a strong reference to prevent garbage collection
             main_window._fib_panel_ref = fib_panel_instance
         
-        # Add to main window
-        main_window.addDockWidget(pya.Qt.RightDockWidgetArea, fib_panel_instance)
-        fib_panel_instance.show()
+        split_applied = _dock_fib_panel(main_window, fib_panel_instance)
+        _schedule_fib_panel_redock(main_window, fib_panel_instance)
         
-        print("[FIB Panel] Created and docked successfully")
+        layout_mode = "vertical split" if split_applied else "standard right dock"
+        print(f"[FIB Panel] Created successfully ({layout_mode})")
         return fib_panel_instance
         
     except Exception as e:
