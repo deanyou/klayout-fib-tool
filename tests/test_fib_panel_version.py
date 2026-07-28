@@ -11,6 +11,11 @@ class FIBPanelVersionTests(unittest.TestCase):
 
         self.assertIn('super().__init__("FIB Panel v1.0.2", parent)', source)
 
+    def test_marker_buttons_use_a_safe_control_height(self):
+        source = FIB_PANEL_PATH.read_text(encoding="utf-8")
+
+        self.assertIn("widget_height = 24", source)
+
 
 if __name__ == "__main__":
     unittest.main()

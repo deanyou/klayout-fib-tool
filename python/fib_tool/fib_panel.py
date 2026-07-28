@@ -169,8 +169,9 @@ class FIBPanel(pya.QDockWidget):
             grid_layout = pya.QGridLayout()
             grid_layout.setSpacing(2)  # Further reduced spacing for height compression
             
-            # Create all widgets with identical sizing and styling (very compact layout)
-            widget_height = 16  # Reduced from 24 to 16 (1/3 smaller) for tighter markers area
+            # 24px is the minimum safe height for KLayout's native button font.
+            # Smaller fixed rows clip adjacent controls on macOS.
+            widget_height = 24
             widget_min_width = 75  # Compact width, using "MP" abbreviation for Multi Points
             
             # Cut button with explicit styling
